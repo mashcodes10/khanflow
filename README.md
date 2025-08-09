@@ -12,12 +12,14 @@ KhanFlow is a modern, full-stack meeting scheduling application that allows user
 - **Dashboard**: Comprehensive dashboard for managing meetings and events
 
 ### Integrations
+- **AI Assistant**: Slack and Google Tasks integration for automated scheduling and coordination
 - **Google Calendar & Meet**: Sync events and generate Google Meet links
 - **Microsoft Teams & Outlook**: Calendar integration and Teams meeting links
 - **Zoom**: Video conferencing integration
 - **Calendar Sync**: Two-way synchronization with external calendars
 
 ### Advanced Features
+- **AI Assistant Integration**: Integrated AI assistant with Slack and Google Tasks, cutting manual scheduling and coordination time
 - **Public Booking Pages**: Shareable links for external booking (e.g., `/:username/:event-slug`)
 - **Time Zone Support**: Automatic time zone handling for global users
 - **Responsive Design**: Modern UI built with Tailwind CSS and Shadcn/UI
