@@ -1,6 +1,7 @@
 # KhanFlow - Advanced Meeting Scheduling Platform
 
 KhanFlow is a modern, full-stack meeting scheduling application that allows users to create events, manage availability, and integrate with popular calendar and video conferencing platforms. Built with React, TypeScript, Node.js, and PostgreSQL.
+<img width="1536" height="1024" alt="khanflow" src="https://github.com/user-attachments/assets/68da8775-f0d5-4870-afd5-7f18dd1b3a91" />
 
 ## 🚀 Features
 
