@@ -19,6 +19,7 @@ const appTypeToProviderMap: Record<
 > = {
   [IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR]:
     IntegrationProviderEnum.GOOGLE,
+  [IntegrationAppTypeEnum.GOOGLE_TASKS]: IntegrationProviderEnum.GOOGLE,
   [IntegrationAppTypeEnum.ZOOM_MEETING]: IntegrationProviderEnum.ZOOM,
   [IntegrationAppTypeEnum.OUTLOOK_CALENDAR]: IntegrationProviderEnum.MICROSOFT,
   [IntegrationAppTypeEnum.MICROSOFT_TEAMS]: IntegrationProviderEnum.MICROSOFT,
@@ -30,6 +31,7 @@ const appTypeToCategoryMap: Record<
 > = {
   [IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR]:
     IntegrationCategoryEnum.CALENDAR_AND_VIDEO_CONFERENCING,
+  [IntegrationAppTypeEnum.GOOGLE_TASKS]: IntegrationCategoryEnum.TASKS,
   [IntegrationAppTypeEnum.ZOOM_MEETING]:
     IntegrationCategoryEnum.VIDEO_CONFERENCING,
   [IntegrationAppTypeEnum.OUTLOOK_CALENDAR]: IntegrationCategoryEnum.CALENDAR,
@@ -38,6 +40,7 @@ const appTypeToCategoryMap: Record<
 
 const appTypeToTitleMap: Record<IntegrationAppTypeEnum, string> = {
   [IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR]: "Google Meet & Calendar",
+  [IntegrationAppTypeEnum.GOOGLE_TASKS]: "Google Tasks",
   [IntegrationAppTypeEnum.ZOOM_MEETING]: "Zoom",
   [IntegrationAppTypeEnum.OUTLOOK_CALENDAR]: "Outlook Calendar",
   [IntegrationAppTypeEnum.MICROSOFT_TEAMS]: "Microsoft Teams",
@@ -98,7 +101,21 @@ export const connectAppService = async (
         include_granted_scopes: true,
         scope: [
           'https://www.googleapis.com/auth/calendar.events',
-          'https://www.googleapis.com/auth/calendar.readonly'
+          'https://www.googleapis.com/auth/calendar.readonly',
+          'https://www.googleapis.com/auth/tasks',
+          'https://www.googleapis.com/auth/tasks.readonly'
+        ],
+        state
+      });
+      break;
+    case IntegrationAppTypeEnum.GOOGLE_TASKS:
+      authUrl = googleOAuth2Client.generateAuthUrl({
+        access_type: 'offline',
+        prompt: 'consent',
+        include_granted_scopes: true,
+        scope: [
+          'https://www.googleapis.com/auth/tasks',
+          'https://www.googleapis.com/auth/tasks.readonly'
         ],
         state
       });
@@ -306,6 +323,20 @@ export const listCalendarsService = async (
     default:
       throw new BadRequestException("Unsupported app type");
   }
+};
+
+export const disconnectIntegrationService = async (
+  userId: string,
+  appType: IntegrationAppTypeEnum
+) => {
+  const integrationRepository = AppDataSource.getRepository(Integration);
+
+  await integrationRepository.delete({
+    user: { id: userId },
+    app_type: appType,
+  });
+
+  return { success: true };
 };
 
 export const saveSelectedCalendarsService = async (

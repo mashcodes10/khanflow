@@ -5,6 +5,7 @@ import {
   LayoutGrid,
   LinkIcon,
   LucideIcon,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -37,6 +38,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   const items: ItemType[] = [
     {
+      title: "Dashboard",
+      url: PROTECTED_ROUTES.DASHBOARD,
+      icon: BarChart3,
+    },
+    {
       title: "Event types",
       url: PROTECTED_ROUTES.EVENT_TYPES,
       icon: LinkIcon,
@@ -66,7 +72,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       variant="sidebar"
       className={cn(
         state !== "collapsed" && "w-[260px]",
-        "bg-sidebar text-sidebar-foreground border-r border-sidebar-border"
+        "bg-sidebar text-sidebar-foreground border-r border-sidebar-border hidden lg:flex"
       )}
       {...props}
     >

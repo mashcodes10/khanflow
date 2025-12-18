@@ -6,6 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader } from "@/components/loader";
 import EmptyState from "./_components/empty-state";
 import { ErrorAlert } from "@/components/ErrorAlert";
+import { Button } from "@/components/ui/button";
+import { Plus, Calendar } from "lucide-react";
 
 const EventType = () => {
   const { data, isPending, isError, error } = useQuery({
@@ -18,7 +20,14 @@ const EventType = () => {
 
   return (
     <div className="flex flex-col !gap-8">
-      <PageTitle title="Event types" />
+      {/* Minimal Header */}
+      <div className="flex items-center justify-between mb-6">
+        <PageTitle title="Events" />
+        <Button size="lg" className="gap-2">
+          <Plus className="h-5 w-5" />
+          New Event
+        </Button>
+      </div>
 
       <ErrorAlert isError={isError} error={error} />
 

@@ -5,6 +5,7 @@ import {
   checkIntegrationService,
   connectAppService,
   createIntegrationService,
+  disconnectIntegrationService,
   getUserIntegrationsService,
   listCalendarsService,
   saveSelectedCalendarsService,
@@ -66,6 +67,19 @@ export const connectAppController = asyncHandlerAndValidation(
 
     return res.status(HTTPSTATUS.OK).json({
       url,
+    });
+  }
+);
+
+export const disconnectIntegrationController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { appType } = req.params;
+
+    await disconnectIntegrationService(userId, appType as IntegrationAppTypeEnum);
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Integration disconnected successfully",
     });
   }
 );
@@ -215,7 +229,16 @@ export const microsoftOAuthCallbackController = asyncHandler(
       return res.redirect(`${CLIENT_URL}&error=Invalid state parameter`);
     }
 
-    const { userId, appType } = decodeState(state);
+    let userId, appType;
+    try {
+      const decodedState = decodeState(state);
+      userId = decodedState.userId;
+      appType = decodedState.appType;
+    } catch (error) {
+      console.error('Error decoding state:', error);
+      return res.redirect(`${CLIENT_URL}&error=Invalid state parameter`);
+    }
+    
     if (!userId) {
       return res.redirect(`${CLIENT_URL}&error=UserId is required`);
     }

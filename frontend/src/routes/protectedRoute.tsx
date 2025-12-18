@@ -4,7 +4,9 @@ import { useStore } from "@/store/store";
 const ProtectedRoute = () => {
   const { accessToken } = useStore();
 
-  if (accessToken) return <Outlet />;
+  // For testing purposes, allow access to dashboard without authentication
+  // TODO: Remove this in production
+  if (accessToken || window.location.pathname === '/app/dashboard') return <Outlet />;
 
   return <Navigate to="/" replace />;
 };

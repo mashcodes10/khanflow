@@ -6,6 +6,7 @@ import { Separator } from "./ui/separator";
 import { useStore } from "@/store/store";
 import { AUTH_ROUTES } from "@/routes/common/routePaths";
 import { SidebarTrigger } from "./ui/sidebar";
+import { ThemeToggle } from "./theme-toggle";
 
 const Header = () => {
   const navigate = useNavigate();
@@ -20,30 +21,29 @@ const Header = () => {
 
   return (
     <header className="flex min-h-12 pt-3 pb-4 shrink-0 items-center transition-[width,height] ease-linear">
-      <div className="w-full flex items-center justify-between !px-4">
-        <div>
+      <div className="w-full flex items-center justify-between !px-3 md:!px-4">
+        <div className="flex items-center gap-2 md:gap-4">
           <SidebarTrigger
-            className={`-ml-5 cursor-pointer lg:hidden
-               bg-white border transform rotate-180`}
+            className={`cursor-pointer hidden lg:flex
+               bg-background border transform`}
           />
         </div>
-        <Popover>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Popover>
           <PopoverTrigger asChild>
             <button className="flex items-center gap-2 !cursor-pointer">
-              <Avatar className="!active:border-1 active:border-primary">
-                <AvatarFallback className="bg-[#e7edf6] uppercase">
+              <Avatar className="!active:border-1 active:border-primary h-8 w-8 md:h-10 md:w-10">
+                <AvatarFallback className="bg-muted uppercase text-sm md:text-base">
                   {user?.name?.charAt(0)}
                 </AvatarFallback>
               </Avatar>
-              <ChevronDown className="w-4 h-4 !fill-black" />
+              <ChevronDown className="w-4 h-4 !fill-foreground hidden md:block" />
             </button>
           </PopoverTrigger>
           <PopoverContent
             align="end"
-            className="!w-[280px] !rounded-[6px] !p-[8px_0] bg-white border border-[#D4E114]"
-            style={{
-              boxShadow: "0 1px 5px rgba(0, 74, 16, 0.15)",
-            }}
+            className="!w-[280px] !rounded-lg !p-[8px_0] bg-card border-border"
           >
             <div
               role="menu"
@@ -53,9 +53,9 @@ const Header = () => {
               }}
             >
               <div className="!pb-2">
-                <div className="flex flex-col !p-[8px_16px] text-xl font-bold">
-                  <h3 className="capitalize">{user?.name}</h3>
-                  <p className="text-[#476788] !text-sm !font-normal">
+                <div className="flex flex-col !p-[8px_16px]">
+                  <h3 className="capitalize text-lg font-semibold">{user?.name}</h3>
+                  <p className="text-muted-foreground !text-sm !font-normal">
                     Teams free trial
                   </p>
                 </div>
@@ -63,15 +63,15 @@ const Header = () => {
               <Separator />
               <div className="!pt-2">
                 <div className="!p-[12px_16px_4px]">
-                  <h3 className="text-xs font-bold !tracking-[0.1em] text-[rgba(26,26,26,0.61)] uppercase">
+                  <h3 className="text-xs font-semibold !tracking-[0.1em] text-muted-foreground uppercase">
                     Account setting
                   </h3>
                 </div>
 
                 <button
                   role="menuitem"
-                  className="!p-[12px_16px] w-full cursor-pointer font-bold text-sm !text-[#0a2540] 
-                  flex items-center gap-2 hover:!bg-[#e5efff]"
+                  className="!p-[12px_16px] w-full cursor-pointer font-medium text-sm text-foreground 
+                  flex items-center gap-2 hover:!bg-accent transition-colors"
                   onClick={onLogout}
                 >
                   <LogOutIcon className="w-4 h-4 transform rotate-180 !stroke-2" />
@@ -81,6 +81,7 @@ const Header = () => {
             </div>
           </PopoverContent>
         </Popover>
+        </div>
       </div>
     </header>
   );

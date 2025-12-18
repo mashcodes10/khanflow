@@ -8,6 +8,7 @@ export const AUTH_ROUTES = {
 };
 
 export const PROTECTED_ROUTES = {
+  DASHBOARD: "/app/dashboard",
   EVENT_TYPES: "/app/event_types",
   INTEGRATIONS: "/app/integrations",
   AVAILBILITIY: "/app/availability/schedules",

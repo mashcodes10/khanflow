@@ -9,6 +9,7 @@ import {
   saveSelectedCalendarsController,
   zoomOAuthCallbackController,
   microsoftOAuthCallbackController,
+  disconnectIntegrationController,
 } from "../controllers/integration.controller";
 
 const integrationRoutes = Router();
@@ -29,6 +30,12 @@ integrationRoutes.get(
   "/connect/:appType",
   passportAuthenticateJwt,
   connectAppController
+);
+
+integrationRoutes.delete(
+  "/disconnect/:appType",
+  passportAuthenticateJwt,
+  disconnectIntegrationController
 );
 
 integrationRoutes.get("/google/callback", googleOAuthCallbackController);

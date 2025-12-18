@@ -3,11 +3,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { CalendarRange, Copy, Link as LinkIcon } from "lucide-react";
+import { CalendarRange, Copy, Edit } from "lucide-react";
 import { ENV } from "@/lib/get-env";
 import { cn } from "@/lib/utils";
 import { FC, useState } from "react";
-import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 interface PropsType {
@@ -46,57 +45,39 @@ const EventCard: FC<PropsType> = ({
       });
   };
   return (
-    <Card className="group hover:shadow-lg transition-all duration-300 border-0 shadow-sm bg-card">
-      <div className="h-1 w-full bg-purple-500 rounded-t-lg" />
-
-      <CardHeader className="pb-4">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-muted rounded-lg group-hover:bg-muted/80 transition-colors">
-            <CalendarRange className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <div>
-            <h3 className="font-semibold text-lg text-foreground group-hover:text-foreground/80">
-              {title}
-            </h3>
-            <Badge variant="secondary" className="mt-1 text-xs font-medium">
-              {duration} minutes
-            </Badge>
-          </div>
-        </div>
-      </CardHeader>
-
-      <CardContent>
+    <Card className="bg-white border border-gray-200 rounded-lg hover:shadow-md transition-shadow">
+      <CardContent className="p-6">
         <div className="space-y-4">
-          <Button variant="link" className="p-0 h-auto text-primary flex items-center gap-2" asChild>
-            <Link to={event_link} target="_blank">
-              <LinkIcon className="h-4 w-4" />
-              View booking page
-            </Link>
-          </Button>
+          {/* Title */}
+          <h3 className="text-xl font-semibold text-gray-900">
+            {title}
+          </h3>
+          
+          {/* Duration */}
+          <p className="text-sm text-gray-500">
+            {duration} min
+          </p>
 
-          <div className="flex items-center justify-between pt-2 border-t border-border">
+          {/* Actions */}
+          <div className="flex items-center justify-end gap-2 pt-2">
             <Button
-              variant="ghost"
+              variant="outline"
               size="sm"
               onClick={handleCopyLink}
               disabled={isPrivate}
-              className="flex items-center gap-2"
+              className="h-9 gap-2"
             >
               <Copy className="h-4 w-4" />
-              {isCopied ? "Copied!" : "Copy link"}
+              {isCopied ? "Copied!" : "Copy Link"}
             </Button>
-
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-muted-foreground">
-                {isPrivate ? "Turn Off" : "Turn On"}
-              </span>
-              <Switch
-                checked={!isPrivate}
-                disabled={isPending}
-                onCheckedChange={() => !isPending && onToggle()}
-                className="data-[state=checked]:bg-green-500"
-              />
-            </div>
+            <Button
+              variant="default"
+              size="sm"
+              className="h-9 gap-2"
+            >
+              <Edit className="h-4 w-4" />
+              Edit
+            </Button>
           </div>
         </div>
       </CardContent>

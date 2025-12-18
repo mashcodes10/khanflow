@@ -1,6 +1,7 @@
 import { AUTH_ROUTES, PROTECTED_ROUTES, PUBLIC_ROUTES } from "./routePaths";
 import SignIn from "@/pages/auth/signin";
 import SignUp from "@/pages/auth/signup";
+import MainDashboard from "@/components/MainDashboard";
 import EventType from "@/pages/event_type";
 import Meetings from "@/pages/meeting";
 import Availability from "@/pages/availability";
@@ -14,6 +15,7 @@ export const authenticationRoutePaths = [
 ];
 
 export const protectedRoutePaths = [
+  { path: PROTECTED_ROUTES.DASHBOARD, element: <MainDashboard /> },
   { path: PROTECTED_ROUTES.EVENT_TYPES, element: <EventType /> },
   { path: PROTECTED_ROUTES.MEETINGS, element: <Meetings /> },
   { path: PROTECTED_ROUTES.AVAILBILITIY, element: <Availability /> },

@@ -19,5 +19,12 @@ export function encodeState(data: any): string {
 }
 
 export function decodeState(state: string): any {
-  return JSON.parse(decode(state));
+  try {
+    const decoded = decode(state);
+    return JSON.parse(decoded);
+  } catch (error) {
+    console.error('Error decoding state:', error);
+    console.error('State parameter:', state);
+    throw new Error('Invalid state parameter');
+  }
 }
