@@ -12,6 +12,8 @@ import {
   ChevronRight,
   CalendarDays,
   CheckSquare,
+  Mic,
+  ListTodo,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { usePathname } from "next/navigation"
@@ -23,6 +25,8 @@ const navigation = [
   { name: "Meetings", href: "/meetings", icon: Calendar },
   { name: "Calendar", href: "/calendar", icon: CalendarDays },
   { name: "Tasks", href: "/tasks", icon: CheckSquare },
+  { name: "Microsoft Todo", href: "/microsoft-todo", icon: ListTodo },
+  { name: "Voice Assistant", href: "/voice", icon: Mic },
   { name: "Integrations & apps", href: "/integrations", icon: Grid3x3 },
   { name: "Availability", href: "/availability", icon: Clock },
 ]

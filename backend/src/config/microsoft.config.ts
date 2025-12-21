@@ -12,5 +12,6 @@ export const MS_OAUTH_CONFIG = {
       "User.Read",
       "Calendars.ReadWrite",
       "OnlineMeetings.ReadWrite",
+      "Tasks.ReadWrite",
     ].join(" "),
 }; 

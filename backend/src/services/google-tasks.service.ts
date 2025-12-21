@@ -45,6 +45,47 @@ export class GoogleTasksService {
   }
 
   /**
+   * Create a new task list
+   */
+  async createTaskList(title: string): Promise<GoogleTaskList> {
+    try {
+      const response = await this.tasks.tasklists.insert({
+        requestBody: {
+          title: title
+        }
+      });
+      return {
+        id: response.data.id!,
+        title: response.data.title!,
+        updated: response.data.updated!,
+        selfLink: response.data.selfLink!,
+      };
+    } catch (error) {
+      console.error('Error creating task list:', error);
+      throw new Error('Failed to create task list');
+    }
+  }
+
+  /**
+   * Find or create a task list by title
+   */
+  async findOrCreateTaskList(title: string): Promise<GoogleTaskList> {
+    try {
+      const taskLists = await this.getTaskLists();
+      const existingList = taskLists.find(list => list.title === title);
+      
+      if (existingList) {
+        return existingList;
+      }
+      
+      return await this.createTaskList(title);
+    } catch (error) {
+      console.error('Error finding or creating task list:', error);
+      throw new Error('Failed to find or create task list');
+    }
+  }
+
+  /**
    * Get tasks from a specific task list
    */
   async getTasks(taskListId: string, showCompleted: boolean = false): Promise<GoogleTask[]> {

@@ -14,6 +14,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { tasksAPI, getAllIntegrationQueryFn } from "@/lib/api"
 import { Loader } from "@/components/ui/loader"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { VoiceAssistant } from "@/components/voice-assistant"
 
 interface Task {
   id: string
@@ -190,6 +191,7 @@ export function TasksContent() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <VoiceAssistant />
             <ThemeToggle />
             {!isGoogleConnected && (
               <Button variant="outline" size="sm" asChild>

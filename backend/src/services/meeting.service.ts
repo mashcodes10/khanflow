@@ -62,6 +62,21 @@ export const createMeetBookingForGuestService = async (
   const integrationRepository = AppDataSource.getRepository(Integration);
   const meetingRepository = AppDataSource.getRepository(Meeting);
 
+  // Check if a meeting already exists for this event, guest, and time slot
+  // This prevents duplicate bookings if the function is called multiple times
+  const existingMeeting = await meetingRepository.findOne({
+    where: {
+      event: { id: eventId },
+      guestEmail: guestEmail,
+      startTime: startTime,
+      status: MeetingStatus.SCHEDULED,
+    },
+  });
+
+  if (existingMeeting) {
+    throw new BadRequestException("A meeting already exists for this time slot");
+  }
+
   const event = await eventRepository.findOne({
     where: { id: eventId, isPrivate: false },
     relations: ["user"],
@@ -303,73 +318,82 @@ export const createMeetBookingForGuestService = async (
   }
 
   // ---- Mirror event into any OTHER connected calendars (Google / Outlook) ----
-  // Fetch host integrations again (could reuse earlier lookups)
-  const googleIntegrationMirror = await integrationRepository.findOne({
-    where: {
-      user: { id: event.user.id },
-      app_type: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR,
-    },
-  });
-
-  const outlookIntegrationMirror = await integrationRepository.findOne({
-    where: {
-      user: { id: event.user.id },
-      app_type: IntegrationAppTypeEnum.OUTLOOK_CALENDAR,
-    },
-  });
-
-  // Google mirror (if not already primary)
-  if (googleIntegrationMirror &&
-      !eventIdMap[IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR]) {
-    const { calendar } = await getCalendarClient(
-      googleIntegrationMirror.app_type,
-      googleIntegrationMirror.access_token,
-      googleIntegrationMirror.refresh_token!,
-      googleIntegrationMirror.expiry_date
-    );
-
-    const gResp = await calendar.events.insert({
-      calendarId: "primary",
-      requestBody: {
-        summary: `${guestName} - ${event.title}`,
-        description: additionalInfo ? `${additionalInfo}\n\nJoin link: ${meetLink}` : `Join link: ${meetLink}`,
-        start: { dateTime: startTime.toISOString() },
-        end: { dateTime: endTime.toISOString() },
-        attendees: [{ email: guestEmail }, { email: event.user.email }],
+  // Only mirror if the primary event was created successfully and we have a meetLink
+  // This prevents duplicate calendar entries
+  if (meetLink && Object.keys(eventIdMap).length > 0) {
+    // Fetch host integrations again (could reuse earlier lookups)
+    const googleIntegrationMirror = await integrationRepository.findOne({
+      where: {
+        user: { id: event.user.id },
+        app_type: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR,
       },
     });
-    eventIdMap[IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR] = gResp.data.id!;
-  }
 
-  // Outlook mirror (if not already primary)
-  if (outlookIntegrationMirror &&
-      !eventIdMap[IntegrationAppTypeEnum.OUTLOOK_CALENDAR]) {
-    const tokenMirror = await validateMicrosoftToken(
-      outlookIntegrationMirror.access_token,
-      outlookIntegrationMirror.refresh_token ?? "",
-      outlookIntegrationMirror.expiry_date
-    );
-
-    const oResp = await fetch("https://graph.microsoft.com/v1.0/me/events", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${tokenMirror}`,
-        "Content-Type": "application/json",
+    const outlookIntegrationMirror = await integrationRepository.findOne({
+      where: {
+        user: { id: event.user.id },
+        app_type: IntegrationAppTypeEnum.OUTLOOK_CALENDAR,
       },
-      body: JSON.stringify({
-        subject: `${guestName} - ${event.title}`,
-        body: { contentType: "HTML", content: additionalInfo || "" },
-        start: { dateTime: startTime.toISOString(), timeZone: "UTC" },
-        end: { dateTime: endTime.toISOString(), timeZone: "UTC" },
-        attendees: [
-          { emailAddress: { address: guestEmail, name: guestName }, type: "required" },
-          { emailAddress: { address: event.user.email, name: event.user.email }, type: "required" },
-        ],
-      }),
     });
-    if (oResp.ok) {
-      const oData: any = await oResp.json();
-      eventIdMap[IntegrationAppTypeEnum.OUTLOOK_CALENDAR] = oData.id;
+
+    // Google mirror (if not already primary)
+    // Check if Google Calendar event was NOT already created in the primary path
+    const googleEventAlreadyCreated = eventIdMap[IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR] !== undefined;
+    
+    if (googleIntegrationMirror && !googleEventAlreadyCreated) {
+      const { calendar } = await getCalendarClient(
+        googleIntegrationMirror.app_type,
+        googleIntegrationMirror.access_token,
+        googleIntegrationMirror.refresh_token!,
+        googleIntegrationMirror.expiry_date
+      );
+
+      const gResp = await calendar.events.insert({
+        calendarId: "primary",
+        requestBody: {
+          summary: `${guestName} - ${event.title}`,
+          description: additionalInfo ? `${additionalInfo}\n\nJoin link: ${meetLink}` : `Join link: ${meetLink}`,
+          start: { dateTime: startTime.toISOString() },
+          end: { dateTime: endTime.toISOString() },
+          attendees: [{ email: guestEmail }, { email: event.user.email }],
+        },
+      });
+      eventIdMap[IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR] = gResp.data.id!;
+    }
+
+    // Outlook mirror (if not already primary)
+    // Check if Outlook Calendar event was NOT already created in the primary path
+    const outlookEventAlreadyCreated = eventIdMap[IntegrationAppTypeEnum.OUTLOOK_CALENDAR] !== undefined ||
+                                       eventIdMap[IntegrationAppTypeEnum.MICROSOFT_TEAMS] !== undefined;
+    
+    if (outlookIntegrationMirror && !outlookEventAlreadyCreated) {
+      const tokenMirror = await validateMicrosoftToken(
+        outlookIntegrationMirror.access_token,
+        outlookIntegrationMirror.refresh_token ?? "",
+        outlookIntegrationMirror.expiry_date
+      );
+
+      const oResp = await fetch("https://graph.microsoft.com/v1.0/me/events", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${tokenMirror}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          subject: `${guestName} - ${event.title}`,
+          body: { contentType: "HTML", content: additionalInfo || "" },
+          start: { dateTime: startTime.toISOString(), timeZone: "UTC" },
+          end: { dateTime: endTime.toISOString(), timeZone: "UTC" },
+          attendees: [
+            { emailAddress: { address: guestEmail, name: guestName }, type: "required" },
+            { emailAddress: { address: event.user.email, name: event.user.email }, type: "required" },
+          ],
+        }),
+      });
+      if (oResp.ok) {
+        const oData: any = await oResp.json();
+        eventIdMap[IntegrationAppTypeEnum.OUTLOOK_CALENDAR] = oData.id;
+      }
     }
   }
 

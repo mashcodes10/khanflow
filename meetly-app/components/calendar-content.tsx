@@ -29,6 +29,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { calendarAPI, tasksAPI, getAllIntegrationQueryFn } from "@/lib/api"
 import { Loader } from "@/components/ui/loader"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { VoiceAssistant } from "@/components/voice-assistant"
 import { format, parseISO, startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addDays, subDays, addWeeks, subWeeks, addMonths, subMonths, startOfToday } from "date-fns"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { AddTaskToCalendarDialog } from "./add-task-to-calendar-dialog"
@@ -375,6 +376,7 @@ export function CalendarContent() {
               </Button>
             </div>
             <div className="flex items-center gap-2">
+              <VoiceAssistant />
               <ThemeToggle />
               <Button 
                 className="gap-1 sm:gap-2 text-xs sm:text-sm"

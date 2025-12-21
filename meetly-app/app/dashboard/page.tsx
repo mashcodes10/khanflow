@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/sidebar"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { VoiceAssistant } from "@/components/voice-assistant"
 
 export default function DashboardPage() {
   return (
@@ -10,7 +11,10 @@ export default function DashboardPage() {
         <div className="flex flex-col">
           <header className="flex h-16 items-center justify-between border-b px-8">
             <h1 className="text-3xl font-semibold">Dashboard</h1>
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <VoiceAssistant />
+              <ThemeToggle />
+            </div>
           </header>
           <div className="p-8">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

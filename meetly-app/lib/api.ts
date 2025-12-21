@@ -187,9 +187,106 @@ export const integrationsAPI = {
   connect: connectAppIntegrationQueryFn,
   check: checkIntegrationQueryFn,
   disconnect: disconnectIntegrationMutationFn,
+  getCalendarPreferences: async () => {
+    const response = await API.get("/integration/calendar-preferences");
+    return response.data;
+  },
+  saveCalendarPreferences: async (workCalendarAppType: IntegrationAppType, personalCalendarAppType: IntegrationAppType, defaultCalendarAppType: IntegrationAppType) => {
+    const response = await API.put("/integration/calendar-preferences", {
+      workCalendarAppType,
+      personalCalendarAppType,
+      defaultCalendarAppType,
+    });
+    return response.data;
+  },
 };
 
-// Tasks API
+// Voice API functions
+export interface VoiceTranscribeResponse {
+  message: string;
+  transcript: string;
+}
+
+export interface VoiceParseResponse {
+  message: string;
+  parsedAction: {
+    intent: "create_task" | "update_task" | "delete_task" | "query_tasks" | "clarification_required";
+    task?: {
+      title: string;
+      description?: string;
+      due_date?: string;
+      due_time?: string;
+      timezone?: string;
+      priority?: "high" | "normal" | "low";
+      recurrence?: string;
+      category?: "meetings" | "deadlines" | "work" | "personal" | "errands";
+    };
+    calendar?: {
+      create_event: boolean;
+      event_title?: string;
+      start_datetime?: string;
+      duration_minutes?: number;
+    };
+    confidence: {
+      is_confident: boolean;
+      missing_fields?: string[];
+      clarification_question?: string;
+    };
+  };
+}
+
+export interface ExecuteActionResponse {
+  message: string;
+  executedAction: {
+    actionId: string;
+    timestamp: string;
+    intent: string;
+    createdTaskId?: string;
+    createdTaskListId?: string;
+    createdCalendarEventId?: string;
+    createdEventTitle?: string;
+  };
+}
+
+export const voiceAPI = {
+  transcribe: async (audioBlob: Blob): Promise<VoiceTranscribeResponse> => {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'audio.webm');
+    const response = await API.post("/voice/transcribe", formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+  
+  parse: async (transcript: string, timezone?: string): Promise<VoiceParseResponse> => {
+    const response = await API.post("/voice/parse", {
+      transcript,
+      currentDateTime: new Date().toISOString(),
+      timezone: timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+    return response.data;
+  },
+  
+  execute: async (
+    parsedAction: VoiceParseResponse['parsedAction'],
+    options?: { taskAppType?: IntegrationAppType; calendarAppType?: IntegrationAppType }
+  ): Promise<ExecuteActionResponse> => {
+    const response = await API.post("/actions/execute", {
+      parsedAction,
+      ...(options || {}),
+    });
+    return response.data;
+  },
+  
+  undo: async (): Promise<{ message: string; success: boolean }> => {
+    const response = await API.post("/actions/undo");
+    return response.data;
+  },
+};
+
+// Tasks API (Google Tasks)
 export const tasksAPI = {
   getTaskLists: async () => {
     const response = await API.get('/ai-calendar/task-lists');
@@ -257,6 +354,46 @@ export const calendarAPI = {
   },
   deleteEvent: async (eventId: string) => {
     const response = await API.delete(`/calendar/events/${eventId}`);
+    return response.data;
+  },
+};
+
+// Microsoft Todo API
+export const microsoftTodoAPI = {
+  getTaskLists: async () => {
+    const response = await API.get('/microsoft-todo/task-lists');
+    return response.data;
+  },
+  getTasks: async (taskListId: string, showCompleted = false) => {
+    const response = await API.get(`/microsoft-todo/tasks/${taskListId}?showCompleted=${showCompleted}`);
+    return response.data;
+  },
+  getAllTasks: async () => {
+    try {
+      const response = await API.get('/microsoft-todo/tasks');
+      return response.data;
+    } catch (error: any) {
+      console.error('Microsoft Todo API Error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  create: async (taskListId: string, task: { title: string; body?: string; dueDateTime?: any; importance?: string; categories?: string[] }) => {
+    const response = await API.post('/microsoft-todo/tasks', {
+      taskListId,
+      ...task,
+    });
+    return response.data;
+  },
+  update: async (taskListId: string, taskId: string, updates: any) => {
+    const response = await API.put(`/microsoft-todo/tasks/${taskListId}/${taskId}`, updates);
+    return response.data;
+  },
+  delete: async (taskListId: string, taskId: string) => {
+    const response = await API.delete(`/microsoft-todo/tasks/${taskListId}/${taskId}`);
+    return response.data;
+  },
+  complete: async (taskListId: string, taskId: string) => {
+    const response = await API.post(`/microsoft-todo/tasks/${taskListId}/${taskId}/complete`);
     return response.data;
   },
 };

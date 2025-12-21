@@ -21,6 +21,7 @@ export enum IntegrationAppTypeEnum {
   ZOOM_MEETING = "ZOOM_MEETING",
   OUTLOOK_CALENDAR = "OUTLOOK_CALENDAR",
   MICROSOFT_TEAMS = "MICROSOFT_TEAMS",
+  MICROSOFT_TODO = "MICROSOFT_TODO",
 }
 
 export enum IntegrationCategoryEnum {
@@ -39,6 +40,15 @@ interface GoogleMeetAndCalendarMetadata {
    * default ["primary"].
    */
   selectedCalendarIds?: string[];
+  /**
+   * Calendar routing preferences for voice assistant.
+   * Set when user connects both Google Calendar and Outlook Calendar.
+   */
+  calendarPreferences?: {
+    workCalendarAppType: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR | IntegrationAppTypeEnum.OUTLOOK_CALENDAR;
+    personalCalendarAppType: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR | IntegrationAppTypeEnum.OUTLOOK_CALENDAR;
+    defaultCalendarAppType: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR | IntegrationAppTypeEnum.OUTLOOK_CALENDAR;
+  };
 }
 
 interface ZoomMetadata {}

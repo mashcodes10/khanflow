@@ -5,6 +5,7 @@ export enum IntegrationAppEnum {
   MICROSOFT_TEAMS = "MICROSOFT_TEAMS",
   OUTLOOK_CALENDAR = "OUTLOOK_CALENDAR",
   GOOGLE_TASKS = "GOOGLE_TASKS",
+  MICROSOFT_TODO = "MICROSOFT_TODO",
 }
 
 export type IntegrationAppType =
@@ -12,14 +13,16 @@ export type IntegrationAppType =
   | "ZOOM_MEETING"
   | "MICROSOFT_TEAMS"
   | "OUTLOOK_CALENDAR"
-  | "GOOGLE_TASKS";
+  | "GOOGLE_TASKS"
+  | "MICROSOFT_TODO";
 
 export type IntegrationTitleType =
   | "Google Meet & Calendar"
   | "Zoom"
   | "Microsoft Teams"
   | "Outlook Calendar"
-  | "Google Tasks";
+  | "Google Tasks"
+  | "Microsoft Todo";
 
 // Integration Descriptions
 export const IntegrationDescriptions: Record<IntegrationAppType, string> = {
@@ -32,6 +35,8 @@ export const IntegrationDescriptions: Record<IntegrationAppType, string> = {
     "Outlook Calendar integration for scheduling and reminders.",
   GOOGLE_TASKS:
     "Manage your Google Tasks and track your to-do items with your calendar events.",
+  MICROSOFT_TODO:
+    "Manage your Microsoft Todo tasks and organize your to-do items with categories.",
 };
 
 export enum VideoConferencingPlatform {

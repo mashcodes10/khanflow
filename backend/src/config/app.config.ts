@@ -16,6 +16,8 @@ const appConfig = () => ({
 
   FRONTEND_ORIGIN: getEnv("FRONTEND_ORIGIN", "localhost"),
   FRONTEND_INTEGRATION_URL: getEnv("FRONTEND_INTEGRATION_URL"),
+  
+  OPENAI_API_KEY: getEnv("OPENAI_API_KEY"),
 });
 
 export const config = appConfig();

@@ -16,6 +16,9 @@ import integrationRoutes from "./routes/integration.route";
 import meetingRoutes from "./routes/meeting.route";
 import aiCalendarRoutes from "./routes/ai-calendar.route";
 import calendarRoutes from "./routes/calendar.route";
+import voiceRoutes from "./routes/voice.route";
+import actionsRoutes from "./routes/actions.route";
+import microsoftTodoRoutes from "./routes/microsoft-todo.route";
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
@@ -52,6 +55,9 @@ app.use(`${BASE_PATH}/integration`, integrationRoutes);
 app.use(`${BASE_PATH}/meeting`, meetingRoutes);
 app.use(`${BASE_PATH}/ai-calendar`, aiCalendarRoutes);
 app.use(`${BASE_PATH}/calendar`, calendarRoutes);
+app.use(`${BASE_PATH}/voice`, voiceRoutes);
+app.use(`${BASE_PATH}/actions`, actionsRoutes);
+app.use(`${BASE_PATH}/microsoft-todo`, microsoftTodoRoutes);
 
 app.use(errorHandler);
 

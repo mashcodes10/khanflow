@@ -9,6 +9,8 @@ import {
   getUserIntegrationsService,
   listCalendarsService,
   saveSelectedCalendarsService,
+  getCalendarPreferencesService,
+  saveCalendarPreferencesService,
 } from "../services/integration.service";
 import { asyncHandlerAndValidation } from "../middlewares/withValidation.middleware";
 import { AppTypeDTO } from "../database/dto/integration.dto";
@@ -159,6 +161,71 @@ export const saveSelectedCalendarsController = asyncHandlerAndValidation(
   }
 );
 
+export const getCalendarPreferencesController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+
+    const preferences = await getCalendarPreferencesService(userId);
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Calendar preferences retrieved successfully",
+      preferences,
+    });
+  }
+);
+
+export const saveCalendarPreferencesController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { workCalendarAppType, personalCalendarAppType, defaultCalendarAppType } = req.body;
+
+    if (!workCalendarAppType || !personalCalendarAppType || !defaultCalendarAppType) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "workCalendarAppType, personalCalendarAppType, and defaultCalendarAppType are required",
+      });
+    }
+
+    if (
+      workCalendarAppType !== IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR &&
+      workCalendarAppType !== IntegrationAppTypeEnum.OUTLOOK_CALENDAR
+    ) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Invalid workCalendarAppType",
+      });
+    }
+
+    if (
+      personalCalendarAppType !== IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR &&
+      personalCalendarAppType !== IntegrationAppTypeEnum.OUTLOOK_CALENDAR
+    ) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Invalid personalCalendarAppType",
+      });
+    }
+
+    if (
+      defaultCalendarAppType !== IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR &&
+      defaultCalendarAppType !== IntegrationAppTypeEnum.OUTLOOK_CALENDAR
+    ) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Invalid defaultCalendarAppType",
+      });
+    }
+
+    const result = await saveCalendarPreferencesService(
+      userId,
+      workCalendarAppType,
+      personalCalendarAppType,
+      defaultCalendarAppType
+    );
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Calendar preferences saved successfully",
+      ...result,
+    });
+  }
+);
+
 export const zoomOAuthCallbackController = asyncHandler(
   async (req: Request, res: Response) => {
     const { code, state } = req.query;
@@ -265,16 +332,21 @@ export const microsoftOAuthCallbackController = asyncHandler(
 
     const tokens = (await resp.json()) as any;
 
-    // Determine which Microsoft app (Outlook vs Teams) we are connecting
+    // Determine which Microsoft app (Outlook vs Teams vs Todo) we are connecting
     const targetAppType: IntegrationAppTypeEnum =
       appType && Object.values(IntegrationAppTypeEnum).includes(appType as IntegrationAppTypeEnum)
         ? (appType as IntegrationAppTypeEnum)
         : IntegrationAppTypeEnum.OUTLOOK_CALENDAR;
 
+    // Determine category based on app type
+    const category = targetAppType === IntegrationAppTypeEnum.MICROSOFT_TODO
+      ? IntegrationCategoryEnum.TASKS
+      : IntegrationCategoryEnum.CALENDAR_AND_VIDEO_CONFERENCING;
+
     await createIntegrationService({
       userId,
       provider: IntegrationProviderEnum.MICROSOFT,
-      category: IntegrationCategoryEnum.CALENDAR_AND_VIDEO_CONFERENCING,
+      category: category,
       app_type: targetAppType,
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { getAllIntegrationQueryFn, connectAppIntegrationQueryFn, integrationsAPI } from "@/lib/api"
@@ -11,6 +11,8 @@ import { Loader } from "@/components/ui/loader"
 import { CalendarDialog } from "./calendar-dialog"
 import { Plus, Trash2, CheckSquare2 } from "lucide-react"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Badge } from "@/components/ui/badge"
 
 // Import logos from public folder
 const googleMeetLogo = "/google-meet.svg"
@@ -69,6 +71,10 @@ export function IntegrationsContent() {
   const [openDialog, setOpenDialog] = useState(false)
   const [selectedAppType, setSelectedAppType] = useState<IntegrationAppType | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [openPreferencesDialog, setOpenPreferencesDialog] = useState(false)
+  const [workCalendar, setWorkCalendar] = useState<IntegrationAppType | null>(null)
+  const [personalCalendar, setPersonalCalendar] = useState<IntegrationAppType | null>(null)
+  const [defaultCalendar, setDefaultCalendar] = useState<IntegrationAppType | null>(null)
 
   // Query for integrations
   const { data, isPending, isError, error } = useQuery({
@@ -108,6 +114,61 @@ export function IntegrationsContent() {
   })
 
   const integrations = data?.integrations || []
+
+  // Check if both calendars are connected
+  const googleCalendarConnected = integrations.find((int: IntegrationType) => int.app_type === "GOOGLE_MEET_AND_CALENDAR")?.isConnected
+  const outlookCalendarConnected = integrations.find((int: IntegrationType) => int.app_type === "OUTLOOK_CALENDAR")?.isConnected
+  const bothCalendarsConnected = googleCalendarConnected && outlookCalendarConnected
+
+  // Fetch calendar preferences
+  const { data: preferencesData } = useQuery({
+    queryKey: ["calendar-preferences"],
+    queryFn: integrationsAPI.getCalendarPreferences,
+    enabled: bothCalendarsConnected,
+  })
+
+  const preferences = preferencesData?.preferences
+
+  // Show preferences dialog if both calendars are connected but preferences not set
+  useEffect(() => {
+    if (bothCalendarsConnected && !preferences && !openPreferencesDialog) {
+      setOpenPreferencesDialog(true)
+    }
+  }, [bothCalendarsConnected, preferences, openPreferencesDialog])
+
+  // Mutation for saving calendar preferences
+  const savePreferencesMutation = useMutation({
+    mutationFn: ({ workCalendarAppType, personalCalendarAppType, defaultCalendarAppType }: { workCalendarAppType: IntegrationAppType; personalCalendarAppType: IntegrationAppType; defaultCalendarAppType: IntegrationAppType }) =>
+      integrationsAPI.saveCalendarPreferences(workCalendarAppType, personalCalendarAppType, defaultCalendarAppType),
+    onSuccess: () => {
+      toast.success("Calendar preferences saved successfully")
+      queryClient.invalidateQueries({ queryKey: ["calendar-preferences"] })
+      setOpenPreferencesDialog(false)
+      setWorkCalendar(null)
+      setPersonalCalendar(null)
+      setDefaultCalendar(null)
+    },
+    onError: (error: any) => {
+      console.error("Failed to save preferences:", error)
+      toast.error(error.response?.data?.message || "Failed to save preferences")
+    },
+  })
+
+  const handleSavePreferences = () => {
+    if (!workCalendar || !personalCalendar || !defaultCalendar) {
+      toast.error("Please select work, personal, and default calendars")
+      return
+    }
+    if (workCalendar === personalCalendar) {
+      toast.error("Work and personal calendars must be different")
+      return
+    }
+    savePreferencesMutation.mutate({
+      workCalendarAppType: workCalendar,
+      personalCalendarAppType: personalCalendar,
+      defaultCalendarAppType: defaultCalendar,
+    })
+  }
 
   const handleConnect = async (appType: IntegrationAppType) => {
     setIsLoading(true)
@@ -345,6 +406,155 @@ export function IntegrationsContent() {
         onOpenChange={setOpenDialog}
         appType={selectedAppType || "GOOGLE_MEET_AND_CALENDAR"}
       />
+
+      {/* Calendar Preferences Dialog */}
+      <Dialog open={openPreferencesDialog} onOpenChange={setOpenPreferencesDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Set Calendar Preferences</DialogTitle>
+            <DialogDescription>
+              You have both Google Calendar and Outlook Calendar connected. Please choose which calendar to use for work tasks, personal tasks, and default (when category is not specified).
+              The voice assistant will automatically route tasks and events based on their category.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="space-y-3">
+              <div>
+                <p className="text-sm font-medium mb-2">Work Calendar</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Used for: work, meetings, deadlines
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant={workCalendar === "GOOGLE_MEET_AND_CALENDAR" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setWorkCalendar("GOOGLE_MEET_AND_CALENDAR")}
+                  >
+                    Google Calendar
+                  </Button>
+                  <Button
+                    variant={workCalendar === "OUTLOOK_CALENDAR" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setWorkCalendar("OUTLOOK_CALENDAR")}
+                  >
+                    Outlook Calendar
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium mb-2">Personal Calendar</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Used for: personal, errands
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant={personalCalendar === "GOOGLE_MEET_AND_CALENDAR" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setPersonalCalendar("GOOGLE_MEET_AND_CALENDAR")}
+                  >
+                    Google Calendar
+                  </Button>
+                  <Button
+                    variant={personalCalendar === "OUTLOOK_CALENDAR" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setPersonalCalendar("OUTLOOK_CALENDAR")}
+                  >
+                    Outlook Calendar
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm font-medium mb-2">Default Calendar</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Used when task/event category is not specified or unclear
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant={defaultCalendar === "GOOGLE_MEET_AND_CALENDAR" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setDefaultCalendar("GOOGLE_MEET_AND_CALENDAR")}
+                  >
+                    Google Calendar
+                  </Button>
+                  <Button
+                    variant={defaultCalendar === "OUTLOOK_CALENDAR" ? "default" : "outline"}
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => setDefaultCalendar("OUTLOOK_CALENDAR")}
+                  >
+                    Outlook Calendar
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                onClick={handleSavePreferences}
+                disabled={savePreferencesMutation.isPending || !workCalendar || !personalCalendar || !defaultCalendar}
+                className="flex-1"
+              >
+                {savePreferencesMutation.isPending ? <Loader size="sm" /> : "Save Preferences"}
+              </Button>
+              {preferences && (
+                <Button
+                  variant="outline"
+                  onClick={() => setOpenPreferencesDialog(false)}
+                >
+                  Cancel
+                </Button>
+              )}
+            </div>
+
+            {preferences && (
+              <div className="pt-2 border-t">
+                <p className="text-xs text-muted-foreground">
+                  Current: Work = {preferences.workCalendarAppType === "GOOGLE_MEET_AND_CALENDAR" ? "Google Calendar" : "Outlook Calendar"}, 
+                  Personal = {preferences.personalCalendarAppType === "GOOGLE_MEET_AND_CALENDAR" ? "Google Calendar" : "Outlook Calendar"},
+                  Default = {preferences.defaultCalendarAppType === "GOOGLE_MEET_AND_CALENDAR" ? "Google Calendar" : "Outlook Calendar"}
+                </p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Show preferences summary if set */}
+      {bothCalendarsConnected && preferences && (
+        <Card className="mb-4 border-blue-200 bg-blue-50/50 dark:bg-blue-950/20 dark:border-blue-800">
+          <CardContent className="pt-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Calendar Preferences Set</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Work: {preferences.workCalendarAppType === "GOOGLE_MEET_AND_CALENDAR" ? "Google Calendar" : "Outlook Calendar"} • 
+                  Personal: {preferences.personalCalendarAppType === "GOOGLE_MEET_AND_CALENDAR" ? "Google Calendar" : "Outlook Calendar"} • 
+                  Default: {preferences.defaultCalendarAppType === "GOOGLE_MEET_AND_CALENDAR" ? "Google Calendar" : "Outlook Calendar"}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setWorkCalendar(preferences.workCalendarAppType as IntegrationAppType)
+                  setPersonalCalendar(preferences.personalCalendarAppType as IntegrationAppType)
+                  setDefaultCalendar(preferences.defaultCalendarAppType as IntegrationAppType)
+                  setOpenPreferencesDialog(true)
+                }}
+              >
+                Change
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

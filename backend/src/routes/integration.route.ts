@@ -10,6 +10,8 @@ import {
   zoomOAuthCallbackController,
   microsoftOAuthCallbackController,
   disconnectIntegrationController,
+  getCalendarPreferencesController,
+  saveCalendarPreferencesController,
 } from "../controllers/integration.controller";
 
 const integrationRoutes = Router();
@@ -54,6 +56,18 @@ integrationRoutes.put(
   "/calendars/:appType/select",
   passportAuthenticateJwt,
   saveSelectedCalendarsController
+);
+
+integrationRoutes.get(
+  "/calendar-preferences",
+  passportAuthenticateJwt,
+  getCalendarPreferencesController
+);
+
+integrationRoutes.put(
+  "/calendar-preferences",
+  passportAuthenticateJwt,
+  saveCalendarPreferencesController
 );
 
 export default integrationRoutes;

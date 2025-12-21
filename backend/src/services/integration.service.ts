@@ -23,6 +23,7 @@ const appTypeToProviderMap: Record<
   [IntegrationAppTypeEnum.ZOOM_MEETING]: IntegrationProviderEnum.ZOOM,
   [IntegrationAppTypeEnum.OUTLOOK_CALENDAR]: IntegrationProviderEnum.MICROSOFT,
   [IntegrationAppTypeEnum.MICROSOFT_TEAMS]: IntegrationProviderEnum.MICROSOFT,
+  [IntegrationAppTypeEnum.MICROSOFT_TODO]: IntegrationProviderEnum.MICROSOFT,
 };
 
 const appTypeToCategoryMap: Record<
@@ -36,6 +37,7 @@ const appTypeToCategoryMap: Record<
     IntegrationCategoryEnum.VIDEO_CONFERENCING,
   [IntegrationAppTypeEnum.OUTLOOK_CALENDAR]: IntegrationCategoryEnum.CALENDAR,
   [IntegrationAppTypeEnum.MICROSOFT_TEAMS]: IntegrationCategoryEnum.VIDEO_CONFERENCING,
+  [IntegrationAppTypeEnum.MICROSOFT_TODO]: IntegrationCategoryEnum.TASKS,
 };
 
 const appTypeToTitleMap: Record<IntegrationAppTypeEnum, string> = {
@@ -44,6 +46,7 @@ const appTypeToTitleMap: Record<IntegrationAppTypeEnum, string> = {
   [IntegrationAppTypeEnum.ZOOM_MEETING]: "Zoom",
   [IntegrationAppTypeEnum.OUTLOOK_CALENDAR]: "Outlook Calendar",
   [IntegrationAppTypeEnum.MICROSOFT_TEAMS]: "Microsoft Teams",
+  [IntegrationAppTypeEnum.MICROSOFT_TODO]: "Microsoft Todo",
 };
 
 export const getUserIntegrationsService = async (userId: string) => {
@@ -125,6 +128,7 @@ export const connectAppService = async (
       break;
     case IntegrationAppTypeEnum.OUTLOOK_CALENDAR:
     case IntegrationAppTypeEnum.MICROSOFT_TEAMS:
+    case IntegrationAppTypeEnum.MICROSOFT_TODO:
       authUrl = `${MS_OAUTH_CONFIG.authUrl}?client_id=${MS_OAUTH_CONFIG.clientId}` +
         `&response_type=code&redirect_uri=${encodeURIComponent(MS_OAUTH_CONFIG.redirectUri)}` +
         `&scope=${encodeURIComponent(MS_OAUTH_CONFIG.scope)}` +
@@ -320,6 +324,10 @@ export const listCalendarsService = async (
 
       return items;
     }
+    case IntegrationAppTypeEnum.MICROSOFT_TODO: {
+      // Microsoft Todo doesn't have calendars, return empty array
+      return [];
+    }
     default:
       throw new BadRequestException("Unsupported app type");
   }
@@ -362,6 +370,118 @@ export const saveSelectedCalendarsService = async (
   await integrationRepository.save(integration);
 
   return { success: true };
+};
+
+/**
+ * Get calendar routing preferences for voice assistant.
+ * Returns which calendar is for "work" and which is for "personal".
+ */
+export const getCalendarPreferencesService = async (userId: string) => {
+  const integrationRepository = AppDataSource.getRepository(Integration);
+
+  // Check Google Calendar integration first (preferences stored there)
+  const googleIntegration = await integrationRepository.findOne({
+    where: {
+      user: { id: userId },
+      app_type: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR,
+    },
+  });
+
+  if (googleIntegration?.metadata) {
+    const metadata = googleIntegration.metadata as any;
+    if (metadata.calendarPreferences) {
+      return metadata.calendarPreferences;
+    }
+  }
+
+  // Check Outlook Calendar integration as fallback
+  const outlookIntegration = await integrationRepository.findOne({
+    where: {
+      user: { id: userId },
+      app_type: IntegrationAppTypeEnum.OUTLOOK_CALENDAR,
+    },
+  });
+
+  if (outlookIntegration?.metadata) {
+    const metadata = outlookIntegration.metadata as any;
+    if (metadata.calendarPreferences) {
+      return metadata.calendarPreferences;
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Save calendar routing preferences for voice assistant.
+ * Stores preferences in Google Calendar integration metadata (or Outlook if Google not connected).
+ */
+export const saveCalendarPreferencesService = async (
+  userId: string,
+  workCalendarAppType: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR | IntegrationAppTypeEnum.OUTLOOK_CALENDAR,
+  personalCalendarAppType: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR | IntegrationAppTypeEnum.OUTLOOK_CALENDAR,
+  defaultCalendarAppType: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR | IntegrationAppTypeEnum.OUTLOOK_CALENDAR
+) => {
+  const integrationRepository = AppDataSource.getRepository(Integration);
+
+  // Validate that both calendars are connected
+  const googleIntegration = await integrationRepository.findOne({
+    where: {
+      user: { id: userId },
+      app_type: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR,
+    },
+  });
+
+  const outlookIntegration = await integrationRepository.findOne({
+    where: {
+      user: { id: userId },
+      app_type: IntegrationAppTypeEnum.OUTLOOK_CALENDAR,
+    },
+  });
+
+  if (!googleIntegration && !outlookIntegration) {
+    throw new BadRequestException("At least one calendar integration must be connected");
+  }
+
+  if (workCalendarAppType === personalCalendarAppType) {
+    throw new BadRequestException("Work and personal calendars must be different");
+  }
+
+  const preferences = {
+    workCalendarAppType,
+    personalCalendarAppType,
+    defaultCalendarAppType,
+  };
+
+  // Store in Google Calendar integration if it exists, otherwise Outlook
+  const targetIntegration = googleIntegration || outlookIntegration;
+  if (!targetIntegration) {
+    throw new BadRequestException("No calendar integration found to store preferences");
+  }
+
+  const metadata = {
+    ...targetIntegration.metadata,
+    calendarPreferences: preferences,
+  } as any;
+
+  targetIntegration.metadata = metadata;
+  await integrationRepository.save(targetIntegration);
+
+  // Also update the other calendar integration's metadata if it exists
+  const otherIntegration = googleIntegration && outlookIntegration
+    ? (targetIntegration === googleIntegration ? outlookIntegration : googleIntegration)
+    : null;
+
+  if (otherIntegration) {
+    const otherMetadata = {
+      ...otherIntegration.metadata,
+      calendarPreferences: preferences,
+    } as any;
+    otherIntegration.metadata = otherMetadata;
+    await integrationRepository.save(otherIntegration);
+  }
+
+  return { success: true, preferences };
 };
 
 // Helper to obtain a Google Calendar client with a valid token.
