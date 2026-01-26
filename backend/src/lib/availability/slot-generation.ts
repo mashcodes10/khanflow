@@ -189,7 +189,10 @@ export function filterSlotsByBookingWindow(
   now: Date,
   bookingWindow: number // days
 ): TimeSlot[] {
-  const windowEnd = addDays(startOfDay(now), bookingWindow + 1); // +1 to include the last day
+  // bookingWindow=3 means you can book up to 3 days in advance (inclusive)
+  // So windowEnd = startOfDay(now) + bookingWindow + 1 to include the last day
+  // This means days 0, 1, 2, 3 are included, day 4+ are excluded
+  const windowEnd = addDays(startOfDay(now), bookingWindow + 1);
 
   return slots.filter((slot) => {
     return slot.start < windowEnd;

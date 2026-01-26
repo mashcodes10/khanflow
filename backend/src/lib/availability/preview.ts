@@ -158,10 +158,15 @@ export async function computeAvailabilityPreview(
     const schedule = dayAvailabilityToSchedule(daySchedule);
 
     // Filter busy blocks for this day
+    // Include blocks that overlap with this day (not just blocks that start on this day)
     const dayStart = startOfDay(date);
     const dayEnd = addDays(dayStart, 1);
     const dayBusyBlocks = busyBlocks.filter(
-      (block) => block.start >= dayStart && block.start < dayEnd
+      (block) => {
+        // Include block if it overlaps with this day
+        // Block overlaps if: block.start < dayEnd && block.end > dayStart
+        return block.start < dayEnd && block.end > dayStart;
+      }
     );
 
     // Compute availability

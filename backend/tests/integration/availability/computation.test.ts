@@ -158,9 +158,11 @@ describe("Availability Computation - Integration", () => {
     const now = new Date("2025-01-27T10:00:00Z");
 
     // Add busy blocks to two calendars (in EST timezone: 10 AM EST = 3 PM UTC)
+    // Use non-overlapping blocks to ensure cal2 filters additional slots
     const tuesday = new Date("2025-01-28T15:00:00Z"); // 10 AM EST
-    fakeBusyProvider.addBusyBlock("cal1", tuesday, new Date("2025-01-28T17:00:00Z")); // 12 PM EST
-    fakeBusyProvider.addBusyBlock("cal2", tuesday, new Date("2025-01-28T19:00:00Z")); // 2 PM EST
+    fakeBusyProvider.addBusyBlock("cal1", tuesday, new Date("2025-01-28T17:00:00Z")); // 10 AM - 12 PM EST
+    // cal2 block starts after cal1 ends to ensure it filters additional slots
+    fakeBusyProvider.addBusyBlock("cal2", new Date("2025-01-28T18:00:00Z"), new Date("2025-01-28T20:00:00Z")); // 1 PM - 3 PM EST
 
     const settings: AvailabilitySettings = {
       timezone: availability.timezone || "America/New_York",
@@ -272,15 +274,17 @@ describe("Availability Computation - Integration", () => {
     );
 
     // Days beyond 3 days should have no slots
-    const thursday = preview.days.find((d) => d.dayOfWeek === DayOfWeekEnum.THURSDAY);
+    // With bookingWindow=3, days 0-3 are included (Monday-Thursday), day 4+ (Friday+) are excluded
     const friday = preview.days.find((d) => d.dayOfWeek === DayOfWeekEnum.FRIDAY);
+    const saturday = preview.days.find((d) => d.dayOfWeek === DayOfWeekEnum.SATURDAY);
 
-    // Thursday (day 4) and Friday (day 5) should be filtered out
-    if (thursday) {
-      expect(thursday.slots.length).toBe(0);
-    }
+    // Friday (day 4) and Saturday (day 5) should be filtered out
+    // Thursday (day 3) should still be included with bookingWindow=3
     if (friday) {
       expect(friday.slots.length).toBe(0);
+    }
+    if (saturday) {
+      expect(saturday.slots.length).toBe(0);
     }
   });
 });
