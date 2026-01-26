@@ -108,9 +108,9 @@ describe("Availability Computation - Integration", () => {
     const { availability } = await createTestUserWithAvailability();
     const now = new Date("2025-01-27T10:00:00Z");
 
-    // Add a busy block on Tuesday from 10 AM to 12 PM
-    const tuesday = new Date("2025-01-28T10:00:00Z");
-    fakeBusyProvider.addBusyBlock("cal1", tuesday, new Date("2025-01-28T12:00:00Z"));
+    // Add a busy block on Tuesday from 10 AM to 12 PM EST (15:00-17:00 UTC)
+    const tuesday = new Date("2025-01-28T15:00:00Z"); // 10 AM EST
+    fakeBusyProvider.addBusyBlock("cal1", tuesday, new Date("2025-01-28T17:00:00Z")); // 12 PM EST
 
     const settings: AvailabilitySettings = {
       timezone: availability.timezone || "America/New_York",
@@ -157,10 +157,10 @@ describe("Availability Computation - Integration", () => {
     const { availability } = await createTestUserWithAvailability();
     const now = new Date("2025-01-27T10:00:00Z");
 
-    // Add busy blocks to two calendars
-    const tuesday = new Date("2025-01-28T10:00:00Z");
-    fakeBusyProvider.addBusyBlock("cal1", tuesday, new Date("2025-01-28T12:00:00Z"));
-    fakeBusyProvider.addBusyBlock("cal2", tuesday, new Date("2025-01-28T14:00:00Z"));
+    // Add busy blocks to two calendars (in EST timezone: 10 AM EST = 3 PM UTC)
+    const tuesday = new Date("2025-01-28T15:00:00Z"); // 10 AM EST
+    fakeBusyProvider.addBusyBlock("cal1", tuesday, new Date("2025-01-28T17:00:00Z")); // 12 PM EST
+    fakeBusyProvider.addBusyBlock("cal2", tuesday, new Date("2025-01-28T19:00:00Z")); // 2 PM EST
 
     const settings: AvailabilitySettings = {
       timezone: availability.timezone || "America/New_York",
@@ -171,7 +171,6 @@ describe("Availability Computation - Integration", () => {
 
     // Only select cal1
     const previewWithCal1 = await computeAvailabilityPreview(
-      availability.user.id,
       now,
       7,
       settings,
@@ -189,7 +188,6 @@ describe("Availability Computation - Integration", () => {
 
     // Select both calendars
     const previewWithBoth = await computeAvailabilityPreview(
-      availability.user.id,
       now,
       7,
       settings,
@@ -258,7 +256,6 @@ describe("Availability Computation - Integration", () => {
     };
 
     const preview = await computeAvailabilityPreview(
-      availability.user.id,
       now,
       7, // Request 7 days
       settings,
