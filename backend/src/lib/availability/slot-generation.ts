@@ -118,8 +118,10 @@ export function filterSlotsByBusyBlocks(
       const blockEndWithBuffer = addMinutes(block.end, bufferTime);
       
       // Check if slot overlaps with the buffered period
-      // Slot overlaps if: slot.start < bufferedBlockEnd && slot.end > bufferedBlockStart
-      const overlaps = slot.start < blockEndWithBuffer && slot.end > blockStartWithBuffer;
+      // Slot overlaps if: slot.start <= bufferedBlockEnd && slot.end > bufferedBlockStart
+      // Use <= for end to include slots that start exactly when buffered period ends
+      // (these need to be filtered if bufferTime > 0)
+      const overlaps = slot.start <= blockEndWithBuffer && slot.end > blockStartWithBuffer;
       
       if (!overlaps) {
         // No overlap - slot is available
@@ -138,9 +140,10 @@ export function filterSlotsByBusyBlocks(
         }
       }
       
-      // If bufferTime > 0, a slot that ends exactly at block.start is only available
-      // if it starts before the buffered period starts (i.e., it has buffer time before the block)
+      // If bufferTime > 0, handle edge cases
       if (bufferTime > 0) {
+        // A slot that ends exactly at block.start is only available
+        // if it starts before the buffered period starts (i.e., it has buffer time before the block)
         const endsAtBlockStart = slot.end.getTime() === block.start.getTime();
         if (endsAtBlockStart) {
           // Slot ends exactly when block starts
