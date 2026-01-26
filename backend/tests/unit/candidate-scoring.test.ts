@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { v4 as uuidv4 } from 'uuid';
 import { getTestDataSource } from '../helpers/db';
 import { selectCandidateIntents } from '../../src/services/candidate-scoring.service';
 import { DataSource } from 'typeorm';
+import * as databaseConfig from '../../src/config/database.config';
 import { User } from '../../src/database/entities/user.entity';
 import { LifeArea } from '../../src/database/entities/life-area.entity';
 import { IntentBoard } from '../../src/database/entities/intent-board.entity';
@@ -33,6 +35,9 @@ describe('Candidate Selection Engine', () => {
 
   beforeEach(async () => {
     dataSource = await getTestDataSource();
+    // Mock AppDataSource to use test DataSource
+    vi.spyOn(databaseConfig, 'AppDataSource', 'get').mockReturnValue(dataSource as any);
+    
     const userRepo = dataSource.getRepository(User);
     const lifeAreaRepo = dataSource.getRepository(LifeArea);
     const boardRepo = dataSource.getRepository(IntentBoard);
@@ -281,7 +286,7 @@ describe('Candidate Selection Engine', () => {
     await providerTaskLinkRepo.save({
       userId: testUser.id,
       intentId: intent1.id,
-      acceptedActionId: 'fake-accepted-action-id',
+      acceptedActionId: uuidv4(), // Use proper UUID instead of fake string
       provider: 'google',
       providerTaskId: 'fake-task-id',
       providerListId: 'fake-list-id',

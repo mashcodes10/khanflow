@@ -20,7 +20,13 @@ const AISuggestionPayloadSchema = z.object({
   ).min(1),
   defaultOptionIndex: z.number().int().nonnegative(),
   confidence: z.number().min(0).max(1),
-});
+}).refine(
+  (data) => data.defaultOptionIndex < data.options.length,
+  {
+    message: "defaultOptionIndex must be within options array bounds",
+    path: ["defaultOptionIndex"],
+  }
+);
 
 type AISuggestionPayload = z.infer<typeof AISuggestionPayloadSchema>;
 

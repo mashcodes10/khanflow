@@ -27,6 +27,7 @@ import { AddMicrosoftEnums1750000000000 } from '../../src/database/migrations/17
 import { CreateLifeOrgTables1750500000000 } from '../../src/database/migrations/1750500000000-CreateLifeOrgTables';
 import { AddSuggestionSystemTables1751000000000 } from '../../src/database/migrations/1751000000000-AddSuggestionSystemTables';
 import { AddOnboardingColumn1751100000000 } from '../../src/database/migrations/1751100000000-AddOnboardingColumn';
+import { AddTasksCategoryEnum1751200000000 } from '../../src/database/migrations/1751200000000-AddTasksCategoryEnum';
 
 let testDataSource: DataSource | null = null;
 
@@ -80,6 +81,7 @@ export async function getTestDataSource(): Promise<DataSource> {
       CreateLifeOrgTables1750500000000,
       AddSuggestionSystemTables1751000000000,
       AddOnboardingColumn1751100000000,
+      AddTasksCategoryEnum1751200000000,
     ],
     synchronize: false,
     logging: false,

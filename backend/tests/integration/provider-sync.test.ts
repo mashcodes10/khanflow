@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { v4 as uuidv4 } from 'uuid';
 import { getTestDataSource } from '../helpers/db';
 import { FakeGoogleTasksService, FakeMicrosoftTodoService } from '../helpers/fakes';
 import { syncProviderTasks } from '../../src/services/provider-sync.service';
@@ -84,7 +85,7 @@ describe('Provider Sync - Integration Tests', () => {
     // Create accepted action
     acceptedAction = acceptedActionRepo.create({
       userId: testUser.id,
-      suggestionId: 'fake-suggestion-id',
+      suggestionId: uuidv4(), // Use proper UUID instead of fake string
       intentId: intent.id,
       type: 'task' as any,
       status: AcceptedActionStatus.PENDING,
