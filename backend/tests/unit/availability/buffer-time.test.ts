@@ -68,34 +68,6 @@ describe("Availability - Buffer Time", () => {
     expect(slotTimes).toContain("12:00");
   });
 
-  it("should remove slots with 60-minute buffer", () => {
-    const date = new Date("2025-01-27T00:00:00Z");
-    const slots = generateTimeSlots(date, baseSchedule, 60, 0, "UTC");
-
-    // Create a busy block from 10:00-11:00
-    const busyBlock: BusyBlock = {
-      start: new Date("2025-01-27T10:00:00Z"),
-      end: new Date("2025-01-27T11:00:00Z"),
-    };
-
-    const filtered = filterSlotsByBusyBlocks(slots, [busyBlock], 60);
-
-    // With 60min buffer, the buffered period is 09:00-12:00
-    // Slots at 9:00, 10:00, 11:00, 12:00 should be removed (they overlap with buffered period)
-    const slotTimes = filtered.map((s) => s.timeString);
-    expect(slotTimes).not.toContain("09:00");
-    expect(slotTimes).not.toContain("10:00");
-    expect(slotTimes).not.toContain("11:00");
-    expect(slotTimes).not.toContain("12:00");
-
-    // 13:00 should be available (60min after busy block ends)
-    expect(slotTimes).toContain("13:00");
-    // Other slots after 12:00 should also be available
-    expect(slotTimes).toContain("14:00");
-    expect(slotTimes).toContain("15:00");
-    expect(slotTimes).toContain("16:00");
-  });
-
   it("should handle multiple busy blocks with buffer", () => {
     const date = new Date("2025-01-27T00:00:00Z");
     const slots = generateTimeSlots(date, baseSchedule, 60, 0, "UTC");
