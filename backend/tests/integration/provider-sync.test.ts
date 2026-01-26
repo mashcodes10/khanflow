@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { v4 as uuidv4 } from 'uuid';
 import { getTestDataSource } from '../helpers/db';
 import { FakeGoogleTasksService, FakeMicrosoftTodoService } from '../helpers/fakes';
-import { syncProviderTasks } from '../../src/services/provider-sync.service';
 import { DataSource } from 'typeorm';
 import { User } from '../../src/database/entities/user.entity';
 import { LifeArea } from '../../src/database/entities/life-area.entity';
@@ -15,6 +14,10 @@ import { Integration, IntegrationAppTypeEnum, IntegrationCategoryEnum } from '..
 import { Suggestion, SuggestionStatus } from '../../src/database/entities/suggestion.entity';
 import { GoogleTasksService } from '../../src/services/google-tasks.service';
 import { MicrosoftTodoService } from '../../src/services/microsoft-todo.service';
+import * as databaseConfig from '../../src/config/database.config';
+
+// Import service dynamically after mock setup
+let syncProviderTasks: any;
 
 // Mock provider services
 vi.mock('../../src/services/google-tasks.service', () => {
@@ -42,6 +45,17 @@ describe('Provider Sync - Integration Tests', () => {
 
   beforeEach(async () => {
     dataSource = await getTestDataSource();
+    // Replace AppDataSource with test DataSource
+    Object.defineProperty(databaseConfig, 'AppDataSource', {
+      value: dataSource,
+      writable: true,
+      configurable: true,
+    });
+    
+    // Import service after mock is set up
+    const providerSyncModule = await import('../../src/services/provider-sync.service');
+    syncProviderTasks = providerSyncModule.syncProviderTasks;
+    
     const userRepo = dataSource.getRepository(User);
     const lifeAreaRepo = dataSource.getRepository(LifeArea);
     const boardRepo = dataSource.getRepository(IntentBoard);

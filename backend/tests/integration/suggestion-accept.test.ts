@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { getTestDataSource } from '../helpers/db';
 import { FakeGoogleTasksService, FakeMicrosoftTodoService } from '../helpers/fakes';
-import { acceptSuggestionWithOptions } from '../../src/services/suggestion-accept.service';
 import { DataSource } from 'typeorm';
+import * as databaseConfig from '../../src/config/database.config';
 import { User } from '../../src/database/entities/user.entity';
 import { LifeArea } from '../../src/database/entities/life-area.entity';
 import { IntentBoard } from '../../src/database/entities/intent-board.entity';
@@ -14,6 +14,9 @@ import { ActivityEvent, ActivityEventType } from '../../src/database/entities/ac
 import { Integration, IntegrationAppTypeEnum } from '../../src/database/entities/integration.entity';
 import { GoogleTasksService } from '../../src/services/google-tasks.service';
 import { MicrosoftTodoService } from '../../src/services/microsoft-todo.service';
+
+// Import service dynamically after mock setup
+let acceptSuggestionWithOptions: any;
 
 // Mock provider services
 vi.mock('../../src/services/google-tasks.service', () => {
@@ -40,6 +43,17 @@ describe('Suggestion Accept Flow - Integration Tests', () => {
 
   beforeEach(async () => {
     dataSource = await getTestDataSource();
+    // Replace AppDataSource with test DataSource
+    Object.defineProperty(databaseConfig, 'AppDataSource', {
+      value: dataSource,
+      writable: true,
+      configurable: true,
+    });
+    
+    // Import service after mock is set up
+    const suggestionAcceptModule = await import('../../src/services/suggestion-accept.service');
+    acceptSuggestionWithOptions = suggestionAcceptModule.acceptSuggestionWithOptions;
+    
     const userRepo = dataSource.getRepository(User);
     const lifeAreaRepo = dataSource.getRepository(LifeArea);
     const boardRepo = dataSource.getRepository(IntentBoard);
