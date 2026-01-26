@@ -132,21 +132,20 @@ export function filterSlotsByBusyBlocks(
       const blockStartWithBuffer = addMinutes(block.start, -bufferTime);
       const blockEndWithBuffer = addMinutes(block.end, bufferTime);
       
-      // Special case: If slot ends exactly when block starts AND slot starts before buffered period,
-      // it's available (no gap needed, and slot is completely before the buffered period starts)
-      // This handles the case where a slot ends exactly when the block starts but doesn't extend into
-      // the buffered period (e.g., 9:00-10:00 slot with 30min buffer, buffered period starts at 9:30)
-      const endsExactlyAtBlockStart = slot.end.getTime() === block.start.getTime();
-      const startsBeforeBufferedPeriod = slot.start.getTime() < blockStartWithBuffer.getTime();
-      if (endsExactlyAtBlockStart && startsBeforeBufferedPeriod) {
-        return false; // Slot is available (ends exactly when block starts, starts before buffered period)
-      }
-      
       // Check if slot overlaps with the buffered period
       // A slot overlaps if it starts at or before the buffered period ends AND ends after the buffered period starts
       // Use <= for start boundary: if slot starts exactly when buffered period ends, it should be filtered (no gap)
       // Use > for end boundary: if slot ends exactly when buffered period starts, it's available (there's a gap)
       const overlapsBufferedPeriod = slot.start <= blockEndWithBuffer && slot.end > blockStartWithBuffer;
+      
+      // Special case: If slot ends exactly when block starts AND doesn't overlap with buffered period,
+      // it's available (no gap needed, slot is completely before the buffered period)
+      // This handles the case where a slot ends exactly when the block starts but doesn't extend into
+      // the buffered period (e.g., 8:00-10:00 slot with 30min buffer, buffered period starts at 9:30)
+      const endsExactlyAtBlockStart = slot.end.getTime() === block.start.getTime();
+      if (endsExactlyAtBlockStart && !overlapsBufferedPeriod) {
+        return false; // Slot is available (ends exactly when block starts, no overlap with buffered period)
+      }
       
       if (!overlapsBufferedPeriod) {
         return false; // No overlap with buffered period, slot is available

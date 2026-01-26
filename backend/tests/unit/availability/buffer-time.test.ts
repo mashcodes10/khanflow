@@ -54,16 +54,16 @@ describe("Availability - Buffer Time", () => {
 
     const filtered = filterSlotsByBusyBlocks(slots, [busyBlock], 30);
 
-    // With 30min buffer, slots at 9:30, 10:00, 10:30, 11:00, 11:30 should be removed
+    // With 30min buffer, the buffered period is 9:30-11:30
+    // Slots at 9:00, 9:30, 10:00, 10:30, 11:00, 11:30 should be removed (they overlap with buffered period)
     const slotTimes = filtered.map((s) => s.timeString);
+    expect(slotTimes).not.toContain("09:00"); // 9:00-10:00 overlaps with 9:30-11:30
     expect(slotTimes).not.toContain("09:30");
     expect(slotTimes).not.toContain("10:00");
     expect(slotTimes).not.toContain("10:30");
     expect(slotTimes).not.toContain("11:00");
     expect(slotTimes).not.toContain("11:30");
 
-    // 9:00 should still be available (30min before busy block starts)
-    expect(slotTimes).toContain("09:00");
     // 12:00 should be available (30min after busy block ends)
     expect(slotTimes).toContain("12:00");
   });
