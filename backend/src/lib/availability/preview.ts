@@ -1,4 +1,5 @@
-import { addDays, format, startOfDay } from "date-fns";
+import { addDays, format, startOfDay, parseISO } from "date-fns";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import { DayOfWeekEnum } from "../../database/entities/day-availability";
 import {
   computeAvailability,
@@ -159,13 +160,15 @@ export async function computeAvailabilityPreview(
 
     // Filter busy blocks for this day
     // Include blocks that overlap with this day (not just blocks that start on this day)
-    const dayStart = startOfDay(date);
-    const dayEnd = addDays(dayStart, 1);
+    // Calculate day boundaries in the target timezone
+    const dateStr = formatInTimeZone(date, settings.timezone, "yyyy-MM-dd");
+    const dayStartUTC = fromZonedTime(parseISO(dateStr + "T00:00:00"), settings.timezone);
+    const dayEndUTC = addDays(dayStartUTC, 1);
     const dayBusyBlocks = busyBlocks.filter(
       (block) => {
         // Include block if it overlaps with this day
         // Block overlaps if: block.start < dayEnd && block.end > dayStart
-        return block.start < dayEnd && block.end > dayStart;
+        return block.start < dayEndUTC && block.end > dayStartUTC;
       }
     );
 
@@ -176,7 +179,8 @@ export async function computeAvailabilityPreview(
       slotDuration,
       settings,
       dayBusyBlocks,
-      now
+      now,
+      timeGap
     );
 
     // Group into time ranges

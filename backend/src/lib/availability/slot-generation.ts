@@ -248,14 +248,15 @@ export function computeAvailability(
   slotDuration: number,
   settings: AvailabilitySettings,
   busyBlocks: BusyBlock[],
-  now: Date
+  now: Date,
+  timeGap: number = 0 // minutes between slots
 ): TimeSlot[] {
   // Generate base slots
   let slots = generateTimeSlots(
     date,
     schedule,
     slotDuration,
-    settings.bufferTime,
+    timeGap,
     settings.timezone
   );
 
