@@ -12,7 +12,7 @@ describe("Availability Computation - Integration", () => {
   let fakeBusyProvider: FakeCalendarBusyProvider;
 
   beforeEach(async () => {
-    freezeTime("2025-01-27T10:00:00Z"); // Monday, 10 AM
+    freezeTime("2025-01-27T15:00:00Z"); // Monday, 10 AM EST (15:00 UTC = 10:00 EST in January)
     fakeBusyProvider = new FakeCalendarBusyProvider();
   });
 
@@ -66,7 +66,7 @@ describe("Availability Computation - Integration", () => {
 
   it("should compute availability preview for next 7 days", async () => {
     const { availability } = await createTestUserWithAvailability();
-    const now = new Date("2025-01-27T10:00:00Z");
+    const now = new Date("2025-01-27T15:00:00Z"); // 10 AM EST (15:00 UTC = 10:00 EST in January)
 
     const settings: AvailabilitySettings = {
       timezone: availability.timezone || "America/New_York",
@@ -106,7 +106,7 @@ describe("Availability Computation - Integration", () => {
 
   it("should filter slots by calendar busy blocks", async () => {
     const { availability } = await createTestUserWithAvailability();
-    const now = new Date("2025-01-27T10:00:00Z");
+    const now = new Date("2025-01-27T15:00:00Z"); // 10 AM EST (15:00 UTC = 10:00 EST in January)
 
     // Add a busy block on Tuesday from 10 AM to 12 PM EST (15:00-17:00 UTC)
     const tuesday = new Date("2025-01-28T15:00:00Z"); // 10 AM EST
@@ -140,22 +140,20 @@ describe("Availability Computation - Integration", () => {
 
     if (tuesdayDay) {
       const slotTimes = tuesdayDay.slots.map((s) => s.timeString);
-      // Slots at 10:00, 10:30, 11:00, 11:30, 12:00 should be filtered out (with 30min buffer)
-      expect(slotTimes).not.toContain("09:30");
-      expect(slotTimes).not.toContain("10:00");
-      expect(slotTimes).not.toContain("10:30");
-      expect(slotTimes).not.toContain("11:00");
-      expect(slotTimes).not.toContain("11:30");
-      expect(slotTimes).not.toContain("12:00");
-      expect(slotTimes).not.toContain("12:30");
-      // 13:00 should be available
-      expect(slotTimes).toContain("13:00");
+      // Busy block: 10 AM - 12 PM EST with 30min buffer = 9:30 AM - 12:30 PM EST
+      // With 60-min slots and 30-min gap, slots start at: 9:00, 10:30, 12:00, 1:30, etc.
+      // Slots that overlap with busy period (9:30-12:30) should be filtered out
+      expect(slotTimes).not.toContain("09:00"); // 9:00-10:00 overlaps with 9:30-12:30
+      expect(slotTimes).not.toContain("10:30"); // 10:30-11:30 overlaps with 9:30-12:30
+      expect(slotTimes).not.toContain("12:00"); // 12:00-1:00 overlaps with 9:30-12:30
+      // 13:30 (1:30 PM) should be available (first slot after busy period)
+      expect(slotTimes).toContain("13:30");
     }
   });
 
   it("should respect calendar selection - only selected calendars affect availability", async () => {
     const { availability } = await createTestUserWithAvailability();
-    const now = new Date("2025-01-27T10:00:00Z");
+    const now = new Date("2025-01-27T15:00:00Z"); // 10 AM EST (15:00 UTC = 10:00 EST in January)
 
     // Add busy blocks to two calendars (in EST timezone: 10 AM EST = 3 PM UTC)
     // Use non-overlapping blocks to ensure cal2 filters additional slots
@@ -214,7 +212,7 @@ describe("Availability Computation - Integration", () => {
 
   it("should apply minimum notice filter correctly", async () => {
     const { availability } = await createTestUserWithAvailability();
-    const now = new Date("2025-01-27T10:00:00Z"); // Monday 10 AM
+    const now = new Date("2025-01-27T15:00:00Z"); // Monday 10 AM EST (15:00 UTC = 10:00 EST in January)
 
     const settings: AvailabilitySettings = {
       timezone: availability.timezone || "America/New_York",
@@ -248,7 +246,7 @@ describe("Availability Computation - Integration", () => {
 
   it("should apply booking window filter correctly", async () => {
     const { availability } = await createTestUserWithAvailability();
-    const now = new Date("2025-01-27T10:00:00Z");
+    const now = new Date("2025-01-27T15:00:00Z"); // 10 AM EST (15:00 UTC = 10:00 EST in January)
 
     const settings: AvailabilitySettings = {
       timezone: availability.timezone || "America/New_York",
