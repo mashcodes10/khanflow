@@ -1,7 +1,31 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
-import { AppDataSource } from '../../src/config/database.config';
-import path from 'path';
+
+// Explicitly import entities so TypeORM doesn't need to require TS files by path
+import { User } from '../../src/database/entities/user.entity';
+import { Integration } from '../../src/database/entities/integration.entity';
+import { Event } from '../../src/database/entities/event.entity';
+import { Availability } from '../../src/database/entities/availability.entity';
+import { DayAvailability } from '../../src/database/entities/day-availability';
+import { Meeting } from '../../src/database/entities/meeting.entity';
+import { Intent } from '../../src/database/entities/intent.entity';
+import { IntentBoard } from '../../src/database/entities/intent-board.entity';
+import { LifeArea } from '../../src/database/entities/life-area.entity';
+import { Suggestion } from '../../src/database/entities/suggestion.entity';
+import { AcceptedAction } from '../../src/database/entities/accepted-action.entity';
+import { ProviderTaskLink } from '../../src/database/entities/provider-task-link.entity';
+import { CalendarLink } from '../../src/database/entities/calendar-link.entity';
+import { ActivityEvent } from '../../src/database/entities/activity-event.entity';
+
+// Explicitly import migrations to avoid dynamic TS requires in tests
+import { CreateTables1741780270097 } from '../../src/database/migrations/1741780270097-CreateTables';
+import { CreateTables1741879724900 } from '../../src/database/migrations/1741879724900-CreateTables';
+import { UpdateEventTable1742035317807 } from '../../src/database/migrations/1742035317807-UpdateEvent_Table';
+import { UpdateMeetingTable1742039170939 } from '../../src/database/migrations/1742039170939-UpdateMeeting_Table';
+import { AddMicrosoftProviderAndDuration1749862491582 } from '../../src/database/migrations/1749862491582-AddMicrosoftProviderAndDuration';
+import { AddMicrosoftEnums1750000000000 } from '../../src/database/migrations/1750000000000-AddMicrosoftEnums';
+import { CreateLifeOrgTables1750500000000 } from '../../src/database/migrations/1750500000000-CreateLifeOrgTables';
+import { AddSuggestionSystemTables1751000000000 } from '../../src/database/migrations/1751000000000-AddSuggestionSystemTables';
 
 let testDataSource: DataSource | null = null;
 
@@ -29,8 +53,32 @@ export async function getTestDataSource(): Promise<DataSource> {
   testDataSource = new DataSource({
     type: 'postgres',
     url: databaseUrl,
-    entities: [path.join(__dirname, '../../src/database/entities/*{.ts,.js}')],
-    migrations: [path.join(__dirname, '../../src/database/migrations/*{.ts,.js}')],
+    entities: [
+      User,
+      Integration,
+      Event,
+      Availability,
+      DayAvailability,
+      Meeting,
+      Intent,
+      IntentBoard,
+      LifeArea,
+      Suggestion,
+      AcceptedAction,
+      ProviderTaskLink,
+      CalendarLink,
+      ActivityEvent,
+    ],
+    migrations: [
+      CreateTables1741780270097,
+      CreateTables1741879724900,
+      UpdateEventTable1742035317807,
+      UpdateMeetingTable1742039170939,
+      AddMicrosoftProviderAndDuration1749862491582,
+      AddMicrosoftEnums1750000000000,
+      CreateLifeOrgTables1750500000000,
+      AddSuggestionSystemTables1751000000000,
+    ],
     synchronize: false,
     logging: false,
     ssl: false, // Tests always run against local Postgres (no SSL)
