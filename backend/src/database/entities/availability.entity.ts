@@ -30,6 +30,15 @@ export class Availability {
   @Column({ type: "int", default: 30 })
   timeGap: number;
 
+  @Column({ type: "varchar", default: "America/New_York", nullable: true })
+  timezone: string;
+
+  @Column({ type: "int", default: 240, nullable: true })
+  minimumNotice: number; // in minutes
+
+  @Column({ type: "int", default: 60, nullable: true })
+  bookingWindow: number; // in days
+
   @CreateDateColumn()
   createdAt: Date;
 

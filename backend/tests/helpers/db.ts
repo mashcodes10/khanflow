@@ -29,6 +29,8 @@ import { AddSuggestionSystemTables1751000000000 } from '../../src/database/migra
 import { AddOnboardingColumn1751100000000 } from '../../src/database/migrations/1751100000000-AddOnboardingColumn';
 import { AddTasksCategoryEnum1751200000000 } from '../../src/database/migrations/1751200000000-AddTasksCategoryEnum';
 import { AddTaskAppTypes1751300000000 } from '../../src/database/migrations/1751300000000-AddTaskAppTypes';
+import { FixMeetingTimeColumns1751400000000 } from '../../src/database/migrations/1751400000000-FixMeetingTimeColumns';
+import { AddAvailabilitySettings1751500000000 } from '../../src/database/migrations/1751500000000-AddAvailabilitySettings';
 
 let testDataSource: DataSource | null = null;
 
@@ -84,6 +86,8 @@ export async function getTestDataSource(): Promise<DataSource> {
       AddOnboardingColumn1751100000000,
       AddTasksCategoryEnum1751200000000,
       AddTaskAppTypes1751300000000,
+      FixMeetingTimeColumns1751400000000,
+      AddAvailabilitySettings1751500000000,
     ],
     synchronize: false,
     logging: false,
@@ -113,6 +117,7 @@ export async function resetDatabase(): Promise<void> {
     await queryRunner.startTransaction();
 
     // Delete tables in reverse dependency order (children first)
+    // Note: users has FK (availabilityId) to availability, so we must delete users first
     const tables = [
       'activity_events',
       'calendar_links',
@@ -126,10 +131,15 @@ export async function resetDatabase(): Promise<void> {
       'meetings',
       'events',
       'day_availability',
+      'users', // Delete users before availability (users.availabilityId FK references availability.id)
       'availability',
-      'users',
     ];
 
+    // First, break FK relationships by setting FK columns to NULL
+    // This prevents FK constraint violations during deletion
+    await queryRunner.query(`UPDATE "users" SET "availabilityId" = NULL WHERE "availabilityId" IS NOT NULL;`);
+
+    // Now delete in order
     for (const table of tables) {
       await queryRunner.query(`DELETE FROM "${table}";`);
     }

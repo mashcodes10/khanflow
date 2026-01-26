@@ -29,10 +29,10 @@ export class DayAvailability {
   @Column({ type: "enum", enum: DayOfWeekEnum })
   day: DayOfWeekEnum;
 
-  @Column({ type: "timestamptz" })
+  @Column({ type: "timestamptz", nullable: true })
   startTime: Date;
 
-  @Column({ type: "timestamptz" })
+  @Column({ type: "timestamptz", nullable: true })
   endTime: Date;
 
   @Column({ type: "boolean", default: true })
