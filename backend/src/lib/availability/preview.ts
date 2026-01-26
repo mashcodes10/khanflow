@@ -139,15 +139,30 @@ export async function computeAvailabilityPreview(
   // Get all busy blocks for the period
   const busyBlocks = await getBusyBlocks(now, endDate, selectedCalendarIds);
 
+  // Calculate booking window cutoff in target timezone
+  const nowDateStr = formatInTimeZone(now, settings.timezone, "yyyy-MM-dd");
+  const todayStartUTC = fromZonedTime(parseISO(nowDateStr + "T00:00:00"), settings.timezone);
+  const bookingWindowCutoff = settings.bookingWindow > 0 
+    ? addDays(todayStartUTC, settings.bookingWindow + 1)
+    : null;
+
   // Process each day
   for (let i = 0; i < days; i++) {
-    const date = addDays(startOfDay(now), i);
+    // Calculate the date for day i in the target timezone
+    // Start with today's date in the target timezone, then add i days
+    const todayDateStr = formatInTimeZone(now, settings.timezone, "yyyy-MM-dd");
+    const todayStartUTC = fromZonedTime(parseISO(todayDateStr + "T00:00:00"), settings.timezone);
+    const dayStartUTC = addDays(todayStartUTC, i);
+    const dayEndUTC = addDays(dayStartUTC, 1);
+    
+    // Use dayStartUTC as the date for slot generation (it's already in UTC)
+    const date = dayStartUTC;
     const dayOfWeek = getDayOfWeek(date);
     const daySchedule = weeklySchedule.find((s) => s.day === dayOfWeek);
 
     if (!daySchedule) {
       preview.push({
-        date: format(date, "yyyy-MM-dd"),
+        date: formatInTimeZone(date, settings.timezone, "yyyy-MM-dd"),
         dayOfWeek,
         slots: [],
         isAvailable: false,
@@ -156,14 +171,26 @@ export async function computeAvailabilityPreview(
       continue;
     }
 
+    // Check if this day is within the booking window
+    if (bookingWindowCutoff) {
+      if (dayStartUTC >= bookingWindowCutoff) {
+        // Day is outside booking window - skip slot generation
+        preview.push({
+          date: formatInTimeZone(date, settings.timezone, "yyyy-MM-dd"),
+          dayOfWeek,
+          slots: [],
+          isAvailable: false,
+          timeRanges: [],
+        });
+        continue;
+      }
+    }
+
     const schedule = dayAvailabilityToSchedule(daySchedule);
 
     // Filter busy blocks for this day
     // Include blocks that overlap with this day (not just blocks that start on this day)
-    // Calculate day boundaries in the target timezone
-    const dateStr = formatInTimeZone(date, settings.timezone, "yyyy-MM-dd");
-    const dayStartUTC = fromZonedTime(parseISO(dateStr + "T00:00:00"), settings.timezone);
-    const dayEndUTC = addDays(dayStartUTC, 1);
+    // dayStartUTC and dayEndUTC are already calculated above
     const dayBusyBlocks = busyBlocks.filter(
       (block) => {
         // Include block if it overlaps with this day
@@ -187,7 +214,7 @@ export async function computeAvailabilityPreview(
     const timeRanges = groupSlotsIntoRanges(slots);
 
     preview.push({
-      date: format(date, "yyyy-MM-dd"),
+      date: formatInTimeZone(date, settings.timezone, "yyyy-MM-dd"),
       dayOfWeek,
       slots,
       isAvailable: schedule.isAvailable && slots.length > 0,
