@@ -77,10 +77,6 @@ export async function acceptSuggestionWithOptions(
       throw new Error("Suggestion not found");
     }
 
-    if (suggestion.status !== SuggestionStatus.SHOWN && suggestion.status !== SuggestionStatus.PENDING) {
-      throw new Error("Suggestion cannot be accepted in current state");
-    }
-
     const intent = suggestion.intent;
     if (!intent) {
       throw new Error("Intent not found");
@@ -124,7 +120,18 @@ export async function acceptSuggestionWithOptions(
       },
     });
 
+    // Determine if this is an idempotent call (existing action already exists)
+    const isIdempotentCall = !!existingAction;
+    
+    // Allow acceptance if:
+    // 1. Status is SHOWN or PENDING (new acceptance), OR
+    // 2. There's already an existing action (idempotency - allows ACCEPTED status)
+    if (!isIdempotentCall && suggestion.status !== SuggestionStatus.SHOWN && suggestion.status !== SuggestionStatus.PENDING) {
+      throw new Error("Suggestion cannot be accepted in current state");
+    }
+
     let acceptedAction: AcceptedAction;
+    
     if (existingAction) {
       acceptedAction = existingAction;
     } else {
@@ -190,27 +197,30 @@ export async function acceptSuggestionWithOptions(
       // Continue with updating suggestion status even if provider creation failed
     }
 
-    // Update suggestion status
-    suggestion.status = SuggestionStatus.ACCEPTED;
-    suggestion.actedAt = new Date();
-    await suggestionRepository.save(suggestion);
+    // Only update suggestion status, intent, and create activity event if this is a new acceptance
+    if (!isIdempotentCall) {
+      // Update suggestion status
+      suggestion.status = SuggestionStatus.ACCEPTED;
+      suggestion.actedAt = new Date();
+      await suggestionRepository.save(suggestion);
 
-    // Update intent last_activity_at
-    intent.lastActivityAt = new Date();
-    intent.lastEngagedAt = new Date();
-    intent.acceptCount = (intent.acceptCount || 0) + 1;
-    await intentRepository.save(intent);
+      // Update intent last_activity_at
+      intent.lastActivityAt = new Date();
+      intent.lastEngagedAt = new Date();
+      intent.acceptCount = (intent.acceptCount || 0) + 1;
+      await intentRepository.save(intent);
 
-    // Create activity event
-    await activityEventRepository.save({
-      userId,
-      intentId: intent.id,
-      eventType: ActivityEventType.SUGGESTION_ACCEPTED,
-      metadata: {
-        suggestionId,
-        acceptedActionId: acceptedAction.id,
-      },
-    });
+      // Create activity event
+      await activityEventRepository.save({
+        userId,
+        intentId: intent.id,
+        eventType: ActivityEventType.SUGGESTION_ACCEPTED,
+        metadata: {
+          suggestionId,
+          acceptedActionId: acceptedAction.id,
+        },
+      });
+    }
 
     await queryRunner.commitTransaction();
     return result;
