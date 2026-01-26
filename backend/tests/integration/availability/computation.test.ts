@@ -99,8 +99,10 @@ describe("Availability Computation - Integration", () => {
     const monday = preview.days.find((d) => d.dayOfWeek === DayOfWeekEnum.MONDAY);
     expect(monday).toBeDefined();
     // Slots should be filtered by minimum notice (4 hours from 10 AM = 2 PM earliest)
+    // With 60-min slots and 30-min gap, slots are at: 9:00, 10:30, 12:00, 13:30, 15:00, etc.
+    // After filtering slots before 2 PM, the first available slot is 15:00 (3 PM)
     if (monday && monday.slots.length > 0) {
-      expect(monday.slots[0].timeString).toBe("14:00"); // 2 PM
+      expect(monday.slots[0].timeString).toBe("15:00"); // 3 PM (first slot after 2 PM cutoff)
     }
   });
 
@@ -239,8 +241,9 @@ describe("Availability Computation - Integration", () => {
 
     const monday = preview.days.find((d) => d.dayOfWeek === DayOfWeekEnum.MONDAY);
     if (monday && monday.slots.length > 0) {
-      // First slot should be at 2 PM (10 AM + 4 hours)
-      expect(monday.slots[0].timeString).toBe("14:00");
+      // With 60-min slots and 30-min gap, slots are at: 9:00, 10:30, 12:00, 13:30, 15:00, etc.
+      // After filtering slots before 2 PM (10 AM + 4 hours), the first available slot is 15:00 (3 PM)
+      expect(monday.slots[0].timeString).toBe("15:00");
     }
   });
 

@@ -1,4 +1,4 @@
-import { addMinutes, format, startOfDay, addDays, parseISO } from "date-fns";
+import { addMinutes, format, startOfDay, addDays, parseISO, parse } from "date-fns";
 import { fromZonedTime, toZonedTime, formatInTimeZone } from "date-fns-tz";
 
 export interface TimeSlot {
@@ -141,22 +141,15 @@ export function filterSlotsByBusyBlocks(
       }
       
       // Check if slot overlaps with the buffered period
-      // Use <= for start boundary to catch slots that start exactly when buffered period ends
-      const overlapsBufferedPeriod = slot.start <= blockEndWithBuffer && slot.end > blockStartWithBuffer;
+      // A slot overlaps if it starts before the buffered period ends AND ends after the buffered period starts
+      // Use < for end boundary: if slot ends exactly when buffered period starts, there's no overlap
+      const overlapsBufferedPeriod = slot.start < blockEndWithBuffer && slot.end > blockStartWithBuffer;
       
       if (!overlapsBufferedPeriod) {
         return false; // No overlap with buffered period, slot is available
       }
       
-      // Slot overlaps with buffered period, but check edge case:
-      // - If slot ends exactly when buffered period starts, it's available
-      //   (slot ends at blockStartWithBuffer, leaving buffer time before block)
-      const endsAtBufferedStart = slot.end.getTime() === blockStartWithBuffer.getTime();
-      if (endsAtBufferedStart) {
-        return false; // Slot is available (ends exactly when buffered period starts)
-      }
-      
-      // Otherwise, the slot overlaps with the buffered period and is filtered
+      // Slot overlaps with buffered period and is filtered
       return true;
     });
   });
@@ -182,7 +175,12 @@ export function filterSlotsByMinimumNotice(
   const nowDateStr = formatInTimeZone(now, timezone, "yyyy-MM-dd");
   const nowTimeStr = formatInTimeZone(now, timezone, "HH:mm:ss");
   // Create a date representing "now" as if it were in the target timezone
-  const nowInTimezone = fromZonedTime(parseISO(`${nowDateStr}T${nowTimeStr}`), timezone);
+  // Use parseISO to create a date, then fromZonedTime treats it as if it's in the target timezone
+  // We need to ensure the date is created without timezone info so fromZonedTime can interpret it correctly
+  const dateTimeStr = `${nowDateStr}T${nowTimeStr}`;
+  const nowLocal = parseISO(dateTimeStr);
+  // fromZonedTime interprets the date as if it's in the target timezone and converts to UTC
+  const nowInTimezone = fromZonedTime(nowLocal, timezone);
   // Add minimum notice
   const cutoffInTimezone = addMinutes(nowInTimezone, minimumNotice);
   // cutoffInTimezone is already in UTC (fromZonedTime converts to UTC)
