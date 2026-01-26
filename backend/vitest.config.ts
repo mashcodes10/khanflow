@@ -13,6 +13,14 @@ export default defineConfig({
     hookTimeout: 30000,
     teardownTimeout: 30000,
     pool: 'forks', // Use forks to avoid ESM/CommonJS conflicts
+    poolOptions: {
+      forks: {
+        singleFork: false,
+        isolate: true,
+      },
+    },
+    // Reduce parallelism for integration tests to avoid database deadlocks
+    fileParallelism: false,
     // Use server.deps.inline instead of deprecated deps.inline
     server: {
       deps: {

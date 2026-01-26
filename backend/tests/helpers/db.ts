@@ -26,6 +26,7 @@ import { AddMicrosoftProviderAndDuration1749862491582 } from '../../src/database
 import { AddMicrosoftEnums1750000000000 } from '../../src/database/migrations/1750000000000-AddMicrosoftEnums';
 import { CreateLifeOrgTables1750500000000 } from '../../src/database/migrations/1750500000000-CreateLifeOrgTables';
 import { AddSuggestionSystemTables1751000000000 } from '../../src/database/migrations/1751000000000-AddSuggestionSystemTables';
+import { AddOnboardingColumn1751100000000 } from '../../src/database/migrations/1751100000000-AddOnboardingColumn';
 
 let testDataSource: DataSource | null = null;
 
@@ -78,6 +79,7 @@ export async function getTestDataSource(): Promise<DataSource> {
       AddMicrosoftEnums1750000000000,
       CreateLifeOrgTables1750500000000,
       AddSuggestionSystemTables1751000000000,
+      AddOnboardingColumn1751100000000,
     ],
     synchronize: false,
     logging: false,
@@ -95,17 +97,18 @@ export async function getTestDataSource(): Promise<DataSource> {
 }
 
 /**
- * Reset database state by truncating all tables in correct order
+ * Reset database state by deleting all rows in correct order
+ * Uses DELETE instead of TRUNCATE to avoid deadlocks in parallel test execution
  */
 export async function resetDatabase(): Promise<void> {
   const dataSource = await getTestDataSource();
   const queryRunner = dataSource.createQueryRunner();
-
+  
   try {
-    // Disable foreign key checks temporarily
-    await queryRunner.query('SET session_replication_role = replica;');
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    // Truncate tables in reverse dependency order
+    // Delete tables in reverse dependency order (children first)
     const tables = [
       'activity_events',
       'calendar_links',
@@ -116,16 +119,24 @@ export async function resetDatabase(): Promise<void> {
       'intent_boards',
       'life_areas',
       'integrations',
+      'meetings',
+      'events',
+      'day_availability',
+      'availability',
       'users',
     ];
 
     for (const table of tables) {
-      await queryRunner.query(`TRUNCATE TABLE "${table}" RESTART IDENTITY CASCADE;`);
+      await queryRunner.query(`DELETE FROM "${table}";`);
     }
 
-    // Re-enable foreign key checks
-    await queryRunner.query('SET session_replication_role = DEFAULT;');
+    // Reset sequences
+    await queryRunner.query(`SELECT setval(pg_get_serial_sequence('users', 'id'), 1, false);`);
+    await queryRunner.query(`SELECT setval(pg_get_serial_sequence('availability', 'id'), 1, false);`);
+    
+    await queryRunner.commitTransaction();
   } catch (error) {
+    await queryRunner.rollbackTransaction();
     console.error('Error resetting database:', error);
     throw error;
   } finally {
