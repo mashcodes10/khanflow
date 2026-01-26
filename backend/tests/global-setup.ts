@@ -1,10 +1,10 @@
 // This runs BEFORE any test files are loaded
 // Import reflect-metadata FIRST before anything else
-import 'reflect-metadata';
+import "reflect-metadata";
 
-async function setup() {
+// Vitest expects the default export of a globalSetup file
+// to be a function (can be async). Define it directly here.
+export default async function setup() {
   // Global setup runs before all tests
   // reflect-metadata is now loaded before any entities are imported
 }
-
-export default setup;
