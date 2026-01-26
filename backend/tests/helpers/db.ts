@@ -28,6 +28,7 @@ import { CreateLifeOrgTables1750500000000 } from '../../src/database/migrations/
 import { AddSuggestionSystemTables1751000000000 } from '../../src/database/migrations/1751000000000-AddSuggestionSystemTables';
 import { AddOnboardingColumn1751100000000 } from '../../src/database/migrations/1751100000000-AddOnboardingColumn';
 import { AddTasksCategoryEnum1751200000000 } from '../../src/database/migrations/1751200000000-AddTasksCategoryEnum';
+import { AddTaskAppTypes1751300000000 } from '../../src/database/migrations/1751300000000-AddTaskAppTypes';
 
 let testDataSource: DataSource | null = null;
 
@@ -82,6 +83,7 @@ export async function getTestDataSource(): Promise<DataSource> {
       AddSuggestionSystemTables1751000000000,
       AddOnboardingColumn1751100000000,
       AddTasksCategoryEnum1751200000000,
+      AddTaskAppTypes1751300000000,
     ],
     synchronize: false,
     logging: false,
