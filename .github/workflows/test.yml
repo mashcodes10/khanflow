@@ -55,8 +55,12 @@ jobs:
           OPENAI_API_KEY: dummy_openai_key
         run: npm run db:migrate
 
+      - name: Create test results directory
+        run: mkdir -p test-results
+
       - name: Run tests
         env:
+          CI: true
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/khanflow_test
           NODE_ENV: test
           # Required env vars for config loading (dummy values for CI)

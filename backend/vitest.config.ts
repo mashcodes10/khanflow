@@ -21,6 +21,13 @@ export default defineConfig({
     },
     // Reduce parallelism for integration tests to avoid database deadlocks
     fileParallelism: false,
+    // Output test results for CI/CD
+    reporters: process.env.CI 
+      ? ['verbose', 'junit']
+      : ['verbose'],
+    outputFile: process.env.CI ? {
+      junit: './test-results/junit.xml',
+    } : undefined,
     // Use server.deps.inline instead of deprecated deps.inline
     server: {
       deps: {
