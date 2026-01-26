@@ -12,10 +12,12 @@ export default defineConfig({
     testTimeout: 30000,
     hookTimeout: 30000,
     teardownTimeout: 30000,
+    pool: 'forks', // Use forks to avoid ESM/CommonJS conflicts
     // Use server.deps.inline instead of deprecated deps.inline
     server: {
       deps: {
-        inline: ['reflect-metadata', 'typeorm'],
+        inline: ['reflect-metadata'],
+        external: ['typeorm'], // Don't transform typeorm - use it as-is
       },
     },
     // Ensure all TypeScript files are transformed
