@@ -36,7 +36,7 @@ export default defineConfig({
     tsconfigRaw: {
       compilerOptions: {
         target: 'ES2021',
-        module: 'ESNext', // Use ESM for Vitest compatibility
+        // Don't override module - let tsconfig.json handle it
         experimentalDecorators: true,
         emitDecoratorMetadata: true,
         esModuleInterop: true,
