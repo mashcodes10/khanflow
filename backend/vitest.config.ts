@@ -32,12 +32,11 @@ export default defineConfig({
   // Ensure TypeScript (including enums) is fully compiled, not just stripped
   esbuild: {
     target: 'node20',
-    format: 'cjs',
     keepNames: true,
     tsconfigRaw: {
       compilerOptions: {
         target: 'ES2021',
-        module: 'commonjs',
+        module: 'ESNext', // Use ESM for Vitest compatibility
         experimentalDecorators: true,
         emitDecoratorMetadata: true,
         esModuleInterop: true,

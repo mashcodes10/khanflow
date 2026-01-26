@@ -2,11 +2,8 @@
 // Import reflect-metadata FIRST before anything else.
 import "reflect-metadata";
 
-async function setup() {
+// Vitest expects the default export to be an async function
+export default async function setup() {
   // Global setup runs before all tests.
   // reflect-metadata is now loaded before any entities are imported.
 }
-
-// In CommonJS mode, Vitest expects module.exports to be a function.
-// Using `export =` makes TypeScript emit `module.exports = setup`.
-export = setup;
