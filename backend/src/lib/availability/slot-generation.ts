@@ -164,17 +164,29 @@ export function filterSlotsByBusyBlocks(
 
 /**
  * Filter slots based on minimum notice requirement
+ * The 'now' parameter represents the current time. Minimum notice is calculated
+ * by interpreting 'now' in the target timezone, adding the notice period,
+ * then converting back to UTC for comparison.
  */
 export function filterSlotsByMinimumNotice(
   slots: TimeSlot[],
   now: Date,
-  minimumNotice: number // minutes
+  minimumNotice: number, // minutes
+  timezone: string = "UTC"
 ): TimeSlot[] {
   if (minimumNotice === 0) {
     return slots;
   }
 
-  const cutoffTime = addMinutes(now, minimumNotice);
+  // Get the date and time components of 'now' in the target timezone
+  const nowDateStr = formatInTimeZone(now, timezone, "yyyy-MM-dd");
+  const nowTimeStr = formatInTimeZone(now, timezone, "HH:mm:ss");
+  // Create a date representing "now" as if it were in the target timezone
+  const nowInTimezone = fromZonedTime(parseISO(`${nowDateStr}T${nowTimeStr}`), timezone);
+  // Add minimum notice
+  const cutoffInTimezone = addMinutes(nowInTimezone, minimumNotice);
+  // cutoffInTimezone is already in UTC (fromZonedTime converts to UTC)
+  const cutoffTime = cutoffInTimezone;
 
   return slots.filter((slot) => {
     return slot.start >= cutoffTime;
@@ -265,7 +277,7 @@ export function computeAvailability(
   slots = filterSlotsByBusyBlocks(slots, busyBlocks, settings.bufferTime);
 
   // Filter by minimum notice
-  slots = filterSlotsByMinimumNotice(slots, now, settings.minimumNotice);
+  slots = filterSlotsByMinimumNotice(slots, now, settings.minimumNotice, settings.timezone);
 
   // Filter by booking window
   slots = filterSlotsByBookingWindow(slots, now, settings.bookingWindow, settings.timezone);
