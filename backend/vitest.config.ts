@@ -15,8 +15,13 @@ export default defineConfig({
     // Use server.deps.inline instead of deprecated deps.inline
     server: {
       deps: {
-        inline: ['reflect-metadata'],
+        inline: ['reflect-metadata', 'typeorm'],
       },
+    },
+    // Ensure all TypeScript files are transformed
+    transformMode: {
+      web: [/\.[jt]sx?$/],
+      ssr: [/\.[jt]sx?$/],
     },
   },
   resolve: {
@@ -26,6 +31,8 @@ export default defineConfig({
   },
   // Ensure TypeScript (including enums) is fully compiled, not just stripped
   esbuild: {
+    target: 'node20',
+    format: 'cjs',
     tsconfigRaw: {
       compilerOptions: {
         target: 'ES2021',
@@ -33,6 +40,7 @@ export default defineConfig({
         experimentalDecorators: true,
         emitDecoratorMetadata: true,
         esModuleInterop: true,
+        isolatedModules: false, // Allow enums to be transformed
       },
     },
   },
