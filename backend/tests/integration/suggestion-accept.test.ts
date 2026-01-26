@@ -115,7 +115,7 @@ describe('Suggestion Accept Flow - Integration Tests', () => {
     });
     suggestion = await suggestionRepo.save(suggestion);
 
-    // Create Google integration
+    // Create Google integration with required metadata
     const googleIntegration = integrationRepo.create({
       userId: testUser.id,
       provider: 'GOOGLE' as any,
@@ -123,6 +123,7 @@ describe('Suggestion Accept Flow - Integration Tests', () => {
       app_type: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR,
       access_token: 'fake-access-token',
       refresh_token: 'fake-refresh-token',
+      metadata: {}, // Required field
     });
     await integrationRepo.save(googleIntegration);
 

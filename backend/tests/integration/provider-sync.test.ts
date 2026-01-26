@@ -11,7 +11,8 @@ import { Intent } from '../../src/database/entities/intent.entity';
 import { AcceptedAction, AcceptedActionStatus } from '../../src/database/entities/accepted-action.entity';
 import { ProviderTaskLink, ProviderTaskStatus, ProviderType } from '../../src/database/entities/provider-task-link.entity';
 import { ActivityEvent, ActivityEventType } from '../../src/database/entities/activity-event.entity';
-import { Integration, IntegrationAppTypeEnum } from '../../src/database/entities/integration.entity';
+import { Integration, IntegrationAppTypeEnum, IntegrationCategoryEnum } from '../../src/database/entities/integration.entity';
+import { Suggestion, SuggestionStatus } from '../../src/database/entities/suggestion.entity';
 import { GoogleTasksService } from '../../src/services/google-tasks.service';
 import { MicrosoftTodoService } from '../../src/services/microsoft-todo.service';
 
@@ -45,6 +46,7 @@ describe('Provider Sync - Integration Tests', () => {
     const lifeAreaRepo = dataSource.getRepository(LifeArea);
     const boardRepo = dataSource.getRepository(IntentBoard);
     const intentRepo = dataSource.getRepository(Intent);
+    const suggestionRepo = dataSource.getRepository(Suggestion);
     const acceptedActionRepo = dataSource.getRepository(AcceptedAction);
     const providerTaskLinkRepo = dataSource.getRepository(ProviderTaskLink);
     const integrationRepo = dataSource.getRepository(Integration);
@@ -82,10 +84,23 @@ describe('Provider Sync - Integration Tests', () => {
     });
     intent = await intentRepo.save(intent);
 
+    // Create a suggestion first (required for AcceptedAction foreign key)
+    const suggestion = suggestionRepo.create({
+      userId: testUser.id,
+      intentId: intent.id,
+      naturalLanguagePhrase: 'Test suggestion',
+      reason: 'Test reason',
+      status: SuggestionStatus.PENDING,
+      suggestedAction: 'create_task',
+      priority: 'medium',
+      heuristicType: 'neglect',
+    });
+    const savedSuggestion = await suggestionRepo.save(suggestion);
+
     // Create accepted action
     acceptedAction = acceptedActionRepo.create({
       userId: testUser.id,
-      suggestionId: uuidv4(), // Use proper UUID instead of fake string
+      suggestionId: savedSuggestion.id,
       intentId: intent.id,
       type: 'task' as any,
       status: AcceptedActionStatus.PENDING,
@@ -93,14 +108,15 @@ describe('Provider Sync - Integration Tests', () => {
     });
     acceptedAction = await acceptedActionRepo.save(acceptedAction);
 
-    // Create Google integration
+    // Create Google integration with required metadata
     const googleIntegration = integrationRepo.create({
       userId: testUser.id,
       provider: 'GOOGLE' as any,
-      category: 'TASKS' as any,
+      category: IntegrationCategoryEnum.TASKS,
       app_type: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR,
       access_token: 'fake-access-token',
       refresh_token: 'fake-refresh-token',
+      metadata: {}, // Required field
     });
     await integrationRepo.save(googleIntegration);
 

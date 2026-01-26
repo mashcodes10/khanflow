@@ -279,14 +279,39 @@ describe('Candidate Selection Engine', () => {
   });
 
   it('should boost score for intents with drop-off', async () => {
+    const suggestionRepo = dataSource.getRepository(Suggestion);
+    const acceptedActionRepo = dataSource.getRepository(AcceptedAction);
     const providerTaskLinkRepo = dataSource.getRepository(ProviderTaskLink);
     const thirtyFiveDaysAgo = new Date('2025-12-22T12:00:00Z'); // 35 days before frozen time
+
+    // Create a suggestion and accepted action first (required for foreign key)
+    const suggestion = suggestionRepo.create({
+      userId: testUser.id,
+      intentId: intent1.id,
+      naturalLanguagePhrase: 'Test suggestion',
+      reason: 'Test reason',
+      status: SuggestionStatus.PENDING,
+      suggestedAction: 'create_task',
+      priority: 'medium',
+      heuristicType: 'neglect',
+    });
+    const savedSuggestion = await suggestionRepo.save(suggestion);
+
+    const acceptedAction = acceptedActionRepo.create({
+      userId: testUser.id,
+      suggestionId: savedSuggestion.id,
+      intentId: intent1.id,
+      type: 'task' as any,
+      status: AcceptedActionStatus.COMPLETED,
+      optionIndex: 0,
+    });
+    const savedAcceptedAction = await acceptedActionRepo.save(acceptedAction);
 
     // Create a completed task from 35 days ago (drop-off scenario)
     await providerTaskLinkRepo.save({
       userId: testUser.id,
       intentId: intent1.id,
-      acceptedActionId: uuidv4(), // Use proper UUID instead of fake string
+      acceptedActionId: savedAcceptedAction.id,
       provider: 'google',
       providerTaskId: 'fake-task-id',
       providerListId: 'fake-list-id',
