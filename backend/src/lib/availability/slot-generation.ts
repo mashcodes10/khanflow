@@ -118,12 +118,15 @@ export function filterSlotsByBusyBlocks(
       const blockEndWithBuffer = addMinutes(block.end, bufferTime);
       
       // Check if slot overlaps with the buffered period
-      // Slot overlaps if: slot.start <= bufferedBlockEnd && slot.end > bufferedBlockStart
-      // Use <= for end to include slots that start exactly when buffered period ends
-      // (these need to be filtered if bufferTime > 0)
-      const overlaps = slot.start <= blockEndWithBuffer && slot.end > blockStartWithBuffer;
+      // Slot overlaps if: slot.start < bufferedBlockEnd && slot.end > bufferedBlockStart
+      // For bufferTime > 0, also filter slots that start exactly when buffered period ends
+      const overlaps = slot.start < blockEndWithBuffer && slot.end > blockStartWithBuffer;
       
       if (!overlaps) {
+        // Check if slot starts exactly when buffered period ends (needs buffer before slot)
+        if (bufferTime > 0 && slot.start.getTime() === blockEndWithBuffer.getTime()) {
+          return true; // Filter - need buffer time before slot starts
+        }
         // No overlap - slot is available
         return false;
       }
@@ -150,13 +153,6 @@ export function filterSlotsByBusyBlocks(
           // It's available only if it starts before the buffered period starts
           // (meaning there's buffer time between slot end and block start)
           return slot.start >= blockStartWithBuffer; // Filter if slot starts in buffered period
-        }
-        
-        // A slot that starts exactly when buffered period ends needs buffer time before it starts
-        // So it should be filtered if bufferTime > 0
-        const startsAtBufferedEnd = slot.start.getTime() === blockEndWithBuffer.getTime();
-        if (startsAtBufferedEnd) {
-          return true; // Filter - need buffer time before slot starts
         }
       }
       
@@ -213,6 +209,7 @@ export function filterSlotsByBookingWindow(
   
   // Add days to get the start of the day after the last allowed day
   // bookingWindow=3 means days 0-3 are included, so we want to exclude day 4+
+  // cutoffDayStartUTC is the start of day (bookingWindow + 1), which is the first excluded day
   const cutoffDayStartUTC = addDays(nowDayStartUTC, bookingWindow + 1);
 
   return slots.filter((slot) => {
