@@ -33,6 +33,7 @@ export default defineConfig({
   esbuild: {
     target: 'node20',
     format: 'cjs',
+    keepNames: true,
     tsconfigRaw: {
       compilerOptions: {
         target: 'ES2021',
@@ -41,6 +42,7 @@ export default defineConfig({
         emitDecoratorMetadata: true,
         esModuleInterop: true,
         isolatedModules: false, // Allow enums to be transformed
+        skipLibCheck: true,
       },
     },
   },
