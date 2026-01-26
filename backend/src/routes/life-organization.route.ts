@@ -16,8 +16,17 @@ import {
   acceptSuggestionController,
   snoozeSuggestionController,
   ignoreSuggestionController,
+  generateSuggestionsController,
+  syncProvidersController,
   getOnboardingQuestionsController,
   completeOnboardingController,
+  seedLifeOrganizationController,
+  removeExampleIntentsController,
+  getOnboardingStatusController,
+  resetOnboardingStatusController,
+  markOnboardingCompleteController,
+  clearLifeOrganizationController,
+  getTemplatesController,
 } from "../controllers/life-organization.controller";
 
 const router = Router();
@@ -44,13 +53,24 @@ router.get("/intent-boards/:id/intents", getIntentsByBoardController);
 
 // Suggestions
 router.get("/suggestions", getSuggestionsController);
+router.post("/suggestions/generate", generateSuggestionsController);
 router.post("/suggestions/:id/accept", acceptSuggestionController);
 router.post("/suggestions/:id/snooze", snoozeSuggestionController);
 router.post("/suggestions/:id/ignore", ignoreSuggestionController);
+router.post("/provider/sync", syncProvidersController);
 
 // Onboarding
 router.get("/onboarding/questions", getOnboardingQuestionsController);
 router.post("/onboarding/complete", completeOnboardingController);
+router.get("/onboarding/status", getOnboardingStatusController);
+router.post("/onboarding/mark-complete", markOnboardingCompleteController);
+router.post("/onboarding/reset", resetOnboardingStatusController);
+
+// Seeding
+router.post("/seed", seedLifeOrganizationController);
+router.post("/remove-examples", removeExampleIntentsController);
+router.post("/clear", clearLifeOrganizationController);
+router.get("/templates", getTemplatesController);
 
 export default router;
 

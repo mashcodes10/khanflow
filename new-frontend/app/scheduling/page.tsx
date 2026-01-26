@@ -1,10 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { PageHeader } from '@/components/shared/page-header'
 import { EventTypeCard } from '@/components/scheduling/event-type-card'
+import { CreateEventDialog } from '@/components/scheduling/create-event-dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Plus, CalendarRange } from 'lucide-react'
@@ -56,12 +58,37 @@ const mockUser = {
 }
 
 export default function SchedulingPage() {
+  const router = useRouter()
   const queryClient = useQueryClient()
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+
+  // Check authentication
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        router.push('/auth/signin')
+      }
+    }
+  }, [router])
 
   // Fetch events from backend
   const { data: eventsData, isLoading } = useQuery({
     queryKey: ['events'],
     queryFn: eventsAPI.getAll,
+  })
+
+  // Create event mutation
+  const createMutation = useMutation({
+    mutationFn: eventsAPI.create,
+    onSuccess: () => {
+      toast.success('Event type created successfully')
+      queryClient.invalidateQueries({ queryKey: ['events'] })
+      setCreateDialogOpen(false)
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to create event type')
+    },
   })
 
   // Toggle privacy mutation
@@ -87,6 +114,15 @@ export default function SchedulingPage() {
       toast.error(error.message || 'Failed to delete event')
     },
   })
+
+  const handleCreate = async (data: {
+    title: string
+    description: string
+    duration: number
+    locationType: string
+  }) => {
+    await createMutation.mutateAsync(data)
+  }
 
   // Transform backend events to frontend format
   const eventTypes = eventsData?.data?.events?.map((event: EventType) => ({
@@ -129,7 +165,7 @@ export default function SchedulingPage() {
             title="Scheduling"
             showCreate
             createLabel="Create"
-            onCreate={() => {}}
+            onCreate={() => setCreateDialogOpen(true)}
             isAuthenticated
             user={{ name: mockUser.name, email: mockUser.email }}
           />
@@ -151,6 +187,7 @@ export default function SchedulingPage() {
               variant="outline"
               size="sm"
               className="gap-1.5 rounded-lg border-border-subtle hover:border-border bg-transparent"
+              onClick={() => setCreateDialogOpen(true)}
             >
               <Plus className="size-3.5" strokeWidth={2} />
               Create
@@ -189,7 +226,10 @@ export default function SchedulingPage() {
               <p className="text-sm text-muted-foreground mb-4 max-w-sm">
                 Create your first event type to start scheduling meetings with others.
               </p>
-              <Button className="gap-1.5 rounded-lg bg-accent hover:bg-accent/90 text-accent-foreground">
+              <Button 
+                className="gap-1.5 rounded-lg bg-accent hover:bg-accent/90 text-accent-foreground"
+                onClick={() => setCreateDialogOpen(true)}
+              >
                 <Plus className="size-4" strokeWidth={2} />
                 Create Event Type
               </Button>
@@ -197,6 +237,13 @@ export default function SchedulingPage() {
           )}
         </div>
       </main>
+
+      {/* Create Event Dialog */}
+      <CreateEventDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onCreate={handleCreate}
+      />
     </div>
   )
 }

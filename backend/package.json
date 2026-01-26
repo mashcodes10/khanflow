@@ -11,7 +11,14 @@
     "db:generate": "npm run typeorm -- migration:generate ./src/database/migrations/UpdateMeeting_Table",
     "db:migrate": "npm run typeorm -- migration:run",
     "db:revert": "npm run typeorm -- migration:revert",
-    "db:drop": "npm run typeorm -- schema:drop"
+    "db:drop": "npm run typeorm -- schema:drop",
+    "db:setup": "node scripts/setup-database.js",
+    "db:setup-supabase": "node scripts/setup-supabase.js",
+    "db:update-supabase": "node scripts/update-supabase-env.js",
+    "test": "vitest run",
+    "test:unit": "vitest run --dir tests/unit",
+    "test:integration": "vitest run --dir tests/integration",
+    "test:watch": "vitest"
   },
   "keywords": [],
   "author": "",
@@ -46,7 +53,10 @@
     "@types/node": "^22.13.4",
     "@types/passport": "^1.0.17",
     "@types/passport-jwt": "^4.0.1",
+    "@vitest/ui": "^2.1.8",
     "ts-node-dev": "^2.0.0",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "vitest": "^2.1.8",
+    "zod": "^3.24.1"
   }
 }

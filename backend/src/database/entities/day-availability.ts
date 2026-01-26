@@ -29,13 +29,13 @@ export class DayAvailability {
   @Column({ type: "enum", enum: DayOfWeekEnum })
   day: DayOfWeekEnum;
 
-  @Column()
+  @Column({ type: "timestamptz" })
   startTime: Date;
 
-  @Column()
+  @Column({ type: "timestamptz" })
   endTime: Date;
 
-  @Column({ default: true })
+  @Column({ type: "boolean", default: true })
   isAvailable: boolean;
 
   @CreateDateColumn()

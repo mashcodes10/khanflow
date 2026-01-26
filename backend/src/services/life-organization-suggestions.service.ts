@@ -13,6 +13,8 @@ import {
   generateSuggestions,
   SuggestionCandidate,
 } from "./suggestion-engine.service";
+import { selectCandidateIntents } from "./candidate-scoring.service";
+import { generateAISuggestion } from "./ai-suggestion-generator.service";
 import { getCalendarPreferencesService } from "./integration.service";
 
 export interface SuggestionResponse {
@@ -35,6 +37,20 @@ export interface SuggestionResponse {
   priority: "low" | "medium" | "high";
   heuristicType: "neglect" | "balance" | "opportunity" | "reinforcement";
   createdAt: string;
+  aiPayload?: {
+    title: string;
+    reason: string;
+    priority: "low" | "medium" | "high";
+    recommendedActionType: "task" | "reminder" | "plan";
+    options: Array<{
+      label: string;
+      type: "task" | "reminder" | "plan";
+      details: Record<string, any>;
+      estimatedEffortMin: number;
+    }>;
+    defaultOptionIndex: number;
+    confidence: number;
+  };
 }
 
 /**
@@ -59,33 +75,35 @@ export const generateSuggestionsService = async (
 
   // If we have active suggestions, return them
   if (activeSuggestions.length > 0) {
-    return activeSuggestions.map((s) => ({
-      id: s.id,
-      intentId: s.intentId,
-      intentTitle: s.intent.title,
-      intentDescription: s.intent.description,
-      lifeAreaName: s.intent.intentBoard.lifeArea.name,
-      intentBoardName: s.intent.intentBoard.name,
-      naturalLanguagePhrase: s.naturalLanguagePhrase,
-      reason: s.reason,
-      suggestedAction: s.suggestedAction,
-      suggestedDetails: s.suggestedDetails,
-      priority: s.priority,
-      heuristicType: s.heuristicType,
-      createdAt: s.createdAt.toISOString(),
-    }));
+      return activeSuggestions.map((s) => ({
+        id: s.id,
+        intentId: s.intentId,
+        intentTitle: s.intent.title,
+        intentDescription: s.intent.description,
+        lifeAreaName: s.intent.intentBoard.lifeArea.name,
+        intentBoardName: s.intent.intentBoard.name,
+        naturalLanguagePhrase: s.naturalLanguagePhrase,
+        reason: s.reason,
+        suggestedAction: s.suggestedAction,
+        suggestedDetails: s.suggestedDetails,
+        priority: s.priority,
+        heuristicType: s.heuristicType,
+        createdAt: s.createdAt.toISOString(),
+        aiPayload: s.aiPayload,
+      }));
   }
 
-  // Generate new suggestions using the engine
-  const candidates = await generateSuggestions(userId);
+  // Generate new suggestions using two-stage approach
+  // Stage A: Rules-based candidate selection
+  const candidateIntents = await selectCandidateIntents(userId, 3);
 
-  if (candidates.length === 0) {
+  if (candidateIntents.length === 0) {
     return [];
   }
 
-  // Create suggestion records
+  // Stage B: AI generation for each candidate
   const newSuggestions: Suggestion[] = [];
-  for (const candidate of candidates) {
+  for (const candidate of candidateIntents) {
     const intent = await AppDataSource.getRepository(Intent).findOne({
       where: { id: candidate.intentId },
       relations: ["intentBoard", "intentBoard.lifeArea"],
@@ -93,16 +111,23 @@ export const generateSuggestionsService = async (
 
     if (!intent) continue;
 
+    // Generate AI suggestion payload
+    const aiPayload = await generateAISuggestion(candidate);
+
+    // Create suggestion record with AI payload
     const suggestion = suggestionRepository.create({
       userId,
       intentId: candidate.intentId,
-      naturalLanguagePhrase: candidate.naturalLanguagePhrase || candidate.reason,
-      reason: candidate.reason,
+      naturalLanguagePhrase: aiPayload.title,
+      reason: aiPayload.reason,
       status: SuggestionStatus.PENDING,
-      suggestedAction: candidate.suggestedAction,
-      suggestedDetails: candidate.suggestedDetails,
-      priority: candidate.heuristicScore > 70 ? "high" : candidate.heuristicScore > 40 ? "medium" : "low",
-      heuristicType: candidate.heuristicType,
+      suggestedAction: "create_task", // Default, can be enhanced
+      suggestedDetails: {
+        taskTitle: aiPayload.options[aiPayload.defaultOptionIndex]?.details?.taskTitle || candidate.intentTitle,
+      },
+      priority: aiPayload.priority,
+      heuristicType: "neglect", // Can be enhanced
+      aiPayload: aiPayload,
     });
 
     const saved = await suggestionRepository.save(suggestion);
@@ -145,6 +170,7 @@ export const generateSuggestionsService = async (
         priority: withRelations.priority,
         heuristicType: withRelations.heuristicType,
         createdAt: withRelations.createdAt.toISOString(),
+        aiPayload: withRelations.aiPayload, // Include AI payload in response
       });
     }
   }

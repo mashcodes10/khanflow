@@ -23,9 +23,10 @@ interface LifeAreaSectionProps {
   tag: string
   tagColor?: 'default' | 'health' | 'career' | 'relationships' | 'learning' | 'hobbies'
   boards: Board[]
+  lifeAreaId?: string
   className?: string
-  onAddBoard?: () => void
-  onAddIntent?: (boardId: string, intent: { text: string; type: 'task' | 'reminder' | 'goal'; dueDate?: string }) => void
+  onAddBoard?: (lifeAreaId: string, boardName: string) => void
+  onAddIntent?: (boardId: string, intent: { text: string; type: 'task' | 'reminder' | 'goal'; timeline?: string }) => void
   onToggleIntent?: (boardId: string, intentId: string) => void
 }
 
@@ -34,6 +35,7 @@ export function LifeAreaSection({
   tag, 
   tagColor = 'default',
   boards,
+  lifeAreaId,
   className,
   onAddBoard,
   onAddIntent,
@@ -55,18 +57,14 @@ export function LifeAreaSection({
             <Plus className="size-5 text-muted-foreground" strokeWidth={1.5} />
           </div>
           <p className="text-sm text-muted-foreground mb-3">No intent boards yet</p>
-          <button
-            onClick={onAddBoard}
-            className={cn(
-              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg',
-              'text-sm text-muted-foreground hover:text-foreground',
-              'border border-dashed border-border-subtle hover:border-primary/30',
-              'transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-            )}
-          >
-            <Plus className="size-3.5" strokeWidth={2} />
-            Add Intent Board
-          </button>
+          {lifeAreaId && (
+            <AddIntentPopover 
+              lifeAreaTitle={title}
+              mode="intentBoard"
+              onAddIntentBoard={(board) => onAddBoard?.(lifeAreaId, board.name)}
+              variant="inline"
+            />
+          )}
         </div>
       ) : (
         <div className="space-y-3">
@@ -80,11 +78,15 @@ export function LifeAreaSection({
             />
           ))}
           
-          <AddIntentPopover 
-            boardTitle="New Board"
-            variant="card" 
-            className="mt-2"
-          />
+          {lifeAreaId && (
+            <AddIntentPopover 
+              lifeAreaTitle={title}
+              mode="intentBoard"
+              onAddIntentBoard={(board) => onAddBoard?.(lifeAreaId, board.name)}
+              variant="card" 
+              className="mt-2"
+            />
+          )}
         </div>
       )}
     </section>

@@ -16,7 +16,7 @@ interface BoardCardProps {
   intents?: Intent[]
   isEmpty?: boolean
   className?: string
-  onAddIntent?: (intent: { text: string; type: 'task' | 'reminder' | 'goal'; dueDate?: string }) => void
+  onAddIntent?: (intent: { text: string; type: 'task' | 'reminder' | 'goal'; timeline?: string }) => void
   onToggleIntent?: (id: string) => void
 }
 

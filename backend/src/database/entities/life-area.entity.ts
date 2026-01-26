@@ -16,13 +16,13 @@ export class LifeArea {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ nullable: false })
+  @Column({ type: "varchar", nullable: false })
   name: string;
 
   @Column({ type: "text", nullable: true })
   description?: string;
 
-  @Column({ nullable: false })
+  @Column({ type: "uuid", nullable: false })
   userId: string;
 
   @Column({ type: "int", default: 0 })

@@ -23,19 +23,19 @@ export class Event {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ nullable: false })
+  @Column({ type: "varchar", nullable: false })
   title: string;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", nullable: true })
   description: string;
 
-  @Column({ default: 30 })
+  @Column({ type: "int", default: 30 })
   duration: number;
 
-  @Column({ nullable: false })
+  @Column({ type: "varchar", nullable: false })
   slug: string;
 
-  @Column({ default: false })
+  @Column({ type: "boolean", default: false })
   isPrivate: boolean;
 
   @Column({ type: "enum", enum: EventLocationEnumType })

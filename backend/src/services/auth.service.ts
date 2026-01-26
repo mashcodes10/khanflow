@@ -155,3 +155,62 @@ async function generateUsername(name: string): Promise<string> {
 
   return username;
 }
+
+export const microsoftLoginService = async (accessToken: string) => {
+  // Fetch user info from Microsoft Graph API
+  const response = await fetch("https://graph.microsoft.com/v1.0/me", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new BadRequestException("Invalid Microsoft token");
+  }
+
+  const profile = await response.json();
+  if (!profile.mail && !profile.userPrincipalName) {
+    throw new BadRequestException("Microsoft profile missing email");
+  }
+
+  const email = profile.mail || profile.userPrincipalName;
+  const userRepository = AppDataSource.getRepository(User);
+
+  let user = await userRepository.findOne({ where: { email } });
+
+  // Create a user if not exists
+  if (!user) {
+    const username = await generateUsername(profile.displayName || email);
+    const randomPassword = await bcrypt.hash(uuidv4(), 10);
+    // default availability
+    const availability = AppDataSource.getRepository(Availability).create({
+      timeGap: 30,
+      days: Object.values(DayOfWeekEnum).map((day) => {
+        return AppDataSource.getRepository(DayAvailability).create({
+          day,
+          startTime: new Date(`2025-03-01T09:00:00Z`),
+          endTime: new Date(`2025-03-01T17:00:00Z`),
+          isAvailable: day !== DayOfWeekEnum.SUNDAY && day !== DayOfWeekEnum.SATURDAY,
+        });
+      }),
+    });
+
+    user = AppDataSource.getRepository(User).create({
+      email,
+      name: profile.displayName || "Microsoft User",
+      username,
+      password: randomPassword,
+      availability,
+    });
+
+    await AppDataSource.getRepository(User).save(user);
+  }
+
+  const { token, expiresAt } = signJwtToken({ userId: user.id });
+
+  return {
+    user: user.omitPassword(),
+    accessToken: token,
+    expiresAt,
+  };
+}

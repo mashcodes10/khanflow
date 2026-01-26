@@ -14,13 +14,13 @@ export class Intent {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ nullable: false })
+  @Column({ type: "varchar", nullable: false })
   title: string;
 
   @Column({ type: "text", nullable: true })
   description?: string;
 
-  @Column({ nullable: false })
+  @Column({ type: "uuid", nullable: false })
   intentBoardId: string;
 
   @Column({ type: "int", default: 0 })
@@ -32,6 +32,9 @@ export class Intent {
   @Column({ type: "timestamp", nullable: true })
   lastEngagedAt?: Date; // Track when user last engaged with this intent (accepted suggestion, viewed, etc.)
 
+  @Column({ type: "timestamp", nullable: true })
+  lastActivityAt?: Date; // Track last activity from any source (app, provider tasks, calendar events)
+
   @Column({ type: "int", default: 0 })
   suggestionCount: number; // How many times AI has suggested this
 
@@ -40,6 +43,9 @@ export class Intent {
 
   @Column({ type: "int", default: 0 })
   ignoreCount: number; // How many times user ignored suggestions from this intent
+
+  @Column({ type: "boolean", default: false })
+  isExample: boolean; // Mark example intents created during onboarding
 
   @ManyToOne(() => IntentBoard, (intentBoard) => intentBoard.intents, {
     onDelete: "CASCADE",

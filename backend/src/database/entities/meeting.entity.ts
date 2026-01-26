@@ -26,28 +26,28 @@ export class Meeting {
   @ManyToOne(() => Event, (event) => event.meetings)
   event: Event;
 
-  @Column()
+  @Column({ type: "varchar" })
   guestName: string;
 
-  @Column()
+  @Column({ type: "varchar" })
   guestEmail: string;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", nullable: true })
   additionalInfo: string;
 
-  @Column()
+  @Column({ type: "timestamptz" })
   startTime: Date;
 
-  @Column()
+  @Column({ type: "timestamptz" })
   endTime: Date;
 
-  @Column()
+  @Column({ type: "varchar" })
   meetLink: string;
 
-  @Column()
+  @Column({ type: "varchar" })
   calendarEventId: string;
 
-  @Column()
+  @Column({ type: "varchar" })
   calendarAppType: string;
 
   @Column({

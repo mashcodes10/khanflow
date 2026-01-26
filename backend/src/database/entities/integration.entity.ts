@@ -69,10 +69,10 @@ export class Integration {
   @Column({ type: "enum", enum: IntegrationAppTypeEnum })
   app_type: IntegrationAppTypeEnum;
 
-  @Column()
+  @Column({ type: "varchar" })
   access_token: string;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", nullable: true })
   refresh_token: string;
 
   @Column({ type: "bigint", nullable: true })
@@ -81,10 +81,10 @@ export class Integration {
   @Column({ type: "json" })
   metadata: IntegrationMetadata;
 
-  @Column({ default: true })
+  @Column({ type: "boolean", default: true })
   isConnected: boolean;
 
-  @Column({ nullable: false })
+  @Column({ type: "uuid", nullable: false })
   userId: string;
 
   @ManyToOne(() => User, (user) => user.integrations)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { PageHeader } from '@/components/shared/page-header'
@@ -30,7 +31,18 @@ const defaultSchedule: WeeklySchedule = {
 }
 
 export default function AvailabilityPage() {
+  const router = useRouter()
   const queryClient = useQueryClient()
+
+  // Check authentication
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        router.push('/auth/signin')
+      }
+    }
+  }, [router])
   
   // Fetch availability from backend
   const { data: availabilityData, isLoading } = useQuery({

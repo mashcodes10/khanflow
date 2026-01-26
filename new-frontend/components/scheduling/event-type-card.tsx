@@ -56,10 +56,11 @@ export function EventTypeCard({
   return (
     <div
       className={cn(
-        'group relative rounded-xl border border-border-subtle bg-card p-5',
-        'transition-all duration-200 hover:border-border hover:shadow-md',
+        'group relative rounded-xl bg-card p-5 border-0',
+        'transition-all duration-200 hover:shadow-md',
         className
       )}
+      style={{ border: 'none' }}
     >
       {/* Title & Description */}
       <div className="mb-4">

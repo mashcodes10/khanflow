@@ -20,10 +20,21 @@ import {
   snoozeSuggestionService,
   ignoreSuggestionService,
 } from "../services/life-organization-suggestions.service";
+import { acceptSuggestionWithOptions } from "../services/suggestion-accept.service";
+import { syncAllProviders } from "../services/provider-sync.service";
 import {
   processOnboardingService,
   ONBOARDING_QUESTIONS,
 } from "../services/life-organization-onboarding.service";
+import {
+  seedLifeOrganizationService,
+  removeExampleIntentsService,
+  getOnboardingStatusService,
+  resetOnboardingStatusService,
+  markOnboardingCompleteService,
+  clearLifeOrganizationDataService,
+  TEMPLATES,
+} from "../services/life-organization-seed.service";
 
 /**
  * GET /api/life-organization/life-areas
@@ -286,12 +297,24 @@ export const getSuggestionsController = asyncHandler(
 
 /**
  * POST /api/life-organization/suggestions/:id/accept
- * Accept a suggestion and create task/event
+ * Accept a suggestion and create task/event with options
  */
 export const acceptSuggestionController = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = req.user?.id as string;
     const { id } = req.params;
+    
+    console.log('Accept suggestion request - RAW:', {
+      userId,
+      suggestionId: id,
+      rawBody: req.body,
+      bodyKeys: Object.keys(req.body || {}),
+      optionIndex: req.body?.optionIndex,
+      optionIndexType: typeof req.body?.optionIndex,
+      bodyStringified: JSON.stringify(req.body),
+    });
+
+    const { optionIndex, destinationList, scheduleNow, scheduledTime } = req.body || {};
 
     if (!id) {
       return res.status(HTTPSTATUS.BAD_REQUEST).json({
@@ -299,10 +322,96 @@ export const acceptSuggestionController = asyncHandler(
       });
     }
 
-    const result = await acceptSuggestionService(userId, id);
+    // Validate optionIndex - allow 0 as valid value
+    // Check if optionIndex exists in the request body
+    if (req.body === undefined || req.body === null) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Request body is required",
+        received: req.body,
+      });
+    }
+
+    if (optionIndex === undefined || optionIndex === null) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "optionIndex is required",
+        received: optionIndex,
+        receivedType: typeof optionIndex,
+        bodyKeys: Object.keys(req.body),
+        fullBody: req.body,
+      });
+    }
+
+    // Convert to number if it's a string
+    let numericOptionIndex: number;
+    if (typeof optionIndex === 'string') {
+      numericOptionIndex = parseInt(optionIndex, 10);
+    } else if (typeof optionIndex === 'number') {
+      numericOptionIndex = optionIndex;
+    } else {
+      numericOptionIndex = Number(optionIndex);
+    }
+    
+    if (isNaN(numericOptionIndex) || numericOptionIndex < 0) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "optionIndex must be a non-negative number",
+        received: optionIndex,
+        receivedType: typeof optionIndex,
+        converted: numericOptionIndex,
+      });
+    }
+
+    console.log('Accept suggestion request - PROCESSED:', {
+      userId,
+      suggestionId: id,
+      optionIndex: numericOptionIndex,
+      destinationList,
+      scheduleNow,
+      scheduledTime,
+    });
+
+    const result = await acceptSuggestionWithOptions(userId, id, {
+      optionIndex: numericOptionIndex,
+      destinationList,
+      scheduleNow,
+      scheduledTime,
+    });
 
     return res.status(HTTPSTATUS.OK).json({
       message: "Suggestion accepted and task/event created successfully",
+      data: result,
+    });
+  }
+);
+
+/**
+ * POST /api/life-organization/suggestions/generate
+ * Manually trigger suggestion generation
+ */
+export const generateSuggestionsController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+
+    const suggestions = await generateSuggestionsService(userId);
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Suggestions generated successfully",
+      data: suggestions,
+    });
+  }
+);
+
+/**
+ * POST /api/life-organization/provider/sync
+ * Sync provider tasks and calendar events
+ */
+export const syncProvidersController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+
+    const result = await syncAllProviders(userId);
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Provider sync completed",
       data: result,
     });
   }
@@ -394,6 +503,177 @@ export const completeOnboardingController = asyncHandler(
     return res.status(HTTPSTATUS.CREATED).json({
       message: "Onboarding completed successfully",
       data: lifeAreas,
+    });
+  }
+);
+
+/**
+ * POST /api/life-organization/seed
+ * Seed life organization data from a template
+ */
+export const seedLifeOrganizationController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { templateId, seedVersion } = req.body;
+
+    if (!templateId) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "templateId is required",
+      });
+    }
+
+    try {
+      const lifeAreas = await seedLifeOrganizationService(
+        userId,
+        templateId,
+        seedVersion || "v1"
+      );
+
+      return res.status(HTTPSTATUS.CREATED).json({
+        message: "Life organization seeded successfully",
+        data: lifeAreas,
+      });
+    } catch (error: any) {
+      // Log error with context
+      console.error("Seed creation error:", {
+        userId,
+        templateId,
+        seedVersion: seedVersion || "v1",
+        error: error.message,
+      });
+
+      return res.status(HTTPSTATUS.INTERNAL_SERVER_ERROR).json({
+        message: error.message || "Failed to seed life organization",
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/life-organization/remove-examples
+ * Remove all example intents
+ */
+export const removeExampleIntentsController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+
+    try {
+      const count = await removeExampleIntentsService(userId);
+
+      return res.status(HTTPSTATUS.OK).json({
+        message: "Example intents removed successfully",
+        data: { removedCount: count },
+      });
+    } catch (error: any) {
+      console.error("Remove examples error:", {
+        userId,
+        error: error.message,
+      });
+
+      return res.status(HTTPSTATUS.INTERNAL_SERVER_ERROR).json({
+        message: error.message || "Failed to remove example intents",
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/life-organization/onboarding/status
+ * Get onboarding completion status
+ */
+export const getOnboardingStatusController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+
+    const isCompleted = await getOnboardingStatusService(userId);
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Onboarding status retrieved successfully",
+      data: { isCompleted },
+    });
+  }
+);
+
+/**
+ * POST /api/life-organization/onboarding/mark-complete
+ * Mark onboarding as completed without seeding
+ */
+export const markOnboardingCompleteController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+
+    await markOnboardingCompleteService(userId);
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Onboarding marked as completed",
+    });
+  }
+);
+
+/**
+ * POST /api/life-organization/clear
+ * Clear all life organization data and reset onboarding
+ */
+export const clearLifeOrganizationController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+
+    try {
+      const removedCount = await clearLifeOrganizationDataService(userId);
+
+      return res.status(HTTPSTATUS.OK).json({
+        message: "Life organization data cleared successfully",
+        data: { removedCount },
+      });
+    } catch (error: any) {
+      console.error("Clear life organization error:", {
+        userId,
+        error: error.message,
+      });
+
+      return res.status(HTTPSTATUS.INTERNAL_SERVER_ERROR).json({
+        message: error.message || "Failed to clear life organization data",
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/life-organization/onboarding/reset
+ * Reset onboarding status (dev/debug)
+ */
+export const resetOnboardingStatusController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+
+    await resetOnboardingStatusService(userId);
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Onboarding status reset successfully",
+    });
+  }
+);
+
+/**
+ * GET /api/life-organization/templates
+ * Get available templates
+ */
+export const getTemplatesController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const templates = Object.values(TEMPLATES).map((template) => ({
+      id: template.id,
+      name: template.name,
+      description: template.description,
+      lifeAreaCount: template.lifeAreas.length,
+      intentBoardCount: template.lifeAreas.reduce(
+        (sum, area) => sum + area.intentBoards.length,
+        0
+      ),
+    }));
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Templates retrieved successfully",
+      data: templates,
     });
   }
 );

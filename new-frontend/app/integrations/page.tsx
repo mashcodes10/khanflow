@@ -2,6 +2,7 @@
 
 import React from "react"
 import { useState, useMemo, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { PageHeader } from '@/components/shared/page-header'
@@ -86,7 +87,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     id: 'google-tasks',
     name: 'Google Tasks',
     description: 'Manage your Google Tasks and track your to-do items. Sync tasks automatically.',
-    icon: <CheckSquare className="size-7 text-[#1A73E8]" strokeWidth={1.75} />,
+    icon: <Image src="/logos/google-tasks.png" alt="Google Tasks" width={28} height={28} unoptimized />,
     category: 'tasks',
     helpUrl: '#',
   },
@@ -94,7 +95,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     id: 'microsoft-todo',
     name: 'Microsoft To Do',
     description: 'Sync your Microsoft To Do lists and tasks. Access your tasks from anywhere.',
-    icon: <Image src="https://img.icons8.com/fluency/48/microsoft-to-do-app.png" alt="Microsoft To Do" width={28} height={28} />,
+    icon: <Image src="/logos/microsoft-todo.png" alt="Microsoft To Do" width={28} height={28} unoptimized />,
     category: 'tasks',
     helpUrl: '#',
   },
@@ -191,6 +192,7 @@ const categoryConfig: Record<string, { label: string; icon: React.ReactNode }> =
 }
 
 export default function IntegrationsPage() {
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('all')
@@ -199,6 +201,16 @@ export default function IntegrationsPage() {
   const [calendarModalOpen, setCalendarModalOpen] = useState(false)
   const [calendars, setCalendars] = useState(mockCalendars)
   const [calendarPrefs, setCalendarPrefs] = useState<CalendarPreferences>(initialCalendarPreferences)
+
+  // Check authentication
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        router.push('/auth/signin')
+      }
+    }
+  }, [router])
 
   // Fetch integrations from backend
   const { data: integrationsData, isLoading: isLoadingIntegrations } = useQuery({

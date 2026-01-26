@@ -5,6 +5,7 @@ import { ThemeProvider } from 'next-themes'
 import { QueryProvider } from '@/components/query-provider'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/next'
+import 'react-day-picker/style.css'
 import './globals.css'
 
 const inter = Inter({ 

@@ -41,8 +41,9 @@ API.interceptors.response.use(
     }
 
     const { data, status } = response;
-    if (data === "Unauthorized" && status === 401) {
-      if (typeof window !== 'undefined') {
+    if ((data === "Unauthorized" || status === 401) && typeof window !== 'undefined') {
+      // Don't redirect if we're already on auth pages
+      if (!window.location.pathname.startsWith('/auth/')) {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
         localStorage.removeItem('expiresAt');

@@ -34,7 +34,17 @@ export const authAPI = {
     return response.data;
   },
   loginWithGoogle: async (idToken: string): Promise<LoginResponseType> => {
-    const response = await API.post("/auth/google", { idToken });
+    // Use PublicAPI since user doesn't have token yet during sign-in
+    const response = await PublicAPI.post("/auth/google", { idToken });
+    return response.data;
+  },
+  loginWithMicrosoft: async (code: string): Promise<LoginResponseType> => {
+    // Use PublicAPI since user doesn't have token yet during sign-in
+    // Include the redirect URI that was used in the OAuth flow
+    const redirectUri = typeof window !== 'undefined' 
+      ? `${window.location.origin}/auth/microsoft/callback`
+      : process.env.NEXT_PUBLIC_MS_REDIRECT_URI || 'http://localhost:3000/auth/microsoft/callback';
+    const response = await PublicAPI.post("/auth/microsoft", { code, redirectUri });
     return response.data;
   },
 };
@@ -64,6 +74,15 @@ export const eventsAPI = {
   },
   delete: async (eventId: string) => {
     const response = await API.delete(`/event/${eventId}`);
+    return response.data;
+  },
+  // Public endpoints (no auth required)
+  getPublicByUsername: async (username: string) => {
+    const response = await PublicAPI.get(`/event/public/${username}`);
+    return response.data;
+  },
+  getPublicByUsernameAndSlug: async (username: string, slug: string) => {
+    const response = await PublicAPI.get(`/event/public/${username}/${slug}`);
     return response.data;
   },
 };
@@ -122,6 +141,11 @@ export const availabilityAPI = {
     const response = await API.put("/availability/update", data);
     return response.data;
   },
+  // Public endpoint (no auth required)
+  getPublicForEvent: async (eventId: string) => {
+    const response = await PublicAPI.get(`/availability/public/${eventId}`);
+    return response.data;
+  },
 };
 
 // ============ MEETINGS API ============
@@ -132,7 +156,19 @@ export const meetingsAPI = {
     return response.data;
   },
   create: async (data: CreateMeetingType) => {
-    const response = await API.post("/meeting/public/create", data);
+    const response = await API.post("/meeting/user/create", data);
+    return response.data;
+  },
+  // Public endpoint (no auth required for guest bookings)
+  createPublic: async (data: {
+    eventId: string;
+    startTime: string;
+    endTime: string;
+    guestName: string;
+    guestEmail: string;
+    additionalInfo?: string;
+  }) => {
+    const response = await PublicAPI.post("/meeting/public/create", data);
     return response.data;
   },
   cancel: async (meetingId: string) => {
@@ -220,11 +256,20 @@ export const microsoftTodoAPI = {
     const response = await API.get("/microsoft-todo/task-lists");
     return response.data;
   },
-  getTasks: async (taskListId: string) => {
-    const response = await API.get(`/microsoft-todo/tasks/${taskListId}`);
+  getTasks: async (taskListId: string, showCompleted = false) => {
+    const response = await API.get(`/microsoft-todo/tasks/${taskListId}?showCompleted=${showCompleted}`);
     return response.data;
   },
-  create: async (taskListId: string, data: { title: string; body?: string; dueDateTime?: string; importance?: string }) => {
+  getAllTasks: async () => {
+    try {
+      const response = await API.get("/microsoft-todo/tasks");
+      return response.data;
+    } catch (error: any) {
+      console.error('Microsoft Todo API Error:', error.response?.data || error.message);
+      throw error;
+    }
+  },
+  create: async (taskListId: string, data: { title: string; body?: string; dueDateTime?: any; importance?: string; categories?: string[] }) => {
     const response = await API.post("/microsoft-todo/tasks", { taskListId, ...data });
     return response.data;
   },
@@ -237,7 +282,7 @@ export const microsoftTodoAPI = {
     return response.data;
   },
   complete: async (taskListId: string, taskId: string) => {
-    const response = await API.patch(`/microsoft-todo/tasks/${taskListId}/${taskId}/complete`);
+    const response = await API.post(`/microsoft-todo/tasks/${taskListId}/${taskId}/complete`);
     return response.data;
   },
 };
@@ -299,9 +344,116 @@ export const lifeOrganizationAPI = {
     const response = await API.get("/life-organization/suggestions");
     return response.data;
   },
-  acceptSuggestion: async (suggestionId: string) => {
-    const response = await API.post(`/life-organization/suggestions/${suggestionId}/accept`);
+  generateSuggestions: async (): Promise<{ data: Suggestion[] }> => {
+    const response = await API.post("/life-organization/suggestions/generate");
     return response.data;
+  },
+  acceptSuggestion: async (suggestionId: string, data: {
+    optionIndex: number;
+    destinationList?: string;
+    scheduleNow?: boolean;
+    scheduledTime?: string;
+  }) => {
+    // Log call stack to see where this is being called from
+    console.log('API acceptSuggestion called:', {
+      suggestionId,
+      data,
+      dataType: typeof data,
+      dataKeys: data ? Object.keys(data) : [],
+      stackTrace: new Error().stack,
+    });
+    
+    // Validate input data
+    if (!data || typeof data !== 'object') {
+      console.error('CRITICAL: data is invalid:', {
+        suggestionId,
+        data,
+        dataType: typeof data,
+        stackTrace: new Error().stack,
+      });
+      throw new Error(`Invalid data parameter: ${JSON.stringify(data)}`);
+    }
+    
+    // Ensure optionIndex is explicitly a number and always present
+    if (data.optionIndex === undefined || data.optionIndex === null) {
+      console.error('CRITICAL: optionIndex is missing in API call:', {
+        suggestionId,
+        data,
+        dataKeys: Object.keys(data || {}),
+        dataStringified: JSON.stringify(data),
+        stackTrace: new Error().stack,
+      });
+      throw new Error(`optionIndex is required but was ${data.optionIndex}`);
+    }
+    
+    const optionIndexNum = typeof data.optionIndex === 'number' 
+      ? data.optionIndex 
+      : Number(data.optionIndex);
+    
+    if (isNaN(optionIndexNum) || optionIndexNum < 0) {
+      console.error('CRITICAL: optionIndex is invalid:', {
+        suggestionId,
+        original: data.optionIndex,
+        converted: optionIndexNum,
+        type: typeof data.optionIndex,
+      });
+      throw new Error(`Invalid optionIndex: ${data.optionIndex} (converted to ${optionIndexNum})`);
+    }
+    
+    // Build request body explicitly
+    const requestBody: {
+      optionIndex: number;
+      destinationList?: string;
+      scheduleNow?: boolean;
+      scheduledTime?: string;
+    } = {
+      optionIndex: optionIndexNum,
+    };
+    
+    if (data.destinationList) {
+      requestBody.destinationList = data.destinationList;
+    }
+    
+    if (data.scheduleNow !== undefined) {
+      requestBody.scheduleNow = data.scheduleNow;
+    }
+    
+    if (data.scheduledTime) {
+      requestBody.scheduledTime = data.scheduledTime;
+    }
+    
+    console.log('API acceptSuggestion call:', {
+      suggestionId,
+      originalData: data,
+      requestBody,
+      optionIndexType: typeof requestBody.optionIndex,
+      optionIndexValue: requestBody.optionIndex,
+      requestBodyKeys: Object.keys(requestBody),
+      requestBodyStringified: JSON.stringify(requestBody),
+    });
+    
+    // Final validation before sending
+    if (!requestBody.hasOwnProperty('optionIndex') || requestBody.optionIndex === undefined) {
+      console.error('CRITICAL: requestBody missing optionIndex:', requestBody);
+      throw new Error('Request body is missing optionIndex');
+    }
+    
+    try {
+      const response = await API.post(`/life-organization/suggestions/${suggestionId}/accept`, requestBody, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('API acceptSuggestion error:', {
+        error,
+        response: error.response?.data,
+        status: error.response?.status,
+        requestBody,
+      });
+      throw error;
+    }
   },
   ignoreSuggestion: async (suggestionId: string) => {
     const response = await API.post(`/life-organization/suggestions/${suggestionId}/ignore`);
@@ -309,6 +461,40 @@ export const lifeOrganizationAPI = {
   },
   snoozeSuggestion: async (suggestionId: string, snoozeUntil: string) => {
     const response = await API.post(`/life-organization/suggestions/${suggestionId}/snooze`, { snoozeUntil });
+    return response.data;
+  },
+  syncProviders: async () => {
+    const response = await API.post("/life-organization/provider/sync");
+    return response.data;
+  },
+
+  // Onboarding & Seeding
+  getOnboardingStatus: async (): Promise<{ data: { isCompleted: boolean } }> => {
+    const response = await API.get("/life-organization/onboarding/status");
+    return response.data;
+  },
+  markOnboardingComplete: async () => {
+    const response = await API.post("/life-organization/onboarding/mark-complete");
+    return response.data;
+  },
+  resetOnboardingStatus: async () => {
+    const response = await API.post("/life-organization/onboarding/reset");
+    return response.data;
+  },
+  seedLifeOrganization: async (templateId: string, seedVersion?: string) => {
+    const response = await API.post("/life-organization/seed", { templateId, seedVersion });
+    return response.data;
+  },
+  removeExampleIntents: async () => {
+    const response = await API.post("/life-organization/remove-examples");
+    return response.data;
+  },
+  clearLifeOrganization: async () => {
+    const response = await API.post("/life-organization/clear");
+    return response.data;
+  },
+  getTemplates: async (): Promise<{ data: Array<{ id: string; name: string; description: string; lifeAreaCount: number; intentBoardCount: number }> }> => {
+    const response = await API.get("/life-organization/templates");
     return response.data;
   },
 };

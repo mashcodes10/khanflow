@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { SidebarItem } from '@/components/life-org/sidebar-item'
 import { PageHeader } from '@/components/life-org/page-header'
@@ -20,12 +21,13 @@ import {
   Clock,
   ChevronLeft,
   Menu,
+  RotateCcw,
 } from 'lucide-react'
 import { lifeOrganizationAPI } from '@/lib/api'
 import type { LifeArea, Suggestion } from '@/lib/types'
 import { Button } from '@/components/ui/button'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { OnboardingModal } from '@/components/life-org/onboarding-modal'
 
 // Sample data matching the original images (fallback)
 const initialLifeAreas = [
@@ -101,15 +103,52 @@ const navItems = [
 ]
 
 export default function LifeOrganizationPage() {
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'areas' | 'suggestions'>('areas')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+
+  // Check authentication on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        router.push('/auth/signin')
+      }
+    }
+  }, [router])
+
+  // Fetch onboarding status
+  const { data: onboardingStatusData } = useQuery({
+    queryKey: ['life-org-onboarding-status'],
+    queryFn: lifeOrganizationAPI.getOnboardingStatus,
+    retry: 1,
+  })
 
   // Fetch life areas from backend
   const { data: lifeAreasData, isLoading: isLoadingAreas } = useQuery({
     queryKey: ['life-areas'],
     queryFn: lifeOrganizationAPI.getLifeAreas,
   })
+
+  // Check if onboarding should be shown
+  useEffect(() => {
+    // Show onboarding if:
+    // 1. Onboarding status is loaded and not completed, OR
+    // 2. User has no life areas (empty state)
+    const isOnboardingNotCompleted = onboardingStatusData?.data && !onboardingStatusData.data.isCompleted
+    const hasLifeAreas = lifeAreasData?.data && lifeAreasData.data.length > 0
+    const isLoading = isLoadingAreas || !onboardingStatusData
+
+    if (!isLoading) {
+      if (isOnboardingNotCompleted || (!hasLifeAreas && onboardingStatusData?.data)) {
+        setShowOnboarding(true)
+      } else {
+        setShowOnboarding(false)
+      }
+    }
+  }, [onboardingStatusData, lifeAreasData, isLoadingAreas])
 
   // Fetch suggestions from backend
   const { data: suggestionsData } = useQuery({
@@ -119,7 +158,25 @@ export default function LifeOrganizationPage() {
 
   // Accept suggestion mutation
   const acceptSuggestionMutation = useMutation({
-    mutationFn: lifeOrganizationAPI.acceptSuggestion,
+    mutationFn: async (params: {
+      suggestionId: string;
+      optionIndex: number;
+      destinationList?: string;
+      scheduleNow?: boolean;
+      scheduledTime?: string;
+    }) => {
+      // Ensure optionIndex is provided, default to 0 if not specified
+      const optionIndex = params.optionIndex !== undefined && params.optionIndex !== null
+        ? params.optionIndex
+        : 0;
+      
+      return lifeOrganizationAPI.acceptSuggestion(params.suggestionId, {
+        optionIndex,
+        destinationList: params.destinationList,
+        scheduleNow: params.scheduleNow,
+        scheduledTime: params.scheduledTime,
+      });
+    },
     onSuccess: () => {
       toast.success('Suggestion accepted!')
       queryClient.invalidateQueries({ queryKey: ['suggestions'] })
@@ -143,6 +200,68 @@ export default function LifeOrganizationPage() {
     },
   })
 
+  // Remove example intents mutation
+  const removeExamplesMutation = useMutation({
+    mutationFn: lifeOrganizationAPI.removeExampleIntents,
+    onSuccess: (data) => {
+      const count = data.data?.removedCount || 0
+      toast.success(`Removed ${count} example intent${count !== 1 ? 's' : ''}`)
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to remove examples')
+    },
+  })
+
+  // Create intent board mutation
+  const createIntentBoardMutation = useMutation({
+    mutationFn: lifeOrganizationAPI.createIntentBoard,
+    onSuccess: () => {
+      toast.success('Intent board created')
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to create intent board')
+    },
+  })
+
+  // Create intent mutation
+  const createIntentMutation = useMutation({
+    mutationFn: lifeOrganizationAPI.createIntent,
+    onSuccess: () => {
+      toast.success('Intent added')
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to create intent')
+    },
+  })
+
+  // Clear all life organization data mutation
+  const clearLifeOrgMutation = useMutation({
+    mutationFn: lifeOrganizationAPI.clearLifeOrganization,
+    onSuccess: async (data) => {
+      const count = data.data?.removedCount || 0
+      toast.success(`Cleared ${count} life area${count !== 1 ? 's' : ''}. Choose a new template or start fresh.`)
+      
+      // Invalidate and refetch queries to ensure fresh data
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['life-areas'] }),
+        queryClient.invalidateQueries({ queryKey: ['life-org-onboarding-status'] }),
+        queryClient.invalidateQueries({ queryKey: ['suggestions'] }),
+      ])
+      
+      // Refetch onboarding status to get updated value
+      await queryClient.refetchQueries({ queryKey: ['life-org-onboarding-status'] })
+      
+      // Show onboarding modal immediately after clearing
+      setShowOnboarding(true)
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to clear life organization')
+    },
+  })
+
   const lifeAreas = lifeAreasData?.data || []
   const suggestions = suggestionsData?.data || []
   const suggestionsCount = suggestions.length
@@ -160,21 +279,40 @@ export default function LifeOrganizationPage() {
         id: intent.id,
         text: intent.title,
         isCompleted: false,
+        isExample: intent.isExample || false,
       })) || [],
     })) || [],
   }))
 
+  // Check if there are any example intents
+  const hasExampleIntents = transformedLifeAreas.some((area) =>
+    area.boards.some((board) =>
+      board.intents.some((intent) => intent.isExample === true)
+    )
+  )
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false)
+    queryClient.invalidateQueries({ queryKey: ['life-org-onboarding-status'] })
+    queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+  }
+
   return (
     <div className="flex h-screen bg-background">
+      <OnboardingModal
+        open={showOnboarding}
+        onClose={() => setShowOnboarding(false)}
+        onComplete={handleOnboardingComplete}
+      />
       {/* Sidebar */}
       <aside 
         className={cn(
-          'flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200',
+          'flex flex-col bg-sidebar transition-all duration-200',
           sidebarCollapsed ? 'w-16' : 'w-60'
         )}
       >
         {/* Logo */}
-        <div className="flex items-center gap-3 px-4 py-4 border-b border-sidebar-border">
+        <div className="flex items-center gap-3 px-4 py-4">
           <div className="flex items-center gap-1">
             <div className="w-1.5 h-1.5 rounded-full bg-primary" />
             <div className="w-1.5 h-1.5 rounded-full bg-primary" />
@@ -240,7 +378,37 @@ export default function LifeOrganizationPage() {
               title="Life Organization"
               description="Organize what matters to you – capture intentions, not just tasks"
             />
-            <ThemeToggle />
+            <div className="flex items-center gap-3">
+              {activeTab === 'areas' && transformedLifeAreas.length > 0 && (
+                <>
+                  {hasExampleIntents && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => removeExamplesMutation.mutate()}
+                      disabled={removeExamplesMutation.isPending}
+                    >
+                      {removeExamplesMutation.isPending ? 'Removing...' : 'Remove all examples'}
+                    </Button>
+                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      if (confirm('Are you sure you want to clear all life areas and start over? This cannot be undone.')) {
+                        clearLifeOrgMutation.mutate()
+                      }
+                    }}
+                    disabled={clearLifeOrgMutation.isPending}
+                    className="text-muted-foreground"
+                  >
+                    <RotateCcw className="size-4 mr-1.5" />
+                    {clearLifeOrgMutation.isPending ? 'Clearing...' : 'Reset template'}
+                  </Button>
+                </>
+              )}
+              <ThemeToggle />
+            </div>
           </div>
 
           {/* Tabs */}
@@ -293,6 +461,20 @@ export default function LifeOrganizationPage() {
                       tag={area.tag}
                       tagColor={area.tagColor}
                       boards={area.boards}
+                      lifeAreaId={area.id}
+                      onAddBoard={(lifeAreaId, boardName) => {
+                        createIntentBoardMutation.mutate({
+                          name: boardName,
+                          lifeAreaId: lifeAreaId,
+                        })
+                      }}
+                      onAddIntent={(boardId, intent) => {
+                        createIntentMutation.mutate({
+                          title: intent.text,
+                          description: intent.timeline ? `Timeline: ${intent.timeline}` : undefined,
+                          intentBoardId: boardId,
+                        })
+                      }}
                     />
                   ))}
                 </div>
@@ -303,9 +485,19 @@ export default function LifeOrganizationPage() {
                       <Sparkles className="size-6 text-muted-foreground" strokeWidth={1.5} />
                     </div>
                     <h3 className="text-lg font-medium text-foreground mb-2">No life areas yet</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
+                    <p className="text-sm text-muted-foreground leading-relaxed mb-4">
                       Create your first life area to start organizing your intentions.
                     </p>
+                    {!showOnboarding && (
+                      <Button
+                        variant="outline"
+                        onClick={() => setShowOnboarding(true)}
+                        className="mt-2"
+                      >
+                        <Sparkles className="size-4 mr-2" />
+                        Set up your Life Areas
+                      </Button>
+                    )}
                   </div>
                 </div>
               )}
@@ -342,7 +534,20 @@ export default function LifeOrganizationPage() {
                       <div className="flex gap-2">
                         <Button
                           size="sm"
-                          onClick={() => acceptSuggestionMutation.mutate(suggestion.id)}
+                          onClick={() => {
+                            // Get default optionIndex from suggestion's aiPayload or default to 0
+                            const defaultOptionIndex = suggestion.aiPayload?.defaultOptionIndex !== undefined
+                              ? Number(suggestion.aiPayload.defaultOptionIndex)
+                              : 0;
+                            const optionIndex = isNaN(defaultOptionIndex) || defaultOptionIndex < 0
+                              ? 0
+                              : defaultOptionIndex;
+                            
+                            acceptSuggestionMutation.mutate({
+                              suggestionId: suggestion.id,
+                              optionIndex,
+                            });
+                          }}
                           disabled={acceptSuggestionMutation.isPending}
                         >
                           {acceptSuggestionMutation.isPending ? 'Accepting...' : 'Accept'}

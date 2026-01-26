@@ -23,10 +23,10 @@ export class Suggestion {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ nullable: false })
+  @Column({ type: "uuid", nullable: false })
   userId: string;
 
-  @Column({ nullable: false })
+  @Column({ type: "uuid", nullable: false })
   intentId: string;
 
   @Column({ type: "text" })
@@ -56,8 +56,27 @@ export class Suggestion {
   @Column({ type: "varchar", length: 50 })
   heuristicType: "neglect" | "balance" | "opportunity" | "reinforcement";
 
+  @Column({ type: "json", nullable: true })
+  aiPayload?: {
+    title: string;
+    reason: string;
+    priority: "low" | "medium" | "high";
+    recommendedActionType: "task" | "reminder" | "plan";
+    options: Array<{
+      label: string;
+      type: "task" | "reminder" | "plan";
+      details: Record<string, any>;
+      estimatedEffortMin: number;
+    }>;
+    defaultOptionIndex: number;
+    confidence: number;
+  };
+
   @Column({ type: "timestamp", nullable: true })
   shownAt?: Date; // When suggestion was first shown to user
+
+  @Column({ type: "timestamp", nullable: true })
+  actedAt?: Date; // When user acted on this suggestion (accept/dismiss/snooze)
 
   @Column({ type: "timestamp", nullable: true })
   snoozedUntil?: Date; // If snoozed, when to show again

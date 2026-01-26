@@ -234,6 +234,7 @@ export interface Intent {
   lastEngagedAt?: string;
   acceptCount?: number;
   ignoreCount?: number;
+  isExample?: boolean;
 }
 
 export interface Suggestion {
@@ -256,4 +257,18 @@ export interface Suggestion {
   priority: "low" | "medium" | "high";
   heuristicType: "neglect" | "balance" | "opportunity" | "reinforcement";
   createdAt: string;
+  aiPayload?: {
+    title: string;
+    reason: string;
+    priority: "low" | "medium" | "high";
+    recommendedActionType: "task" | "reminder" | "plan";
+    options: Array<{
+      label: string;
+      type: "task" | "reminder" | "plan";
+      details: Record<string, any>;
+      estimatedEffortMin: number;
+    }>;
+    defaultOptionIndex: number;
+    confidence: number;
+  };
 }

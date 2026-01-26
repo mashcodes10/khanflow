@@ -1,8 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { cn } from '@/lib/utils'
 import { SidebarItem } from '@/components/life-org/sidebar-item'
+import { integrationsAPI } from '@/lib/api'
 import {
   LayoutDashboard,
   CalendarRange,
@@ -18,17 +20,21 @@ import {
   Menu,
 } from 'lucide-react'
 
-const navItems = [
+const baseNavItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
   { icon: CalendarRange, label: 'Event types', href: '/scheduling' },
   { icon: Users, label: 'Meetings', href: '/meetings' },
   { icon: Calendar, label: 'Calendar', href: '#' },
-  { icon: CheckSquare, label: 'Tasks', href: '#' },
-  { icon: ListTodo, label: 'Microsoft Todo', href: '#' },
   { icon: Sparkles, label: 'Life Organization', href: '/' },
+  { icon: Sparkles, label: 'Suggestions', href: '/suggestions' },
   { icon: Mic, label: 'Voice Assistant', href: '/voice-assistant' },
   { icon: Puzzle, label: 'Integrations & apps', href: '/integrations' },
   { icon: Clock, label: 'Availability', href: '/availability' },
+]
+
+const conditionalNavItems = [
+  { icon: CheckSquare, label: 'Tasks', href: '/tasks', requiresIntegration: 'GOOGLE_MEET_AND_CALENDAR' as const },
+  { icon: ListTodo, label: 'Microsoft Todo', href: '/microsoft-todo', requiresIntegration: 'MICROSOFT_TODO' as const },
 ]
 
 interface AppSidebarProps {
@@ -39,16 +45,45 @@ interface AppSidebarProps {
 export function AppSidebar({ activePage = 'Life Organization', className }: AppSidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
 
+  // Fetch integrations to check connection status
+  const { data: integrationsData } = useQuery({
+    queryKey: ['integrations'],
+    queryFn: integrationsAPI.getAll,
+  })
+
+  // Build nav items based on connected integrations
+  const navItems = useMemo(() => {
+    const items = [...baseNavItems]
+    
+    if (integrationsData?.integrations) {
+      // Check which conditional items should be shown
+      conditionalNavItems.forEach((item) => {
+        const isConnected = integrationsData.integrations.some(
+          (int: any) => int.app_type === item.requiresIntegration && int.isConnected
+        )
+        if (isConnected) {
+          // Insert Tasks after Calendar, Microsoft Todo after Tasks
+          const insertIndex = item.label === 'Tasks' 
+            ? items.findIndex(i => i.label === 'Calendar') + 1
+            : items.findIndex(i => i.label === 'Tasks') + 1 || items.findIndex(i => i.label === 'Calendar') + 1
+          items.splice(insertIndex, 0, { icon: item.icon, label: item.label, href: item.href })
+        }
+      })
+    }
+    
+    return items
+  }, [integrationsData])
+
   return (
     <aside 
       className={cn(
-        'flex flex-col border-r border-sidebar-border bg-sidebar transition-all duration-200',
+        'flex flex-col bg-sidebar transition-all duration-200',
         collapsed ? 'w-16' : 'w-60',
         className
       )}
     >
       {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-4 border-b border-sidebar-border">
+      <div className="flex items-center gap-3 px-4 py-4">
         <div className="flex items-center gap-1">
           <div className="w-1.5 h-1.5 rounded-full bg-accent" />
           <div className="w-1.5 h-1.5 rounded-full bg-accent" />

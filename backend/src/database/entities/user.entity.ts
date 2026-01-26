@@ -23,20 +23,26 @@ export class User {
   @PrimaryGeneratedColumn("uuid")
   id: string;
 
-  @Column({ nullable: false })
+  @Column({ type: "varchar", nullable: false })
   name: string;
 
-  @Column({ nullable: false, unique: true })
+  @Column({ type: "varchar", nullable: false, unique: true })
   username: string;
 
-  @Column({ unique: true, nullable: false })
+  @Column({ type: "varchar", unique: true, nullable: false })
   email: string;
 
-  @Column({ nullable: false })
+  @Column({ type: "varchar", nullable: false })
   password: string;
 
-  @Column({ nullable: true })
+  @Column({ type: "varchar", nullable: true })
   imageUrl: string;
+
+  @Column({ type: "json", nullable: true })
+  onboarding?: {
+    lifeOrgCompleted?: boolean;
+    [key: string]: any;
+  };
 
   @OneToMany(() => Event, (event) => event.user, {
     cascade: true,

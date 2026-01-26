@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { PageHeader } from '@/components/shared/page-header'
@@ -163,12 +164,23 @@ function groupByDate(meetings: typeof mockMeetings.upcoming) {
 }
 
 export default function MeetingsPage() {
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('upcoming')
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [sortOption, setSortOption] = useState<SortOption>('date-desc')
   const [viewDensity, setViewDensity] = useState<ViewDensity>('comfortable')
+
+  // Check authentication
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        router.push('/auth/signin')
+      }
+    }
+  }, [router])
 
   // Map tab to period type
   const periodMap: Record<string, PeriodType> = {

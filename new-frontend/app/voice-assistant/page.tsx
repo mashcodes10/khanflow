@@ -1,5 +1,7 @@
 'use client'
 
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { PageHeader } from '@/components/life-org/page-header'
 import { ThemeToggle } from '@/components/life-org/theme-toggle'
@@ -7,6 +9,18 @@ import { RecorderPanel } from '@/components/voice/recorder-panel'
 import { HelpAccordion } from '@/components/voice/help-accordion'
 
 export default function VoiceAssistantPage() {
+  const router = useRouter()
+
+  // Check authentication
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken')
+      if (!token) {
+        router.push('/auth/signin')
+      }
+    }
+  }, [router])
+
   return (
     <div className="flex h-screen bg-background">
       <AppSidebar activePage="Voice Assistant" />
