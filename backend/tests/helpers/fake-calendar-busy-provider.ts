@@ -44,6 +44,7 @@ export class FakeCalendarBusyProvider {
 
   /**
    * Get busy blocks for selected calendars within a date range
+   * Includes blocks that overlap with the date range (not just blocks that start in the range)
    */
   async getBusyBlocks(
     startDate: Date,
@@ -57,9 +58,10 @@ export class FakeCalendarBusyProvider {
     for (const calendarId of calendarsToCheck) {
       const blocks = this.busyBlocks.get(calendarId) || [];
       
-      // Filter blocks within the date range
+      // Filter blocks that overlap with the date range
+      // A block overlaps if: block.start < endDate && block.end > startDate
       const filteredBlocks = blocks.filter((block) => {
-        return block.start >= startDate && block.start < endDate;
+        return block.start < endDate && block.end > startDate;
       });
 
       allBlocks.push(...filteredBlocks);

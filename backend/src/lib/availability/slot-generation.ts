@@ -118,26 +118,17 @@ export function filterSlotsByBusyBlocks(
       const blockEndWithBuffer = addMinutes(block.end, bufferTime);
       
       // Check if slot overlaps with the buffered period
-      // Use <= for end comparison to include slots that start exactly when buffered period ends
+      // Slot overlaps if: slot.start < bufferedBlockEnd && slot.end > bufferedBlockStart
       const overlaps = slot.start < blockEndWithBuffer && slot.end > blockStartWithBuffer;
       
       if (!overlaps) {
-        // Check if slot starts exactly when buffered period ends - filter it if bufferTime > 0
-        // (you need buffer time before the slot starts)
-        if (bufferTime > 0 && slot.start.getTime() === blockEndWithBuffer.getTime()) {
-          return true; // Filter slot that starts exactly when buffered period ends
-        }
-        // A slot that ends exactly when the buffered period starts is available
-        // (no buffer needed after the slot ends)
-        if (slot.end.getTime() === blockStartWithBuffer.getTime()) {
-          return false; // Slot is available
-        }
-        return false; // No overlap, slot is available
+        // No overlap - slot is available
+        return false;
       }
       
-      // If there's overlap and bufferTime = 0, check edge cases where slots are still available:
-      // - A slot that ends exactly when the busy block starts is available (no buffer needed)
-      // - A slot that starts exactly when the busy block ends is available (no buffer needed)
+      // There is overlap - check edge cases where slot might still be available
+      
+      // If bufferTime = 0, slots that touch exactly at boundaries are available
       if (bufferTime === 0) {
         const endsAtBlockStart = slot.end.getTime() === block.start.getTime();
         const startsAtBlockEnd = slot.start.getTime() === block.end.getTime();
@@ -147,12 +138,22 @@ export function filterSlotsByBusyBlocks(
         }
       }
       
-      // If there's overlap and bufferTime > 0, check if slot ends exactly at block.start
-      // and starts before the buffered period - in this case it's available
+      // If bufferTime > 0, a slot that ends exactly at block.start is only available
+      // if it starts before the buffered period starts (i.e., it has buffer time before the block)
       if (bufferTime > 0) {
         const endsAtBlockStart = slot.end.getTime() === block.start.getTime();
-        if (endsAtBlockStart && slot.start < blockStartWithBuffer) {
-          return false; // Slot ends exactly at block start and starts before buffer, available
+        if (endsAtBlockStart) {
+          // Slot ends exactly when block starts
+          // It's available only if it starts before the buffered period starts
+          // (meaning there's buffer time between slot end and block start)
+          return slot.start >= blockStartWithBuffer; // Filter if slot starts in buffered period
+        }
+        
+        // A slot that starts exactly when buffered period ends needs buffer time before it starts
+        // So it should be filtered if bufferTime > 0
+        const startsAtBufferedEnd = slot.start.getTime() === blockEndWithBuffer.getTime();
+        if (startsAtBufferedEnd) {
+          return true; // Filter - need buffer time before slot starts
         }
       }
       
@@ -187,15 +188,38 @@ export function filterSlotsByMinimumNotice(
 export function filterSlotsByBookingWindow(
   slots: TimeSlot[],
   now: Date,
-  bookingWindow: number // days
+  bookingWindow: number, // days
+  timezone: string = "UTC"
 ): TimeSlot[] {
+  if (bookingWindow === 0) {
+    // If booking window is 0, only allow slots today
+    const todayStart = startOfDay(now);
+    const todayEnd = addDays(todayStart, 1);
+    return slots.filter((slot) => {
+      return slot.start >= todayStart && slot.start < todayEnd;
+    });
+  }
+
   // bookingWindow=3 means you can book up to 3 days in advance (inclusive)
-  // So windowEnd = startOfDay(now) + bookingWindow + 1 to include the last day
-  // This means days 0, 1, 2, 3 are included, day 4+ are excluded
-  const windowEnd = addDays(startOfDay(now), bookingWindow + 1);
+  // Days 0, 1, 2, 3 are included, day 4+ are excluded
+  // Calculate window end based on calendar days in the target timezone
+  
+  // Get the current date in the target timezone
+  const nowDateStr = formatInTimeZone(now, timezone, "yyyy-MM-dd");
+  const nowDayStartUTC = fromZonedTime(parseISO(nowDateStr + "T00:00:00"), timezone);
+  
+  // Add days to get the start of the day after the last allowed day
+  // bookingWindow=3 means days 0-3 are included, so we want to exclude day 4+
+  const cutoffDayStartUTC = addDays(nowDayStartUTC, bookingWindow + 1);
 
   return slots.filter((slot) => {
-    return slot.start < windowEnd;
+    // Get the slot's date in the target timezone
+    const slotDateStr = formatInTimeZone(slot.start, timezone, "yyyy-MM-dd");
+    const slotDayStartUTC = fromZonedTime(parseISO(slotDateStr + "T00:00:00"), timezone);
+    
+    // Check if the slot's day is within the booking window
+    // Days 0 through bookingWindow are included (slotDayStartUTC < cutoffDayStartUTC)
+    return slotDayStartUTC < cutoffDayStartUTC;
   });
 }
 
@@ -242,7 +266,7 @@ export function computeAvailability(
   slots = filterSlotsByMinimumNotice(slots, now, settings.minimumNotice);
 
   // Filter by booking window
-  slots = filterSlotsByBookingWindow(slots, now, settings.bookingWindow);
+  slots = filterSlotsByBookingWindow(slots, now, settings.bookingWindow, settings.timezone);
 
   // Convert to display timezone
   slots = convertSlotsToTimezone(slots, settings.timezone);
