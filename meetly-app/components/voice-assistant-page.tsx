@@ -366,10 +366,51 @@ export function VoiceAssistantPage() {
 
                 {/* Clarification */}
                 {parsedAction.intent === "clarification_required" && parsedAction.confidence.clarification_question && (
-                  <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-md border border-yellow-200 dark:border-yellow-800">
-                    <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                      {parsedAction.confidence.clarification_question}
-                    </p>
+                  <div className="space-y-4">
+                    <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-md border border-yellow-200 dark:border-yellow-800">
+                      <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-3">
+                        {parsedAction.confidence.clarification_question}
+                      </p>
+                      
+                      {/* Clarification Options */}
+                      {parsedAction.clarificationOptions && parsedAction.clarificationOptions.length > 0 && (
+                        <div className="space-y-2 mt-3">
+                          <p className="text-xs text-yellow-700 dark:text-yellow-300 mb-2">Choose an option:</p>
+                          <div className="grid grid-cols-1 gap-2">
+                            {parsedAction.clarificationOptions.map((option) => (
+                              <Button
+                                key={option.id}
+                                variant="outline"
+                                className="w-full justify-start text-left h-auto py-2 px-3 bg-white dark:bg-gray-800 hover:bg-yellow-100 dark:hover:bg-yellow-900/30 border-yellow-300 dark:border-yellow-700"
+                                onClick={async () => {
+                                  setIsExecuting(true);
+                                  try {
+                                    const response = await voiceAPI.createIntentFromOption(option);
+                                    if (response.result.success) {
+                                      toast.success("Intent created successfully!");
+                                      setParsedAction(null);
+                                      setTranscript("");
+                                      queryClient.invalidateQueries({ queryKey: ["life-areas"] });
+                                      queryClient.invalidateQueries({ queryKey: ["life-organization-suggestions"] });
+                                    } else {
+                                      toast.error(response.result.clarificationQuestion || "Failed to create intent");
+                                    }
+                                  } catch (error: any) {
+                                    console.error("Error creating intent from option:", error);
+                                    toast.error(error.response?.data?.message || "Failed to create intent");
+                                  } finally {
+                                    setIsExecuting(false);
+                                  }
+                                }}
+                                disabled={isExecuting}
+                              >
+                                <span className="text-sm">{option.label}</span>
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 

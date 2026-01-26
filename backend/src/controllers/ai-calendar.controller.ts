@@ -218,6 +218,27 @@ export const getTaskListsController = asyncHandler(
       refresh_token: googleIntegration.refresh_token
     });
 
+    // Try to refresh token if needed
+    try {
+      const { credentials } = await oauth2Client.refreshAccessToken();
+      if (credentials.access_token) {
+        // Update the stored token
+        googleIntegration.access_token = credentials.access_token;
+        await integrationRepository.save(googleIntegration);
+        oauth2Client.setCredentials({
+          access_token: credentials.access_token,
+          refresh_token: googleIntegration.refresh_token
+        });
+      }
+    } catch (refreshError: any) {
+      console.error('Failed to refresh token:', refreshError.message);
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Your Google connection has expired. Please reconnect your Google account.",
+        errorCode: "TOKEN_EXPIRED",
+        requiresReconnect: true
+      });
+    }
+
     // Get task lists
     const tasksService = new GoogleTasksService(oauth2Client);
     const taskLists = await tasksService.getTaskLists();

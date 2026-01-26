@@ -52,19 +52,21 @@ export function TasksContent() {
   )
 
   // Fetch task lists
-  const { data: taskListsData, isPending: loadingLists } = useQuery({
+  const { data: taskListsData, isPending: loadingLists, error: taskListsError } = useQuery({
     queryKey: ["task-lists"],
     queryFn: tasksAPI.getTaskLists,
     enabled: !!isGoogleConnected,
+    retry: false,
   })
 
   const taskLists = taskListsData?.data || []
 
   // Fetch all tasks grouped by list
+  // Only fetch if we have task lists OR if task lists query has completed (even if empty)
   const { data: tasksData, isPending: loadingTasks, error: tasksError } = useQuery({
     queryKey: ["tasks", "all"],
     queryFn: tasksAPI.getAllTasks,
-    enabled: !!isGoogleConnected && taskLists.length > 0,
+    enabled: !!isGoogleConnected && !loadingLists && (taskLists.length > 0 || taskListsData !== undefined),
     retry: false,
   })
 
@@ -163,7 +165,9 @@ export function TasksContent() {
   }
 
   const hasTasks = lists.some((list) => list.tasks.length > 0 || list.completedCount > 0)
-  const isLoading = loadingLists || loadingTasks
+  // Only show loading if we're actually loading
+  // If task lists have loaded (even if empty), don't show loading for tasks if there are no lists
+  const isLoading = (loadingLists && !!isGoogleConnected) || (loadingTasks && !!isGoogleConnected && !loadingLists && taskLists.length > 0)
 
   // Debug logging
   useEffect(() => {
@@ -213,9 +217,26 @@ export function TasksContent() {
               <a href="/integrations">Connect Google</a>
             </Button>
           </div>
-        ) : isLoading ? (
+        ) : (isLoading || (loadingLists && !taskListsError)) ? (
           <div className="flex items-center justify-center py-12">
             <Loader size="lg" />
+            <span className="ml-2 text-sm text-muted-foreground">Loading tasks...</span>
+          </div>
+        ) : taskListsError ? (
+          <div className="flex flex-col items-center justify-center py-12">
+            <Badge variant="destructive" className="mb-4">Error Loading Task Lists</Badge>
+            <p className="text-muted-foreground mb-4 text-center max-w-md">
+              {taskListsError?.message || "Failed to load task lists. Please check your Google connection."}
+            </p>
+            {(taskListsError as any)?.response?.data?.errorCode === 'TOKEN_EXPIRED' ? (
+              <Button asChild className="mb-2">
+                <a href="/integrations">Reconnect Google</a>
+              </Button>
+            ) : (
+              <Button onClick={() => queryClient.invalidateQueries({ queryKey: ["task-lists"] })}>
+                Retry
+              </Button>
+            )}
           </div>
         ) : tasksError ? (
           <div className="flex flex-col items-center justify-center py-12">

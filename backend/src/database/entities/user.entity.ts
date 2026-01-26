@@ -15,6 +15,8 @@ import { Integration } from "./integration.entity";
 import { Event } from "./event.entity";
 import { Availability } from "./availability.entity";
 import { Meeting } from "./meeting.entity";
+import { LifeArea } from "./life-area.entity";
+import { Suggestion } from "./suggestion.entity";
 
 @Entity({ name: "users" })
 export class User {
@@ -56,6 +58,16 @@ export class User {
     cascade: true,
   })
   meetings: Meeting[];
+
+  @OneToMany(() => LifeArea, (lifeArea) => lifeArea.user, {
+    cascade: true,
+  })
+  lifeAreas: LifeArea[];
+
+  @OneToMany(() => Suggestion, (suggestion) => suggestion.user, {
+    cascade: true,
+  })
+  suggestions: Suggestion[];
 
   @CreateDateColumn()
   createdAt: Date;

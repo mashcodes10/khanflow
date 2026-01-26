@@ -207,10 +207,20 @@ export interface VoiceTranscribeResponse {
   transcript: string;
 }
 
+export interface ClarificationOption {
+  id: string;
+  label: string;
+  intentTitle?: string;
+  lifeAreaId?: string;
+  intentBoardId?: string;
+  description?: string;
+}
+
 export interface VoiceParseResponse {
   message: string;
   parsedAction: {
-    intent: "create_task" | "update_task" | "delete_task" | "query_tasks" | "clarification_required";
+    actionType?: "task" | "intent" | "clarification_required";
+    intent: "create_task" | "update_task" | "delete_task" | "query_tasks" | "create_intent" | "clarification_required";
     task?: {
       title: string;
       description?: string;
@@ -220,6 +230,12 @@ export interface VoiceParseResponse {
       priority?: "high" | "normal" | "low";
       recurrence?: string;
       category?: "meetings" | "deadlines" | "work" | "personal" | "errands";
+    };
+    intentData?: {
+      title?: string;
+      description?: string;
+      lifeAreaName?: string;
+      intentBoardName?: string;
     };
     calendar?: {
       create_event: boolean;
@@ -232,6 +248,7 @@ export interface VoiceParseResponse {
       missing_fields?: string[];
       clarification_question?: string;
     };
+    clarificationOptions?: ClarificationOption[];
   };
 }
 
@@ -282,6 +299,10 @@ export const voiceAPI = {
   
   undo: async (): Promise<{ message: string; success: boolean }> => {
     const response = await API.post("/actions/undo");
+    return response.data;
+  },
+  createIntentFromOption: async (option: ClarificationOption) => {
+    const response = await API.post("/voice/intent/create-from-option", { option });
     return response.data;
   },
 };
@@ -358,6 +379,157 @@ export const calendarAPI = {
   },
 };
 
+// Life Organization API
+export interface LifeArea {
+  id: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  order: number;
+  intentBoards?: IntentBoard[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface IntentBoard {
+  id: string;
+  name: string;
+  description?: string;
+  lifeAreaId: string;
+  order: number;
+  intents?: Intent[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Intent {
+  id: string;
+  title: string;
+  description?: string;
+  intentBoardId: string;
+  order: number;
+  lastSuggestedAt?: string;
+  suggestionCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Suggestion {
+  id: string;
+  intentId: string;
+  intentTitle: string;
+  intentDescription?: string;
+  lifeAreaName: string;
+  intentBoardName: string;
+  naturalLanguagePhrase: string;
+  reason: string;
+  suggestedAction: "create_task" | "create_calendar_event" | "both";
+  suggestedDetails?: {
+    taskTitle?: string;
+    eventTitle?: string;
+    dueDate?: string;
+    eventDateTime?: string;
+    duration?: number;
+  };
+  priority: "low" | "medium" | "high";
+  heuristicType: "neglect" | "balance" | "opportunity" | "reinforcement";
+  createdAt: string;
+}
+
+export interface OnboardingQuestion {
+  id: string;
+  question: string;
+  type: "single" | "multiple";
+  options?: string[];
+}
+
+export interface OnboardingAnswer {
+  questionId: string;
+  answer: string | string[];
+}
+
+export const lifeOrganizationAPI = {
+  // Life Areas
+  getLifeAreas: async () => {
+    const response = await API.get("/life-organization/life-areas");
+    return response.data;
+  },
+  createLifeArea: async (data: { name: string; description?: string; icon?: string; order?: number }) => {
+    const response = await API.post("/life-organization/life-areas", data);
+    return response.data;
+  },
+  updateLifeArea: async (id: string, data: { name?: string; description?: string; icon?: string; order?: number }) => {
+    const response = await API.put(`/life-organization/life-areas/${id}`, data);
+    return response.data;
+  },
+  deleteLifeArea: async (id: string) => {
+    const response = await API.delete(`/life-organization/life-areas/${id}`);
+    return response.data;
+  },
+
+  // Intent Boards
+  createIntentBoard: async (data: { name: string; description?: string; lifeAreaId: string; order?: number }) => {
+    const response = await API.post("/life-organization/intent-boards", data);
+    return response.data;
+  },
+  updateIntentBoard: async (id: string, data: { name?: string; description?: string; order?: number }) => {
+    const response = await API.put(`/life-organization/intent-boards/${id}`, data);
+    return response.data;
+  },
+  deleteIntentBoard: async (id: string) => {
+    const response = await API.delete(`/life-organization/intent-boards/${id}`);
+    return response.data;
+  },
+
+  // Intents
+  createIntent: async (data: { title: string; description?: string; intentBoardId: string; order?: number }) => {
+    const response = await API.post("/life-organization/intents", data);
+    return response.data;
+  },
+  updateIntent: async (id: string, data: { title?: string; description?: string; order?: number }) => {
+    const response = await API.put(`/life-organization/intents/${id}`, data);
+    return response.data;
+  },
+  deleteIntent: async (id: string) => {
+    const response = await API.delete(`/life-organization/intents/${id}`);
+    return response.data;
+  },
+  getIntentsByBoard: async (intentBoardId: string) => {
+    const response = await API.get(`/life-organization/intent-boards/${intentBoardId}/intents`);
+    return response.data;
+  },
+
+  // Suggestions
+  getSuggestions: async () => {
+    const response = await API.get("/life-organization/suggestions");
+    return response.data;
+  },
+  acceptSuggestion: async (suggestionId: string) => {
+    const response = await API.post(`/life-organization/suggestions/${suggestionId}/accept`);
+    return response.data;
+  },
+  snoozeSuggestion: async (suggestionId: string, snoozeUntil: string) => {
+    const response = await API.post(`/life-organization/suggestions/${suggestionId}/snooze`, {
+      snoozeUntil,
+    });
+    return response.data;
+  },
+  ignoreSuggestion: async (suggestionId: string) => {
+    const response = await API.post(`/life-organization/suggestions/${suggestionId}/ignore`);
+    return response.data;
+  },
+
+  // Onboarding
+  getOnboardingQuestions: async () => {
+    const response = await API.get("/life-organization/onboarding/questions");
+    return response.data;
+  },
+  completeOnboarding: async (answers: OnboardingAnswer[]) => {
+    const response = await API.post("/life-organization/onboarding/complete", { answers });
+    return response.data;
+  },
+};
+
 // Microsoft Todo API
 export const microsoftTodoAPI = {
   getTaskLists: async () => {
@@ -397,4 +569,3 @@ export const microsoftTodoAPI = {
     return response.data;
   },
 };
-

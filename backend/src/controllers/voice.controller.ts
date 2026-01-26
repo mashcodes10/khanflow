@@ -2,9 +2,11 @@ import { Request, Response } from "express";
 import { asyncHandler } from "../middlewares/asyncHandler.middeware";
 import { HTTPSTATUS } from "../config/http.config";
 import { VoiceService } from "../services/voice.service";
+import { VoiceIntentService } from "../services/voice-intent.service";
 import multer from "multer";
 
 const voiceService = new VoiceService();
+const voiceIntentService = new VoiceIntentService();
 
 // Configure multer for audio file uploads
 const upload = multer({
@@ -55,6 +57,7 @@ export const transcribeController = asyncHandler(
  */
 export const parseController = asyncHandler(
   async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
     const { transcript, currentDateTime, timezone } = req.body;
 
     if (!transcript) {
@@ -67,7 +70,7 @@ export const parseController = asyncHandler(
     const now = currentDateTime || new Date().toISOString();
     const tz = timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-    const parsedAction = await voiceService.parseTranscript(transcript, now, tz);
+    const parsedAction = await voiceService.parseTranscript(transcript, now, tz, userId);
 
     return res.status(HTTPSTATUS.OK).json({
       message: "Transcript parsed successfully",
@@ -128,8 +131,99 @@ export const undoActionController = asyncHandler(
   }
 );
 
+/**
+ * POST /api/voice/intent/parse
+ * Parse transcript to extract intent information
+ */
+export const parseIntentCommandController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { transcript } = req.body;
+
+    if (!transcript) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Transcript is required",
+        errorCode: "MISSING_TRANSCRIPT",
+      });
+    }
+
+    const parsedCommand = await voiceIntentService.parseIntentCommand(transcript, userId);
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Intent command parsed successfully",
+      parsedCommand,
+    });
+  }
+);
+
+/**
+ * POST /api/voice/intent/create
+ * Create intent from parsed command
+ */
+export const createIntentFromVoiceController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { parsedCommand } = req.body;
+
+    if (!parsedCommand) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Parsed command is required",
+        errorCode: "MISSING_PARSED_COMMAND",
+      });
+    }
+
+    const result = await voiceIntentService.executeIntentCreation(userId, parsedCommand);
+
+    if (!result.success) {
+      return res.status(HTTPSTATUS.OK).json({
+        message: "Clarification needed",
+        result,
+      });
+    }
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Intent created successfully",
+      result,
+    });
+  }
+);
+
+/**
+ * POST /api/voice/intent/create-from-option
+ * Create intent from a selected clarification option
+ */
+export const createIntentFromOptionController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { option } = req.body;
+
+    if (!option) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Option is required",
+        errorCode: "MISSING_OPTION",
+      });
+    }
+
+    const result = await voiceIntentService.createIntentFromOption(userId, option);
+
+    if (!result.success) {
+      return res.status(HTTPSTATUS.OK).json({
+        message: "Clarification needed",
+        result,
+      });
+    }
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Intent created successfully",
+      result,
+    });
+  }
+);
+
 // Export multer middleware for use in routes
 export const uploadAudio = upload.single('audio');
+
+
 
 
 

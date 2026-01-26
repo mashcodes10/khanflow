@@ -8,13 +8,15 @@ import { GoogleTasksService } from "./google-tasks.service";
 import { MicrosoftTodoService } from "./microsoft-todo.service";
 import { validateMicrosoftToken, getCalendarPreferencesService } from "./integration.service";
 import { OAuth2Client } from "google-auth-library";
+import { VoiceIntentService, ParsedIntentCommand, ClarificationOption } from "./voice-intent.service";
 
 const openai = new OpenAI({
   apiKey: config.OPENAI_API_KEY,
 });
 
 export interface ParsedVoiceAction {
-  intent: "create_task" | "update_task" | "delete_task" | "query_tasks" | "clarification_required";
+  actionType: "task" | "intent" | "clarification_required"; // New field to distinguish task vs intent
+  intent: "create_task" | "update_task" | "delete_task" | "query_tasks" | "create_intent" | "clarification_required";
   task?: {
     title: string;
     description?: string;
@@ -24,6 +26,12 @@ export interface ParsedVoiceAction {
     priority?: "high" | "normal" | "low";
     recurrence?: string;
     category?: "meetings" | "deadlines" | "work" | "personal" | "errands";
+  };
+  intentData?: {
+    title: string;
+    description?: string;
+    lifeAreaName?: string;
+    intentBoardName?: string;
   };
   calendar?: {
     create_event: boolean;
@@ -36,16 +44,25 @@ export interface ParsedVoiceAction {
     missing_fields?: string[];
     clarification_question?: string;
   };
+  // Intent-specific fields (populated when actionType is "intent")
+  matchedLifeAreaId?: string;
+  matchedIntentBoardId?: string;
+  clarificationOptions?: ClarificationOption[];
 }
 
 export interface ExecutedAction {
   actionId: string;
   timestamp: string;
   intent: string;
+  actionType: "task" | "intent";
   createdTaskId?: string;
   createdTaskListId?: string;
   createdCalendarEventId?: string;
   createdEventTitle?: string;
+  createdIntentId?: string;
+  createdIntentTitle?: string;
+  lifeAreaName?: string;
+  intentBoardName?: string;
 }
 
 export interface VoiceExecutionOptions {
@@ -67,6 +84,7 @@ export interface VoiceExecutionOptions {
 
 export class VoiceService {
   private actionHistory: Map<string, ExecutedAction[]> = new Map();
+  private voiceIntentService: VoiceIntentService = new VoiceIntentService();
 
   /**
    * Transcribe audio to text using OpenAI Whisper
@@ -102,13 +120,84 @@ export class VoiceService {
 
   /**
    * Parse transcript into structured JSON using OpenAI with strict schema
+   * Now supports both tasks and intents
    */
   async parseTranscript(
     transcript: string,
     currentDateTime: string,
-    timezone: string
+    timezone: string,
+    userId?: string
   ): Promise<ParsedVoiceAction> {
     try {
+      // First, determine if this is a task or an intent
+      // Tasks: have deadlines, due dates, scheduled times, urgent items, specific dates
+      // Intents: unscheduled, "someday", "maybe", "would like to", no deadlines, vague future plans
+      
+      const classificationPrompt = `You are a voice assistant that classifies user commands into either:
+1. TASK - Something with a deadline, due date, scheduled time, or urgent action needed
+2. INTENT - Something unscheduled, "someday", "maybe", "would like to", no specific deadline, vague future plans
+
+Examples of TASKS:
+- "Call John tomorrow at 3pm"
+- "Submit report by Friday"
+- "Buy groceries today"
+- "Meeting with client next Monday"
+- "Pay rent on the 1st"
+
+Examples of INTENTS:
+- "I'd like to learn Spanish someday"
+- "Maybe I should call mom"
+- "I want to plan a trip to Japan"
+- "Someday I want to start a blog"
+- "I should catch up with old friends"
+
+Analyze this command: "${transcript}"
+
+Return ONLY "task" or "intent" (no other text).`;
+
+      const classificationResponse = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: classificationPrompt },
+          { role: "user", content: `Classify: "${transcript}"` },
+        ],
+        temperature: 0.1,
+        max_tokens: 10,
+      });
+
+      const classification = classificationResponse.choices[0]?.message?.content?.trim().toLowerCase();
+      const isIntent = classification === "intent";
+
+      // If it's an intent, use the intent parsing service
+      if (isIntent && userId) {
+        try {
+          const parsedIntent = await this.voiceIntentService.parseIntentCommand(transcript, userId);
+          
+          if (parsedIntent.intent === "create_intent" && parsedIntent.matchedLifeAreaId && parsedIntent.matchedIntentBoardId) {
+            return {
+              actionType: "intent",
+              intent: "create_intent",
+              intentData: parsedIntent.intentData,
+              matchedLifeAreaId: parsedIntent.matchedLifeAreaId,
+              matchedIntentBoardId: parsedIntent.matchedIntentBoardId,
+              confidence: parsedIntent.confidence,
+            };
+          } else {
+            return {
+              actionType: "clarification_required",
+              intent: "clarification_required",
+              intentData: parsedIntent.intentData,
+              confidence: parsedIntent.confidence,
+              clarificationOptions: parsedIntent.clarificationOptions,
+            };
+          }
+        } catch (error) {
+          console.error("Error parsing intent, falling back to task parsing:", error);
+          // Fall through to task parsing
+        }
+      }
+
+      // Otherwise, parse as a task (existing logic)
       const systemPrompt = `You are a voice assistant parser that converts natural language into structured JSON for task and calendar management.
 
 STRICT RULES:
@@ -138,6 +227,7 @@ CATEGORIZATION DECISION TREE (ALWAYS assign a category):
 
 SCHEMA:
 {
+  "actionType": "task",
   "intent": "create_task" | "update_task" | "delete_task" | "query_tasks" | "clarification_required",
   "task": {
     "title": string (required for create_task),
@@ -178,6 +268,10 @@ SCHEMA:
       }
 
       const parsed = JSON.parse(content) as ParsedVoiceAction;
+      // Ensure actionType is set for tasks
+      if (!parsed.actionType) {
+        parsed.actionType = "task";
+      }
       return parsed;
     } catch (error) {
       console.error("Error parsing transcript:", error);
@@ -186,7 +280,7 @@ SCHEMA:
   }
 
   /**
-   * Execute parsed action - create tasks and calendar events
+   * Execute parsed action - create tasks, calendar events, or intents
    */
   async executeAction(
     userId: string,
@@ -198,11 +292,54 @@ SCHEMA:
     }
 
     const actionId = `${userId}-${Date.now()}`;
+    // Ensure actionType is valid (clarification_required shouldn't reach here, but handle it)
+    const validActionType: "task" | "intent" = 
+      parsedAction.actionType === "intent" ? "intent" : "task";
     const executedAction: ExecutedAction = {
       actionId,
       timestamp: new Date().toISOString(),
       intent: parsedAction.intent,
+      actionType: validActionType,
     };
+
+    // Handle intent creation
+    if (parsedAction.actionType === "intent" && parsedAction.intent === "create_intent") {
+      if (!parsedAction.matchedLifeAreaId || !parsedAction.matchedIntentBoardId || !parsedAction.intentData?.title) {
+        throw new Error(parsedAction.confidence.clarification_question || "Missing information to create intent");
+      }
+
+      try {
+        const result = await this.voiceIntentService.executeIntentCreation(userId, {
+          intent: "create_intent",
+          intentData: parsedAction.intentData,
+          matchedLifeAreaId: parsedAction.matchedLifeAreaId,
+          matchedIntentBoardId: parsedAction.matchedIntentBoardId,
+          confidence: parsedAction.confidence,
+        });
+
+        if (!result.success) {
+          throw new Error(result.clarificationQuestion || "Failed to create intent");
+        }
+
+        executedAction.createdIntentId = result.intentId;
+        executedAction.createdIntentTitle = result.intentTitle;
+        executedAction.lifeAreaName = result.lifeAreaName;
+        executedAction.intentBoardName = result.intentBoardName;
+
+        // Store in history
+        if (!this.actionHistory.has(userId)) {
+          this.actionHistory.set(userId, []);
+        }
+        this.actionHistory.get(userId)!.push(executedAction);
+
+        return executedAction;
+      } catch (error: any) {
+        console.error("Error creating intent:", error);
+        throw new Error(error.message || "Failed to create intent");
+      }
+    }
+
+    // Handle task/calendar creation (existing logic)
 
     // Get integrations
     const integrationRepository = AppDataSource.getRepository(Integration);
