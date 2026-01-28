@@ -41,6 +41,7 @@ jobs:
         run: npm test
         env:
           NODE_ENV: test
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
 
       - name: Upload test results
         if: always()
@@ -83,6 +84,7 @@ jobs:
           NEXT_PUBLIC_APP_ORIGIN: http://localhost:3000
           SUPABASE_URL: https://placeholder.supabase.co
           SUPABASE_SERVICE_ROLE_KEY: placeholder-key-for-ci-build
+          OPENAI_API_KEY: placeholder-key-for-ci-build
 
   # Build Docker Images
   build-images:
