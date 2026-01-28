@@ -16,7 +16,7 @@ interface Intent {
 }
 
 interface BoardCardProps {
-  boardId: string
+  boardId?: string
   title: string
   intents?: Intent[]
   isEmpty?: boolean
@@ -27,7 +27,7 @@ interface BoardCardProps {
 }
 
 export function BoardCard({ 
-  boardId,
+  boardId = 'default',
   title, 
   intents = [], 
   isEmpty, 

@@ -21,7 +21,7 @@ import { toast } from 'sonner'
 // Map backend integration types to frontend categories
 const getCategory = (appType: IntegrationAppType): 'calendar' | 'video' | 'tasks' | 'other' => {
   if (appType === 'GOOGLE_MEET_AND_CALENDAR' || appType === 'OUTLOOK_CALENDAR') return 'calendar'
-  if (appType === 'GOOGLE_MEET_AND_CALENDAR' || appType === 'ZOOM_MEETING' || appType === 'MICROSOFT_TEAMS') return 'video'
+  if (appType === 'ZOOM_MEETING' || appType === 'MICROSOFT_TEAMS') return 'video'
   if (appType === 'GOOGLE_TASKS' || appType === 'MICROSOFT_TODO') return 'tasks'
   return 'other'
 }
@@ -429,8 +429,14 @@ export default function IntegrationsPage() {
   }
 
   const handleSaveCalendarPreferences = (prefs: CalendarPreferences) => {
-    setCalendarPrefs(prefs)
-    savePreferencesMutation.mutate(prefs)
+    // Update local state
+    const updatedPrefs: CalendarPreferences = {
+      work: prefs.work,
+      personal: prefs.personal,
+      default: prefs.default,
+    }
+    setCalendarPrefs(updatedPrefs)
+    savePreferencesMutation.mutate(updatedPrefs)
   }
 
   return (

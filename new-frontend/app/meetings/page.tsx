@@ -15,6 +15,20 @@ import type { MeetingType, PeriodType } from '@/lib/types'
 import { toast } from 'sonner'
 import { format, parseISO, isToday, isTomorrow, isYesterday, isPast, isFuture } from 'date-fns'
 
+// Extended meeting type with UI properties
+interface TransformedMeeting {
+  id: string
+  title: string
+  eventType: string
+  date: string
+  startTime: string
+  endTime: string
+  attendeeEmail: string
+  status: 'scheduled' | 'completed' | 'cancelled'
+  meetLink: string
+  rawMeeting: MeetingType
+}
+
 // Helper to format date for display
 function formatMeetingDate(dateStr: string): string {
   const date = parseISO(dateStr)
@@ -208,7 +222,7 @@ export default function MeetingsPage() {
   })
 
   // Transform backend meetings to frontend format
-  const transformedMeetings = useMemo(() => {
+  const transformedMeetings: TransformedMeeting[] = useMemo(() => {
     const meetings = meetingsData?.meetings || []
     return meetings.map((meeting: MeetingType) => ({
       id: meeting.id,
