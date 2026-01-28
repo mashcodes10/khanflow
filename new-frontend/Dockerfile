@@ -16,7 +16,12 @@ WORKDIR /app
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
+
+# Copy source files
 COPY . .
+
+# Verify public directory exists (debug)
+RUN ls -la /app/ && ls -la /app/public/ || echo "Public directory not found"
 
 # Accept build arguments
 ARG NEXT_PUBLIC_API_URL
@@ -48,12 +53,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-# Copy necessary files
+# Copy necessary files from builder
+# Note: In standalone mode, public files need to be copied separately
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
-# Set ownership
 USER nextjs
 
 # Expose port
