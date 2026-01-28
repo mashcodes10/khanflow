@@ -20,9 +20,6 @@ COPY --from=deps /app/node_modules ./node_modules
 # Copy source files
 COPY . .
 
-# Verify public directory exists (debug)
-RUN ls -la /app/ && ls -la /app/public/ || echo "Public directory not found"
-
 # Accept build arguments
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_APP_ORIGIN
@@ -54,10 +51,16 @@ RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
 # Copy necessary files from builder
-# Note: In standalone mode, public files need to be copied separately
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# Note: In standalone mode, public files are bundled in standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Copy public directory if it exists (optional)
+RUN --mount=type=bind,from=builder,source=/app/public,target=/tmp/public,readonly \
+    if [ -d "/tmp/public" ]; then \
+      cp -r /tmp/public ./public; \
+      chown -R nextjs:nodejs ./public; \
+    fi
 
 USER nextjs
 
