@@ -13,6 +13,8 @@ interface RecordButtonProps {
   onError: (error: string) => void
   className?: string
   onStreamReady?: (stream: MediaStream | null) => void
+  maxDurationMs?: number
+  minDurationMs?: number
 }
 
 export function RecordButton({

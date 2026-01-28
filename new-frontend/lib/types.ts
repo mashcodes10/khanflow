@@ -128,6 +128,15 @@ export interface UserMeetingsResponseType {
   meetings: MeetingType[];
 }
 
+export interface CreateMeetingType {
+  eventId: string;
+  startTime: string;
+  endTime: string;
+  guestName: string;
+  guestEmail: string;
+  additionalInfo?: string;
+}
+
 export type PeriodType = "UPCOMING" | "PAST" | "CANCELLED";
 
 // Custom Error Types
@@ -138,9 +147,9 @@ export interface CustomError extends Error {
 
 // Calendar Preferences
 export interface CalendarPreferences {
-  work?: string;
-  personal?: string;
-  default?: string;
+  work: string | null;
+  personal: string | null;
+  default: string | null;
 }
 
 // Voice API Types
@@ -195,8 +204,12 @@ export interface VoiceParseResponse {
 }
 
 export interface VoiceExecuteResponse {
-  message: string;
-  executedAction: {
+  success: boolean;
+  message?: string;
+  warnings?: string;
+  createdIntentIds?: string[];
+  localBoardId?: string;
+  executedAction?: {
     actionId: string;
     timestamp: string;
     intent: string;
@@ -217,7 +230,7 @@ export interface LifeArea {
   description?: string;
   icon?: string;
   order?: number;
-  intentBoards?: IntentBoard[];
+  intentBoards: IntentBoard[];
 }
 
 export interface IntentBoard {

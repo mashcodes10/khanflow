@@ -17,7 +17,7 @@ interface MeetingRowProps {
   attendeeEmail: string
   status: MeetingStatus
   date?: string
-  meetingLink?: string
+  meetLink?: string
   density?: ViewDensity
   isLast?: boolean
   onJoin?: () => void

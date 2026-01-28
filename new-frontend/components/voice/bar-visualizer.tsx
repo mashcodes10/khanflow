@@ -17,7 +17,7 @@ export function BarVisualizer({
   className 
 }: BarVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number>(0)
   const prevHeightsRef = useRef<number[]>(new Array(barCount).fill(0))
   const prefersReducedMotion = useRef(false)
 
@@ -105,7 +105,8 @@ export function BarVisualizer({
       
       if (analyser && isRecording) {
         const bufferLength = analyser.frequencyBinCount
-        dataArray = new Uint8Array(bufferLength)
+        dataArray = new Uint8Array(bufferLength) as Uint8Array<ArrayBuffer>
+        // @ts-expect-error - getByteFrequencyData accepts Uint8Array<ArrayBufferLike> but types expect ArrayBuffer
         analyser.getByteFrequencyData(dataArray)
       }
       

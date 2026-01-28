@@ -16,6 +16,7 @@ import { ScheduleControls } from './ScheduleControls'
 import { voiceAPI } from '@/lib/api'
 import { toast } from 'sonner'
 import { VoiceState, ParsedAction, ScheduleSettings, canConfirm, getStateMessage } from '@/types/voice'
+import type { VoiceExecuteResponse } from '@/lib/types'
 import { RotateCcw, Loader2, AlertCircle } from 'lucide-react'
 
 interface RecorderPanelProps {
@@ -208,7 +209,7 @@ export function RecorderPanel({ className }: RecorderPanelProps) {
   const confirmMutation = useMutation({
     mutationFn: ({ jobId, data }: { jobId: string; data: any }) =>
       voiceAPI.confirm(jobId, data),
-    onSuccess: (data) => {
+    onSuccess: (data: VoiceExecuteResponse) => {
       const message = data?.message || 'Action created successfully!'
       const warnings = data?.warnings
       

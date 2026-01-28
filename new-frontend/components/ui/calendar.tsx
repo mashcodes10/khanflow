@@ -126,31 +126,9 @@ function Calendar({
         available: "relative",
       }}
       components={{
-        IconLeft: ({ ...props }) => (
-          <ChevronLeft className="h-4 w-4 text-muted-foreground" strokeWidth={2} {...props} />
-        ),
-        IconRight: ({ ...props }) => (
-          <ChevronRight className="h-4 w-4 text-muted-foreground" strokeWidth={2} {...props} />
-        ),
-        Caption: ({ displayMonth }) => {
-          return (
-            <div className="flex items-center justify-center w-full px-10 relative">
-              <h3 className="text-lg font-medium text-foreground">
-                {format(displayMonth, "MMMM yyyy")}
-              </h3>
-              {showTodayButton && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleTodayClick}
-                  className="absolute right-1 h-7 px-2 text-xs font-medium rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/40"
-                >
-                  Today
-                </Button>
-              )}
-            </div>
-          )
+        Chevron: ({ orientation, ...props }) => {
+          const Icon = orientation === 'left' ? ChevronLeft : ChevronRight
+          return <Icon className="h-4 w-4 text-muted-foreground" strokeWidth={2} {...props} />
         },
       }}
       {...props}

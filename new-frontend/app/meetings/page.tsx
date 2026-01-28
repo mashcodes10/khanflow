@@ -165,8 +165,8 @@ const mockUser = {
 }
 
 // Group meetings by date
-function groupByDate(meetings: typeof mockMeetings.upcoming) {
-  const groups: Record<string, typeof meetings> = {}
+function groupByDate(meetings: TransformedMeeting[]) {
+  const groups: Record<string, TransformedMeeting[]> = {}
   for (const meeting of meetings) {
     const date = meeting.date || 'Unknown'
     if (!groups[date]) {

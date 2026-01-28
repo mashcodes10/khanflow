@@ -17,7 +17,7 @@ export function AudioVisualizer({
   className 
 }: AudioVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const animationRef = useRef<number>()
+  const animationRef = useRef<number>(0)
   const prefersReducedMotion = useRef(false)
 
   useEffect(() => {

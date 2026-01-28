@@ -66,7 +66,7 @@ export function WaveformMeter({ stream, isActive, className }: WaveformMeterProp
 
         // Create data array for frequency data
         const bufferLength = analyser.frequencyBinCount
-        dataArrayRef.current = new Uint8Array(bufferLength)
+        dataArrayRef.current = new Uint8Array(bufferLength) as Uint8Array<ArrayBuffer>
 
         // Start animation loop
         const updateAmplitude = () => {
@@ -75,6 +75,7 @@ export function WaveformMeter({ stream, isActive, className }: WaveformMeterProp
           }
 
           // Get frequency data
+          // @ts-expect-error - getByteFrequencyData accepts Uint8Array<ArrayBufferLike> but types expect ArrayBuffer
           analyser.getByteFrequencyData(dataArrayRef.current)
 
           // Calculate RMS (Root Mean Square) for better amplitude representation
