@@ -64,8 +64,9 @@ export function ProfileSection({ collapsed = false }: ProfileSectionProps) {
     // Clear auth data
     localStorage.removeItem('accessToken')
     localStorage.removeItem('user')
-    // Redirect to login or home
-    window.location.href = '/auth/login'
+    localStorage.removeItem('expiresAt')
+    // Redirect to signin page
+    window.location.href = '/auth/signin'
   }
 
   const handleSettings = () => {
