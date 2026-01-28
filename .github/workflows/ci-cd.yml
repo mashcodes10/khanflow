@@ -141,6 +141,12 @@ jobs:
           tags: khanflow-frontend:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_URL=http://localhost:8000/api
+            NEXT_PUBLIC_APP_ORIGIN=http://localhost:3000
+            SUPABASE_URL=https://placeholder.supabase.co
+            SUPABASE_SERVICE_ROLE_KEY=placeholder-key-for-ci-build
+            OPENAI_API_KEY=placeholder-key-for-ci-build
 
   # Deploy to AWS (placeholder - configure with your AWS credentials)
   # deploy-aws:
