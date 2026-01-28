@@ -11,6 +11,7 @@ applications:
             - echo "SUPABASE_URL=$SUPABASE_URL" >> .env.production
             - echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY" >> .env.production
             - echo "JWT_SECRET=$JWT_SECRET" >> .env.production
+            - echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> .env.production
             - npm run build
       artifacts:
         baseDirectory: .next
