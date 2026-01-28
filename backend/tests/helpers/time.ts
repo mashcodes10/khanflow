@@ -30,6 +30,7 @@ export function freezeTime(date: Date | string): () => void {
       if (args.length === 0) {
         super(frozenTime!);
       } else {
+        // @ts-expect-error - spreading args is intentional for Date constructor
         super(...args);
       }
     }

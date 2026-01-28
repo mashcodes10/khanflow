@@ -106,11 +106,12 @@ export class FakeGoogleTasksService implements Partial<GoogleTasksService> {
     }
   }
 
-  deleteTask(listId: string, taskId: string): void {
+  deleteTask(listId: string, taskId: string): Promise<void> {
     const listTasks = this.tasks.get(listId);
     if (listTasks) {
       listTasks.delete(taskId);
     }
+    return Promise.resolve();
   }
 }
 
@@ -224,11 +225,12 @@ export class FakeMicrosoftTodoService implements Partial<MicrosoftTodoService> {
     }
   }
 
-  deleteTask(listId: string, taskId: string): void {
+  deleteTask(listId: string, taskId: string): Promise<void> {
     const listTasks = this.tasks.get(listId);
     if (listTasks) {
       listTasks.delete(taskId);
     }
+    return Promise.resolve();
   }
 }
 

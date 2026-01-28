@@ -10,7 +10,7 @@ import { IntentBoard } from '../../src/database/entities/intent-board.entity';
 import { Intent } from '../../src/database/entities/intent.entity';
 import { Suggestion, SuggestionStatus } from '../../src/database/entities/suggestion.entity';
 import { AcceptedAction, AcceptedActionStatus } from '../../src/database/entities/accepted-action.entity';
-import { ProviderTaskLink, ProviderTaskStatus } from '../../src/database/entities/provider-task-link.entity';
+import { ProviderTaskLink, ProviderTaskStatus, ProviderType } from '../../src/database/entities/provider-task-link.entity';
 import { CalendarLink } from '../../src/database/entities/calendar-link.entity';
 
 describe('Candidate Selection Engine', () => {
@@ -313,7 +313,7 @@ describe('Candidate Selection Engine', () => {
       userId: testUser.id,
       intentId: intent1.id,
       acceptedActionId: savedAcceptedAction.id,
-      provider: 'google',
+      provider: ProviderType.GOOGLE,
       providerTaskId: 'fake-task-id',
       providerListId: 'fake-list-id',
       status: ProviderTaskStatus.COMPLETED,
