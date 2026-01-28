@@ -55,13 +55,6 @@ RUN addgroup -g 1001 -S nodejs && \
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy public directory if it exists (optional)
-RUN --mount=type=bind,from=builder,source=/app/public,target=/tmp/public,readonly \
-    if [ -d "/tmp/public" ]; then \
-      cp -r /tmp/public ./public; \
-      chown -R nextjs:nodejs ./public; \
-    fi
-
 USER nextjs
 
 # Expose port
