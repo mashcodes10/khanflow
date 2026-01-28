@@ -42,6 +42,13 @@ jobs:
         env:
           NODE_ENV: test
           DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          JWT_SECRET: test-jwt-secret
+          GOOGLE_CLIENT_ID: test-client-id
+          GOOGLE_CLIENT_SECRET: test-client-secret
+          GOOGLE_REDIRECT_URI: http://localhost:3000/auth/google/callback
+          FRONTEND_ORIGIN: http://localhost:3000
+          FRONTEND_INTEGRATION_URL: http://localhost:3000/integrations
+          OPENAI_API_KEY: test-openai-key
 
       - name: Upload test results
         if: always()
