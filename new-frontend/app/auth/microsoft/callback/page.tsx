@@ -1,12 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { authAPI } from '@/lib/api'
 import { toast } from 'sonner'
 import { ENV } from '@/lib/get-env'
 
-export default function MicrosoftCallbackPage() {
+function MicrosoftCallbackContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<'processing' | 'error'>('processing')
@@ -75,5 +75,24 @@ export default function MicrosoftCallbackPage() {
         )}
       </div>
     </div>
+  )
+}
+
+function LoadingState() {
+  return (
+    <div className="flex min-h-screen items-center justify-center">
+      <div className="text-center">
+        <div className="size-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <p className="text-sm text-muted-foreground">Loading...</p>
+      </div>
+    </div>
+  )
+}
+
+export default function MicrosoftCallbackPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <MicrosoftCallbackContent />
+    </Suspense>
   )
 }
