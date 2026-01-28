@@ -33,6 +33,18 @@ export class UpdateAvailabilityDto {
   @IsNotEmpty()
   timeGap: number;
 
+  @IsString()
+  @IsNotEmpty()
+  timezone: string;
+
+  @IsNumber()
+  @IsNotEmpty()
+  minimumNotice: number;
+
+  @IsNumber()
+  @IsNotEmpty()
+  bookingWindow: number;
+
   @IsArray()
   @ValidateNested({ each: true })
   @Type(() => DayAvailabilityDto)

@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
+import { EntityManager } from "typeorm";
 import { asyncHandler } from "../middlewares/asyncHandler.middeware";
 import { HTTPSTATUS } from "../config/http.config";
+import { AppDataSource } from "../config/database.config";
+import { IntentBoard } from "../database/entities/intent-board.entity";
+import { LifeArea } from "../database/entities/life-area.entity";
+import { Intent } from "../database/entities/intent.entity";
 import {
   getUserLifeAreasService,
   createLifeAreaService,
@@ -678,4 +683,147 @@ export const getTemplatesController = asyncHandler(
   }
 );
 
+/**
+ * POST /api/life-organization/import-task
+ * Import a task from external provider (Google/Microsoft) to Life OS
+ */
+export const importTaskController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const {
+      taskTitle,
+      taskNotes,
+      lifeAreaId,
+      boardId,
+      newBoardName,
+      keepSynced,
+      provider,
+      providerTaskId,
+      providerListId,
+    } = req.body;
 
+    if (!taskTitle || !lifeAreaId) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Task title and life area ID are required",
+      });
+    }
+
+    if (!boardId && !newBoardName) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Either boardId or newBoardName must be provided",
+      });
+    }
+
+    let targetBoardId = boardId;
+
+    // Create new board if requested
+    if (newBoardName && !boardId) {
+      const newBoard = await createIntentBoardService(userId, {
+        name: newBoardName,
+        lifeAreaId,
+      });
+      targetBoardId = newBoard.id;
+    }
+
+    // Create the intent
+    const intent = await createIntentService(userId, {
+      title: taskTitle,
+      description: taskNotes,
+      intentBoardId: targetBoardId,
+    });
+
+    // TODO: If keepSynced is true and provider info is provided,
+    // create provider_task_links entry to maintain sync
+
+    return res.status(HTTPSTATUS.CREATED).json({
+      message: "Task imported successfully",
+      data: intent,
+    });
+  }
+);
+
+/**
+ * Reorder boards within a life area
+ */
+export const reorderBoardsController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = (req.user as any).id;
+    const { lifeAreaId, boardOrders } = req.body;
+
+    if (!lifeAreaId || !Array.isArray(boardOrders)) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Life area ID and board orders array are required",
+      });
+    }
+
+    const intentBoardRepository = AppDataSource.getRepository(IntentBoard);
+    const lifeAreaRepository = AppDataSource.getRepository(LifeArea);
+
+    // Verify life area belongs to user
+    const lifeArea = await lifeAreaRepository.findOne({
+      where: { id: lifeAreaId, userId },
+    });
+
+    if (!lifeArea) {
+      return res.status(HTTPSTATUS.NOT_FOUND).json({
+        message: "Life area not found",
+      });
+    }
+
+    // Update board orders in a transaction
+    await AppDataSource.transaction(async (transactionalEntityManager: EntityManager) => {
+      for (const { id, order } of boardOrders) {
+        await transactionalEntityManager.update(
+          IntentBoard,
+          { id, lifeAreaId },
+          { order }
+        );
+      }
+    });
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Boards reordered successfully",
+    });
+  }
+);
+
+/**
+ * Move intent to another board or reorder within board
+ */
+export const moveIntentController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = (req.user as any).id;
+    const { intentId, targetBoardId, newOrder } = req.body;
+
+    if (!intentId || !targetBoardId || newOrder === undefined) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Intent ID, target board ID, and new order are required",
+      });
+    }
+
+    const intentRepository = AppDataSource.getRepository(Intent);
+    const intentBoardRepository = AppDataSource.getRepository(IntentBoard);
+
+    // Verify target board belongs to user
+    const targetBoard = await intentBoardRepository.findOne({
+      where: { id: targetBoardId },
+      relations: ["lifeArea"],
+    });
+
+    if (!targetBoard || targetBoard.lifeArea.userId !== userId) {
+      return res.status(HTTPSTATUS.NOT_FOUND).json({
+        message: "Target board not found",
+      });
+    }
+
+    // Update intent's board and order
+    await intentRepository.update(
+      { id: intentId },
+      { intentBoardId: targetBoardId, order: newOrder }
+    );
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Intent moved successfully",
+    });
+  }
+);

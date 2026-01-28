@@ -30,6 +30,7 @@ export type LoginResponseType = {
     name: string;
     username: string;
     email: string;
+    imageUrl?: string | null;
   };
   accessToken: string;
   expiresAt: number;
@@ -93,6 +94,9 @@ export interface DayAvailabilityType {
 
 export interface AvailabilityType {
   timeGap: number;
+  timezone: string;
+  minimumNotice: number;
+  bookingWindow: number;
   days: DayAvailabilityType[];
 }
 

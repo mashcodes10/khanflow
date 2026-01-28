@@ -124,6 +124,9 @@ export const connectAppService = async (
       });
       break;
     case IntegrationAppTypeEnum.ZOOM_MEETING:
+      // Zoom OAuth: Scopes are pre-configured in Zoom Marketplace app settings
+      // The app will use the scopes configured in: meeting:write:meeting, meeting:read:meeting, meeting:delete:meeting
+      // Do not include scope parameter - Zoom uses pre-configured scopes from app settings
       authUrl = `${ZOOM_OAUTH_CONFIG.authUrl}?response_type=code&client_id=${ZOOM_OAUTH_CONFIG.clientId}&redirect_uri=${encodeURIComponent(ZOOM_OAUTH_CONFIG.redirectUri)}&state=${state}`;
       break;
     case IntegrationAppTypeEnum.OUTLOOK_CALENDAR:
@@ -160,6 +163,26 @@ export const createIntegrationService = async (data: {
   });
 
   if (existingIntegration) {
+    // If Google Tasks already exists but was auto-connected, update it to be manually connected
+    if (data.app_type === IntegrationAppTypeEnum.GOOGLE_TASKS && 
+        existingIntegration.metadata && 
+        (existingIntegration.metadata as any).auto_connected) {
+      
+      // Update existing integration - remove auto_connected flag and update tokens
+      const updatedMetadata = { ...existingIntegration.metadata };
+      delete (updatedMetadata as any).auto_connected;
+      
+      existingIntegration.access_token = data.access_token;
+      if (data.refresh_token) {
+        existingIntegration.refresh_token = data.refresh_token;
+      }
+      existingIntegration.expiry_date = data.expiry_date;
+      existingIntegration.metadata = { ...updatedMetadata, ...data.metadata };
+      
+      await integrationRepository.save(existingIntegration);
+      return existingIntegration;
+    }
+    
     throw new BadRequestException(`${data.app_type} already connected`);
   }
 
@@ -338,6 +361,40 @@ export const disconnectIntegrationService = async (
   appType: IntegrationAppTypeEnum
 ) => {
   const integrationRepository = AppDataSource.getRepository(Integration);
+
+  // If disconnecting Google Calendar, also disconnect Google Tasks if it was auto-connected
+  if (appType === IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR) {
+    const googleTasksIntegration = await integrationRepository.findOne({
+      where: {
+        user: { id: userId },
+        app_type: IntegrationAppTypeEnum.GOOGLE_TASKS,
+      },
+    });
+
+    // Check if Google Tasks was auto-connected (has the auto_connected flag in metadata)
+    if (googleTasksIntegration && 
+        googleTasksIntegration.metadata && 
+        (googleTasksIntegration.metadata as any).auto_connected) {
+      await integrationRepository.delete({
+        user: { id: userId },
+        app_type: IntegrationAppTypeEnum.GOOGLE_TASKS,
+      });
+    }
+  }
+
+  // If disconnecting any Microsoft integration, disconnect ALL Microsoft integrations
+  // since they all share the same OAuth token (Calendars, OnlineMeetings, and Tasks scopes)
+  if (appType === IntegrationAppTypeEnum.OUTLOOK_CALENDAR || 
+      appType === IntegrationAppTypeEnum.MICROSOFT_TEAMS ||
+      appType === IntegrationAppTypeEnum.MICROSOFT_TODO) {
+    // Delete all Microsoft integrations for this user
+    await integrationRepository.delete({
+      user: { id: userId },
+      provider: IntegrationProviderEnum.MICROSOFT,
+    });
+    
+    return { success: true };
+  }
 
   await integrationRepository.delete({
     user: { id: userId },

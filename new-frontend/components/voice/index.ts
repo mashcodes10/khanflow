@@ -5,3 +5,10 @@ export { TranscriptPanel } from './transcript-panel'
 export { ParsedActionCard } from './parsed-action-card'
 export { RecorderPanel } from './recorder-panel'
 export { HelpAccordion } from './help-accordion'
+
+// New upgraded components
+export { RecordButton } from './RecordButton'
+export { WaveformMeter } from './WaveformMeter'
+export { ActionEditorSheet } from './ActionEditorSheet'
+export { DestinationSelector } from './DestinationSelector'
+export { ScheduleControls } from './ScheduleControls'

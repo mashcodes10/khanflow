@@ -6,6 +6,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { PageHeader } from '@/components/shared/page-header'
 import { GlobalRulesSection } from '@/components/availability/global-rules-section'
+import { CalendarSelectionSection } from '@/components/availability/calendar-selection-section'
 import { WeeklyScheduleEditor, type WeeklySchedule } from '@/components/availability/weekly-schedule-editor'
 import { PreviewPanel } from '@/components/availability/preview-panel'
 import { Button } from '@/components/ui/button'
@@ -67,6 +68,9 @@ export default function AvailabilityPage() {
     if (availabilityData?.availability) {
       const avail = availabilityData.availability
       setTimeGap(avail.timeGap || 30)
+      setTimezone(avail.timezone || 'America/New_York')
+      setMinimumNotice(avail.minimumNotice || 240)
+      setBookingWindow(avail.bookingWindow || 60)
       // Convert backend days format to frontend schedule format
       const newSchedule: WeeklySchedule = { ...defaultSchedule }
       avail.days?.forEach((day: any) => {
@@ -93,7 +97,11 @@ export default function AvailabilityPage() {
       setHasChanges(false)
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Failed to save availability')
+      // Show detailed validation errors if available
+      const errorMessage = error?.response?.data?.errors 
+        ? `Validation failed: ${error.response.data.errors.map((e: any) => `${e.field}: ${Object.values(e.message || {}).join(', ')}`).join('; ')}`
+        : error?.response?.data?.message || error.message || 'Failed to save availability'
+      toast.error(errorMessage)
     },
   })
 
@@ -109,17 +117,36 @@ export default function AvailabilityPage() {
 
   const handleSave = () => {
     // Convert frontend schedule to backend format
-    const days = Object.entries(schedule).map(([day, config]) => ({
-      day: day.toUpperCase(),
-      startTime: config.enabled && config.blocks.length > 0 ? config.blocks[0].start : '09:00',
-      endTime: config.enabled && config.blocks.length > 0 ? config.blocks[0].end : '17:00',
-      isAvailable: config.enabled,
-    }))
+    // Ensure all 7 days are included in the correct order
+    const dayOrder = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+    const days = dayOrder.map((dayKey) => {
+      const config = schedule[dayKey as keyof WeeklySchedule]
+      // Ensure times are in HH:mm format
+      const startTime = config.enabled && config.blocks.length > 0 
+        ? config.blocks[0].start 
+        : '09:00'
+      const endTime = config.enabled && config.blocks.length > 0 
+        ? config.blocks[0].end 
+        : '17:00'
+      
+      return {
+        day: dayKey.toUpperCase() as 'SUNDAY' | 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY',
+        startTime: startTime.length === 5 ? startTime : `${startTime}:00`.slice(0, 5), // Ensure HH:mm format
+        endTime: endTime.length === 5 ? endTime : `${endTime}:00`.slice(0, 5), // Ensure HH:mm format
+        isAvailable: config.enabled,
+      }
+    })
 
     const availabilityData: AvailabilityType = {
-      timeGap,
+      timeGap: Number(timeGap), // Ensure it's a number
+      timezone: timezone,
+      minimumNotice: Number(minimumNotice),
+      bookingWindow: Number(bookingWindow),
       days,
     }
+
+    // Log for debugging
+    console.log('Saving availability:', availabilityData)
 
     saveMutation.mutate(availabilityData)
   }
@@ -144,8 +171,6 @@ export default function AvailabilityPage() {
           <PageHeader
             title="Availability"
             subtitle="Set your available hours for meetings. These settings apply to all your event types."
-            isAuthenticated
-            user={mockUser}
           />
 
           {/* Content Grid */}
@@ -163,6 +188,9 @@ export default function AvailabilityPage() {
                 onMinimumNoticeChange={(v) => handleGlobalRuleChange(setMinimumNotice, v)}
                 onBookingWindowChange={(v) => handleGlobalRuleChange(setBookingWindow, v)}
               />
+
+              {/* Calendar Selection Section */}
+              <CalendarSelectionSection />
 
               {/* Weekly Schedule Editor */}
               <WeeklyScheduleEditor

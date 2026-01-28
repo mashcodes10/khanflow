@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=production
+      - PORT=8000
+    env_file:
+      - ./backend/.env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - khanflow-network
+
+  frontend:
+    build:
+      context: ./new-frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - ./new-frontend/.env.local
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+    restart: unless-stopped
+    networks:
+      - khanflow-network
+
+networks:
+  khanflow-network:
+    driver: bridge

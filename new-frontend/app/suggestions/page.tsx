@@ -7,10 +7,12 @@ import type { Suggestion } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Sparkles, Loader2, RefreshCw, AlertCircle } from 'lucide-react'
+import { Separator } from '@/components/ui/separator'
+import { Sparkles, Loader2, RefreshCw, AlertCircle, Plus, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 import { AcceptSuggestionSheet } from '@/components/suggestions/accept-suggestion-sheet'
 import { AppSidebar } from '@/components/shared/app-sidebar'
+import { PageHeader } from '@/components/shared/page-header'
 
 export default function SuggestionsPage() {
   const queryClient = useQueryClient()
@@ -60,53 +62,77 @@ export default function SuggestionsPage() {
     generateMutation.mutate()
   }
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityConfig = (priority: string) => {
     switch (priority) {
       case 'high':
-        return 'destructive'
+        return { 
+          variant: 'destructive' as const, 
+          icon: AlertCircle,
+          color: 'text-red-600 dark:text-red-400'
+        }
       case 'medium':
-        return 'default'
+        return { 
+          variant: 'default' as const, 
+          icon: Zap,
+          color: 'text-amber-600 dark:text-amber-400'
+        }
       case 'low':
-        return 'secondary'
+        return { 
+          variant: 'secondary' as const, 
+          icon: Plus,
+          color: 'text-blue-600 dark:text-blue-400'
+        }
       default:
-        return 'secondary'
+        return { 
+          variant: 'secondary' as const, 
+          icon: Plus,
+          color: 'text-muted-foreground'
+        }
     }
   }
 
   if (isLoading) {
     return (
-      <div className="flex h-screen">
+      <div className="flex h-screen bg-background">
         <AppSidebar activePage="Suggestions" />
-        <div className="flex-1 flex items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
+        <main className="flex-1 flex items-center justify-center">
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex items-center justify-center size-12 rounded-full bg-muted animate-pulse">
+              <Sparkles className="size-5 text-muted-foreground" />
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Loading suggestions...</p>
+            </div>
+          </div>
+        </main>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="flex h-screen">
+      <div className="flex h-screen bg-background">
         <AppSidebar activePage="Suggestions" />
-        <div className="flex-1 flex items-center justify-center">
-          <Card className="w-full max-w-md">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-destructive" />
-                Error Loading Suggestions
-              </CardTitle>
-              <CardDescription>
-                {error instanceof Error ? error.message : 'An error occurred'}
+        <main className="flex-1 flex items-center justify-center p-6">
+          <Card className="w-full max-w-md border-destructive/20">
+            <CardHeader className="text-center pb-3">
+              <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-destructive/10 mb-3">
+                <AlertCircle className="size-5 text-destructive" />
+              </div>
+              <CardTitle className="text-lg">Unable to load suggestions</CardTitle>
+              <CardDescription className="text-sm">
+                {error instanceof Error ? error.message : 'Something went wrong while loading your AI suggestions.'}
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Button onClick={() => refetch()} variant="outline" className="w-full">
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Retry
+            <CardContent className="pt-3">
+              <Button onClick={() => refetch()} className="w-full" size="sm">
+                <RefreshCw className="size-4 mr-2" />
+                Try again
               </Button>
             </CardContent>
           </Card>
-        </div>
+        </main>
       </div>
     )
   }
@@ -114,57 +140,47 @@ export default function SuggestionsPage() {
   const suggestions = data || []
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-screen bg-background">
       <AppSidebar activePage="Suggestions" />
-      <div className="flex-1 overflow-y-auto">
-        <div className="container mx-auto p-6 max-w-4xl">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-3xl font-bold flex items-center gap-2">
-                <Sparkles className="h-8 w-8" />
-                AI Suggestions
-              </h1>
-              <p className="text-muted-foreground mt-2">
-                Personalized recommendations to help you stay on track with your life goals
-              </p>
-            </div>
-            <Button
-              onClick={handleGenerate}
-              disabled={generateMutation.isPending}
-              variant="outline"
-            >
-              {generateMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Generate New
-                </>
-              )}
-            </Button>
-          </div>
+      
+      <main className="flex-1 overflow-y-auto">
+        <div className="max-w-4xl mx-auto px-6 py-6">
+          
+          <PageHeader
+            title="AI Suggestions"
+            subtitle="Personalized recommendations to help you stay on track with your life goals"
+            showCreate
+            createLabel="Generate New"
+            onCreate={handleGenerate}
+          >
+            {generateMutation.isPending && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="size-4 animate-spin" />
+                <span>Generating suggestions...</span>
+              </div>
+            )}
+          </PageHeader>
 
           {suggestions.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Sparkles className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-semibold mb-2">No suggestions available</h3>
-                <p className="text-muted-foreground text-center mb-4">
-                  We'll generate personalized suggestions based on your life areas and intents.
+            <Card className="border-dashed">
+              <CardContent className="flex flex-col items-center justify-center py-16 text-center">
+                <div className="flex items-center justify-center size-16 rounded-full bg-muted/50 mb-4">
+                  <Sparkles className="size-7 text-muted-foreground" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">No suggestions yet</h3>
+                <p className="text-muted-foreground max-w-md mb-6">
+                  AI will analyze your life areas and intents to generate personalized recommendations that help you achieve your goals.
                 </p>
-                <Button onClick={handleGenerate} disabled={generateMutation.isPending}>
+                <Button onClick={handleGenerate} disabled={generateMutation.isPending} size="sm">
                   {generateMutation.isPending ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <Loader2 className="size-4 mr-2 animate-spin" />
                       Generating...
                     </>
                   ) : (
                     <>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Generate Suggestions
+                      <Sparkles className="size-4 mr-2" />
+                      Generate suggestions
                     </>
                   )}
                 </Button>
@@ -172,47 +188,67 @@ export default function SuggestionsPage() {
             </Card>
           ) : (
             <div className="space-y-4">
-              {suggestions.map((suggestion) => (
-                <Card key={suggestion.id} className="hover:shadow-md transition-shadow">
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <CardTitle className="text-lg">{suggestion.naturalLanguagePhrase}</CardTitle>
-                          <Badge variant={getPriorityColor(suggestion.priority)}>
-                            {suggestion.priority}
-                          </Badge>
-                        </div>
-                        <CardDescription className="mt-2">
-                          {suggestion.reason}
-                        </CardDescription>
-                        <div className="flex items-center gap-2 mt-3 text-sm text-muted-foreground">
-                          <span>{suggestion.lifeAreaName}</span>
-                          <span>•</span>
-                          <span>{suggestion.intentBoardName}</span>
+              {suggestions.map((suggestion, index) => {
+                const priorityConfig = getPriorityConfig(suggestion.priority)
+                const PriorityIcon = priorityConfig.icon
+                
+                return (
+                  <Card key={suggestion.id} className="group hover:shadow-sm transition-all duration-200 border-border/50 hover:border-border">
+                    <CardHeader className="pb-4">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-3 mb-3">
+                            <CardTitle className="text-lg font-medium text-foreground leading-tight">
+                              {suggestion.naturalLanguagePhrase}
+                            </CardTitle>
+                            <Badge variant={priorityConfig.variant} className="shrink-0 gap-1.5 px-2.5 py-1">
+                              <PriorityIcon className="size-3" />
+                              {suggestion.priority}
+                            </Badge>
+                          </div>
+                          
+                          <CardDescription className="text-sm text-muted-foreground leading-relaxed mb-4">
+                            {suggestion.reason}
+                          </CardDescription>
+                          
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs font-normal bg-muted/30 border-muted-foreground/20">
+                              {suggestion.lifeAreaName}
+                            </Badge>
+                            <div className="size-1 rounded-full bg-muted-foreground/30" />
+                            <Badge variant="outline" className="text-xs font-normal bg-muted/30 border-muted-foreground/20">
+                              {suggestion.intentBoardName}
+                            </Badge>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        onClick={() => handleAccept(suggestion)}
-                        className="flex-1"
-                      >
-                        Accept
-                      </Button>
-                      <Button
-                        onClick={() => handleDismiss(suggestion.id)}
-                        variant="outline"
-                        disabled={dismissMutation.isPending}
-                      >
-                        Dismiss
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardHeader>
+                    
+                    <Separator className="mb-4" />
+                    
+                    <CardContent className="pt-0">
+                      <div className="flex items-center gap-3">
+                        <Button
+                          onClick={() => handleAccept(suggestion)}
+                          size="sm"
+                          className="px-6"
+                        >
+                          Accept
+                        </Button>
+                        <Button
+                          onClick={() => handleDismiss(suggestion.id)}
+                          variant="ghost"
+                          size="sm"
+                          disabled={dismissMutation.isPending}
+                          className="text-muted-foreground hover:text-foreground"
+                        >
+                          Dismiss
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
           )}
 
@@ -228,7 +264,7 @@ export default function SuggestionsPage() {
             />
           )}
         </div>
-      </div>
+      </main>
     </div>
   )
 }

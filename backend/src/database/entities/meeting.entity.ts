@@ -35,10 +35,10 @@ export class Meeting {
   @Column({ type: "varchar", nullable: true })
   additionalInfo: string;
 
-  @Column({ type: "timestamptz" })
+  @Column({ type: "timestamptz", nullable: true })
   startTime: Date;
 
-  @Column({ type: "timestamptz" })
+  @Column({ type: "timestamptz", nullable: true })
   endTime: Date;
 
   @Column({ type: "varchar" })

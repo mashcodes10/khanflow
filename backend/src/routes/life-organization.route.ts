@@ -27,6 +27,9 @@ import {
   markOnboardingCompleteController,
   clearLifeOrganizationController,
   getTemplatesController,
+  importTaskController,
+  reorderBoardsController,
+  moveIntentController,
 } from "../controllers/life-organization.controller";
 
 const router = Router();
@@ -71,6 +74,13 @@ router.post("/seed", seedLifeOrganizationController);
 router.post("/remove-examples", removeExampleIntentsController);
 router.post("/clear", clearLifeOrganizationController);
 router.get("/templates", getTemplatesController);
+
+// Import from external providers
+router.post("/import-task", importTaskController);
+
+// Board and intent management
+router.post("/reorder-boards", reorderBoardsController);
+router.post("/move-intent", moveIntentController);
 
 export default router;
 

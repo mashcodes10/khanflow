@@ -291,8 +291,6 @@ export default function MeetingsPage() {
           {/* Header */}
           <PageHeader
             title="Meetings"
-            isAuthenticated
-            user={mockUser}
           />
 
           {/* Tabs */}

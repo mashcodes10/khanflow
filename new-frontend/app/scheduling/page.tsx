@@ -166,8 +166,6 @@ export default function SchedulingPage() {
             showCreate
             createLabel="Create"
             onCreate={() => setCreateDialogOpen(true)}
-            isAuthenticated
-            user={{ name: mockUser.name, email: mockUser.email }}
           />
 
           {/* User Profile Section */}

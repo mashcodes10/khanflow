@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Plus, MoreVertical, ChevronDown, Circle, CheckCircle2 } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { Plus, MoreVertical, ChevronDown, Circle, CheckCircle2, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { tasksAPI, integrationsAPI } from '@/lib/api'
+import { tasksAPI, integrationsAPI, lifeOrganizationAPI } from '@/lib/api'
 import { toast } from 'sonner'
+import { ExportToLifeOSModal } from '@/components/life-org/export-to-lifeos-modal'
 
 interface Task {
   id: string
@@ -45,6 +46,8 @@ export default function TasksPage() {
   const [expandedLists, setExpandedLists] = useState<Record<string, boolean>>({})
   const [newTaskInputs, setNewTaskInputs] = useState<Record<string, boolean>>({})
   const [newTaskTitles, setNewTaskTitles] = useState<Record<string, string>>({})
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<{ task: Task; listId: string } | null>(null)
 
   // Check authentication
   useEffect(() => {
@@ -82,6 +85,26 @@ export default function TasksPage() {
     queryFn: tasksAPI.getAllTasks,
     enabled: !!isGoogleConnected && !loadingLists && (taskLists.length > 0 || taskListsData !== undefined),
     retry: false,
+  })
+
+  // Fetch life areas for export modal
+  const { data: lifeAreasData } = useQuery({
+    queryKey: ['life-areas'],
+    queryFn: lifeOrganizationAPI.getLifeAreas,
+  })
+
+  // Export to Life OS mutation
+  const exportToLifeOSMutation = useMutation({
+    mutationFn: lifeOrganizationAPI.exportTaskToLifeOS,
+    onSuccess: () => {
+      toast.success('Task exported to Life OS')
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+      setExportModalOpen(false)
+      setSelectedTask(null)
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to export task')
+    },
   })
 
   // Create task mutation
@@ -127,6 +150,11 @@ export default function TasksPage() {
     }
   })
 
+  const handleExportToLifeOS = (task: Task, listId: string) => {
+    setSelectedTask({ task, listId })
+    setExportModalOpen(true)
+  }
+
   const toggleCompleted = (listId: string) => {
     setExpandedLists((prev) => ({
       ...prev,
@@ -161,8 +189,6 @@ export default function TasksPage() {
           <PageHeader
             title="Tasks"
             subtitle={isGoogleConnected ? 'Google Tasks integration' : 'Connect Google Calendar to use Tasks'}
-            isAuthenticated
-            user={mockUser}
           />
 
           <div className="mt-6">
@@ -295,14 +321,37 @@ export default function TasksPage() {
                         {list.tasks
                           .filter((task) => task.status === 'needsAction')
                           .map((task) => (
-                            <button
+                            <div
                               key={task.id}
-                              onClick={() => handleDeleteTask(list.id, task.id)}
-                              className="group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-accent"
+                              className="group flex w-full items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-accent"
                             >
                               <Circle className="h-5 w-5 shrink-0 text-muted-foreground" />
                               <span className="flex-1 text-sm">{task.title}</span>
-                            </button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 opacity-0 group-hover:opacity-100"
+                                  >
+                                    <MoreVertical className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleExportToLifeOS(task, list.id)}>
+                                    <Upload className="h-4 w-4 mr-2" />
+                                    Export to Life OS
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem 
+                                    onClick={() => handleDeleteTask(list.id, task.id)}
+                                    className="text-destructive"
+                                  >
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
                           ))}
 
                         {list.completedCount > 0 && (
@@ -335,6 +384,28 @@ export default function TasksPage() {
           </div>
         </div>
       </main>
+
+      {/* Export to Life OS Modal */}
+      <ExportToLifeOSModal
+        open={exportModalOpen}
+        onClose={() => {
+          setExportModalOpen(false)
+          setSelectedTask(null)
+        }}
+        taskTitle={selectedTask?.task.title || ''}
+        lifeAreas={lifeAreasData?.data || []}
+        onExport={(params) => {
+          if (!selectedTask) return
+          exportToLifeOSMutation.mutate({
+            taskTitle: selectedTask.task.title,
+            taskNotes: selectedTask.task.notes,
+            ...params,
+            provider: 'google',
+            providerTaskId: selectedTask.task.id,
+            providerListId: selectedTask.listId,
+          })
+        }}
+      />
     </div>
   )
 }

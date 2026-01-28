@@ -36,7 +36,7 @@ export class User {
   password: string;
 
   @Column({ type: "varchar", nullable: true })
-  imageUrl: string;
+  imageUrl: string | null;
 
   @Column({ type: "json", nullable: true })
   onboarding?: {

@@ -100,7 +100,7 @@ export const googleOAuthCallbackController = asyncHandler(
       return res.redirect(`${CLIENT_URL}&error=Invalid state parameter`);
     }
 
-    const { userId } = decodeState(state);
+    const { userId, appType } = decodeState(state);
 
     if (!userId) {
       return res.redirect(`${CLIENT_URL}&error=UserId is required`);
@@ -112,11 +112,16 @@ export const googleOAuthCallbackController = asyncHandler(
       return res.redirect(`${CLIENT_URL}&error=Access Token not passed`);
     }
 
+    // Create the requested integration based on the original app type
+    const category = appType === IntegrationAppTypeEnum.GOOGLE_TASKS 
+      ? IntegrationCategoryEnum.TASKS 
+      : IntegrationCategoryEnum.CALENDAR_AND_VIDEO_CONFERENCING;
+
     await createIntegrationService({
       userId: userId,
       provider: IntegrationProviderEnum.GOOGLE,
-      category: IntegrationCategoryEnum.CALENDAR_AND_VIDEO_CONFERENCING,
-      app_type: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR,
+      category: category,
+      app_type: appType,
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token || undefined,
       expiry_date: tokens.expiry_date || null,
@@ -125,6 +130,33 @@ export const googleOAuthCallbackController = asyncHandler(
         token_type: tokens.token_type,
       },
     });
+
+    // If Google Calendar was connected and the scopes include tasks, also auto-create Google Tasks integration
+    if (appType === IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR && 
+        tokens.scope && 
+        (tokens.scope.includes('https://www.googleapis.com/auth/tasks') || 
+         tokens.scope.includes('https://www.googleapis.com/auth/tasks.readonly'))) {
+      
+      try {
+        await createIntegrationService({
+          userId: userId,
+          provider: IntegrationProviderEnum.GOOGLE,
+          category: IntegrationCategoryEnum.TASKS,
+          app_type: IntegrationAppTypeEnum.GOOGLE_TASKS,
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token || undefined,
+          expiry_date: tokens.expiry_date || null,
+          metadata: {
+            scope: tokens.scope,
+            token_type: tokens.token_type,
+            auto_connected: true, // Mark as auto-connected via Google Calendar
+          },
+        });
+      } catch (error) {
+        // If Google Tasks already exists, ignore the error
+        console.log('Google Tasks integration already exists or failed to create:', error);
+      }
+    }
 
     return res.redirect(`${CLIENT_URL}&success=true`);
   }

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { AppSidebar } from '@/components/shared/app-sidebar'
 import { SidebarItem } from '@/components/life-org/sidebar-item'
 import { PageHeader } from '@/components/life-org/page-header'
 import { LifeAreaSection } from '@/components/life-org/life-area-section'
@@ -96,7 +97,7 @@ const navItems = [
   { icon: Calendar, label: 'Calendar', href: '#' },
   { icon: CheckSquare, label: 'Tasks', href: '#' },
   { icon: ListTodo, label: 'Microsoft Todo', href: '#' },
-  { icon: Sparkles, label: 'Life Organization', href: '/', isActive: true },
+  { icon: Sparkles, label: 'life os', href: '/', isActive: true },
   { icon: Mic, label: 'Voice Assistant', href: '/voice-assistant' },
   { icon: Puzzle, label: 'Integrations & apps', href: '#' },
   { icon: Clock, label: 'Availability', href: '#' },
@@ -237,6 +238,41 @@ export default function LifeOrganizationPage() {
     },
   })
 
+  const deleteIntentMutation = useMutation({
+    mutationFn: lifeOrganizationAPI.deleteIntent,
+    onSuccess: () => {
+      toast.success('Intent deleted')
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to delete intent')
+    },
+  })
+
+  // Reorder boards mutation
+  const reorderBoardsMutation = useMutation({
+    mutationFn: ({ lifeAreaId, boardOrders }: { lifeAreaId: string; boardOrders: { id: string; order: number }[] }) =>
+      lifeOrganizationAPI.reorderBoards(lifeAreaId, boardOrders),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to reorder boards')
+    },
+  })
+
+  // Move intent mutation
+  const moveIntentMutation = useMutation({
+    mutationFn: ({ intentId, targetBoardId, newOrder }: { intentId: string; targetBoardId: string; newOrder: number }) =>
+      lifeOrganizationAPI.moveIntent(intentId, targetBoardId, newOrder),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to move intent')
+    },
+  })
+
   // Clear all life organization data mutation
   const clearLifeOrgMutation = useMutation({
     mutationFn: lifeOrganizationAPI.clearLifeOrganization,
@@ -258,7 +294,7 @@ export default function LifeOrganizationPage() {
       setShowOnboarding(true)
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to clear life organization')
+      toast.error(error.response?.data?.message || 'Failed to clear life os')
     },
   })
 
@@ -266,12 +302,50 @@ export default function LifeOrganizationPage() {
   const suggestions = suggestionsData?.data || []
   const suggestionsCount = suggestions.length
 
+  // Helper function to determine tag color based on life area name and ensure unique distribution
+  const getTagColor = (name: string, index: number, icon?: string): 'default' | 'health' | 'career' | 'relationships' | 'learning' | 'hobbies' | 'financial' | 'travel' | 'personal' => {
+    const lowerName = name.toLowerCase()
+    const iconLower = icon?.toLowerCase()
+    
+    // First, try specific keyword matching
+    if (iconLower === 'health' || lowerName.includes('health') || lowerName.includes('fitness')) {
+      return 'health'  // green
+    }
+    if (iconLower === 'career' || lowerName.includes('career') || lowerName.includes('work')) {
+      return 'career'  // amber
+    }
+    if (iconLower === 'relationships' || lowerName.includes('relationship') || lowerName.includes('family')) {
+      return 'relationships'  // cyan
+    }
+    if (iconLower === 'learning' || lowerName.includes('learning') || lowerName.includes('growth') || lowerName.includes('education')) {
+      return 'learning'  // blue
+    }
+    if (iconLower === 'fun' || lowerName.includes('hobbies') || lowerName.includes('fun') || lowerName.includes('entertainment')) {
+      return 'hobbies'  // purple
+    }
+    if (lowerName.includes('financial') || lowerName.includes('money') || lowerName.includes('budget')) {
+      return 'financial'  // emerald
+    }
+    if (lowerName.includes('travel') || lowerName.includes('adventure')) {
+      return 'travel'  // rose
+    }
+    if (lowerName.includes('personal') || lowerName.includes('home') || lowerName.includes('project')) {
+      return 'personal'  // indigo
+    }
+    
+    // If no specific match, use round-robin to ensure unique colors
+    const colorOptions: ('health' | 'career' | 'relationships' | 'learning' | 'hobbies' | 'financial' | 'travel' | 'personal')[] = [
+      'health', 'career', 'relationships', 'learning', 'hobbies', 'financial', 'travel', 'personal'
+    ]
+    return colorOptions[index % colorOptions.length]
+  }
+
   // Transform backend life areas to frontend format
-  const transformedLifeAreas = lifeAreas.map((area: LifeArea) => ({
+  const transformedLifeAreas = lifeAreas.map((area: LifeArea, index: number) => ({
     id: area.id,
     title: area.name,
     tag: area.name.toLowerCase().split(' ')[0],
-    tagColor: 'default' as const,
+    tagColor: getTagColor(area.name, index, area.icon),
     boards: area.intentBoards?.map((board) => ({
       id: board.id,
       title: board.name,
@@ -304,70 +378,7 @@ export default function LifeOrganizationPage() {
         onClose={() => setShowOnboarding(false)}
         onComplete={handleOnboardingComplete}
       />
-      {/* Sidebar */}
-      <aside 
-        className={cn(
-          'flex flex-col bg-sidebar transition-all duration-200',
-          sidebarCollapsed ? 'w-16' : 'w-60'
-        )}
-      >
-        {/* Logo */}
-        <div className="flex items-center gap-3 px-4 py-4">
-          <div className="flex items-center gap-1">
-            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-            <div className="w-1.5 h-1.5 rounded-full bg-primary" />
-          </div>
-          {!sidebarCollapsed && (
-            <span className="font-semibold text-sidebar-foreground tracking-tight">Khanflow</span>
-          )}
-          <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="ml-auto p-1.5 rounded-md hover:bg-sidebar-accent transition-colors"
-            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          >
-            {sidebarCollapsed ? (
-              <Menu className="size-4 text-muted-foreground" strokeWidth={1.75} />
-            ) : (
-              <ChevronLeft className="size-4 text-muted-foreground" strokeWidth={1.75} />
-            )}
-          </button>
-        </div>
-
-        {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {navItems.map((item) => (
-            sidebarCollapsed ? (
-              <a
-                key={item.label}
-                href={item.href}
-                className={cn(
-                  'flex items-center justify-center w-full p-2.5 rounded-lg transition-colors',
-                  'hover:bg-sidebar-accent',
-                  item.isActive && 'bg-sidebar-accent'
-                )}
-                title={item.label}
-              >
-                <item.icon 
-                  className={cn(
-                    'size-[18px]',
-                    item.isActive ? 'text-accent' : 'text-muted-foreground'
-                  )} 
-                  strokeWidth={1.75}
-                />
-              </a>
-            ) : (
-              <SidebarItem
-                key={item.label}
-                icon={item.icon}
-                label={item.label}
-                href={item.href}
-                isActive={item.isActive}
-              />
-            )
-          ))}
-        </nav>
-      </aside>
+      <AppSidebar activePage="life os" />
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto">
@@ -375,7 +386,7 @@ export default function LifeOrganizationPage() {
           {/* Header */}
           <div className="flex items-start justify-between mb-6">
             <PageHeader
-              title="Life Organization"
+              title="life os"
               description="Organize what matters to you – capture intentions, not just tasks"
             />
             <div className="flex items-center gap-3">
@@ -474,6 +485,12 @@ export default function LifeOrganizationPage() {
                           description: intent.timeline ? `Timeline: ${intent.timeline}` : undefined,
                           intentBoardId: boardId,
                         })
+                      }}
+                      onDeleteIntent={(intentId) => {
+                        deleteIntentMutation.mutate(intentId)
+                      }}
+                      onMoveIntent={(intentId, targetBoardId, newOrder) => {
+                        moveIntentMutation.mutate({ intentId, targetBoardId, newOrder })
                       }}
                     />
                   ))}

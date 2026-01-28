@@ -96,6 +96,7 @@ export const googleLoginService = async (idToken: string) => {
   const userRepository = AppDataSource.getRepository(User);
 
   let user = await userRepository.findOne({ where: { email: payload.email } });
+  const googleImageUrl = payload.picture || null;
 
   // Create a user if not exists
   if (!user) {
@@ -114,15 +115,26 @@ export const googleLoginService = async (idToken: string) => {
       }),
     });
 
-    user = AppDataSource.getRepository(User).create({
+    const newUserData: Partial<User> = {
       email: payload.email,
       name: payload.name || "Google User",
       username,
       password: randomPassword,
       availability,
-    });
+    };
+    if (googleImageUrl) {
+      newUserData.imageUrl = googleImageUrl;
+    }
+
+    user = AppDataSource.getRepository(User).create(newUserData);
 
     await AppDataSource.getRepository(User).save(user);
+  } else if (googleImageUrl) {
+    // IMPORTANT: use repository.update to avoid re-hashing password via entity hooks
+    if (user.imageUrl !== googleImageUrl) {
+      await userRepository.update({ id: user.id }, { imageUrl: googleImageUrl });
+      user.imageUrl = googleImageUrl;
+    }
   }
 
   const { token, expiresAt } = signJwtToken({ userId: user.id });
@@ -176,6 +188,28 @@ export const microsoftLoginService = async (accessToken: string) => {
   const email = profile.mail || profile.userPrincipalName;
   const userRepository = AppDataSource.getRepository(User);
 
+  // Try to fetch a small profile photo from Microsoft Graph.
+  // We do NOT persist this to DB (user.imageUrl is varchar) — we just return it so the frontend
+  // can store it in localStorage and display it in the navbar.
+  let microsoftImageUrl: string | null = null;
+  try {
+    const photoResponse = await fetch(
+      "https://graph.microsoft.com/v1.0/me/photos/48x48/$value",
+      {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      }
+    );
+    if (photoResponse.ok) {
+      const arrayBuffer = await photoResponse.arrayBuffer();
+      const base64 = Buffer.from(arrayBuffer).toString("base64");
+      const contentType =
+        photoResponse.headers.get("content-type") || "image/jpeg";
+      microsoftImageUrl = `data:${contentType};base64,${base64}`;
+    }
+  } catch {
+    // ignore photo errors (e.g., no photo available)
+  }
+
   let user = await userRepository.findOne({ where: { email } });
 
   // Create a user if not exists
@@ -195,15 +229,24 @@ export const microsoftLoginService = async (accessToken: string) => {
       }),
     });
 
-    user = AppDataSource.getRepository(User).create({
+    const newUserData: Partial<User> = {
       email,
       name: profile.displayName || "Microsoft User",
       username,
       password: randomPassword,
       availability,
-    });
+    };
+    if (microsoftImageUrl) {
+      newUserData.imageUrl = microsoftImageUrl;
+    }
+
+    user = AppDataSource.getRepository(User).create(newUserData);
 
     await AppDataSource.getRepository(User).save(user);
+  }
+
+  if (microsoftImageUrl) {
+    user.imageUrl = microsoftImageUrl;
   }
 
   const { token, expiresAt } = signJwtToken({ userId: user.id });

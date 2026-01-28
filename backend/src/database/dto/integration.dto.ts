@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsArray, IsString, ArrayNotEmpty } from "class-validator";
+import { IsEnum, IsNotEmpty, IsArray, IsString } from "class-validator";
 import { IntegrationAppTypeEnum } from "../entities/integration.entity";
 
 export class AppTypeDTO {
@@ -9,7 +9,6 @@ export class AppTypeDTO {
 
 export class SelectedCalendarsDTO {
   @IsArray()
-  @ArrayNotEmpty()
   @IsString({ each: true })
   ids: string[];
 }

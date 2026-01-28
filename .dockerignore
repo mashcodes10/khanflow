@@ -1,0 +1,17 @@
+# Docker ignore file for root
+node_modules
+npm-debug.log
+.env
+.env.*
+!.env.example
+.git
+.gitignore
+.DS_Store
+*.md
+!README.md
+dist
+build
+.next
+coverage
+test-results
+playwright-report

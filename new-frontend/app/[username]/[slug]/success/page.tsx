@@ -5,18 +5,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { CheckCircle2, Calendar, Clock, Video, ExternalLink } from 'lucide-react'
+import { Logo } from '@/components/shared/logo'
+import { CheckCircle2, Calendar, Clock, Video, ExternalLink, CalendarPlus, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
+import { useState } from 'react'
+import { generateGoogleCalendarLink, generateOutlookCalendarLink, downloadICSFile } from '@/lib/calendar-utils'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 
 export default function BookingSuccessPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false)
 
   const eventTitle = searchParams.get('eventTitle') || 'Meeting'
   const date = searchParams.get('date') || ''
   const time = searchParams.get('time') || ''
   const hostName = searchParams.get('hostName') || ''
   const meetLink = searchParams.get('meetLink') || ''
+  const duration = parseInt(searchParams.get('duration') || '30')
 
   const formattedDate = date ? new Date(date + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long',
@@ -25,20 +36,49 @@ export default function BookingSuccessPage() {
     day: 'numeric'
   }) : ''
 
+  // Calculate start and end times for calendar
+  const startDateTime = date && time ? new Date(`${date}T${time}:00`) : new Date()
+  const endDateTime = new Date(startDateTime.getTime() + duration * 60000)
+
+  const handleAddToCalendar = (platform: 'google' | 'outlook' | 'apple') => {
+    const calendarEvent = {
+      title: `${eventTitle} with ${hostName}`,
+      description: `Meeting scheduled via KhanFlow\n\nJoin Link: ${meetLink}`,
+      location: meetLink,
+      startTime: startDateTime.toISOString(),
+      endTime: endDateTime.toISOString(),
+    }
+
+    switch (platform) {
+      case 'google':
+        window.open(generateGoogleCalendarLink(calendarEvent), '_blank')
+        break
+      case 'outlook':
+        window.open(generateOutlookCalendarLink(calendarEvent), '_blank')
+        break
+      case 'apple':
+        downloadICSFile(calendarEvent, `${eventTitle.replace(/\s+/g, '-')}.ics`)
+        toast.success('Calendar file downloaded')
+        break
+    }
+    setIsDropdownOpen(false)
+  }
+
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
-      <Card className="max-w-2xl w-full rounded-xl border border-border-subtle bg-card shadow-sm">
-        <CardHeader className="text-center pb-4">
-          <div className="flex justify-center mb-4">
-            <div className="p-3 rounded-full bg-green-500/10">
-              <CheckCircle2 className="size-12 text-green-500" strokeWidth={1.75} />
+    <div className="min-h-screen bg-background flex flex-col">
+      <div className="flex-1 flex items-center justify-center p-4">
+        <Card className="max-w-2xl w-full rounded-xl border border-border-subtle bg-card shadow-sm">
+          <CardHeader className="text-center pb-4">
+            <div className="flex justify-center mb-4">
+              <div className="p-3 rounded-full bg-green-500/10">
+                <CheckCircle2 className="size-12 text-green-500" strokeWidth={1.75} />
+              </div>
             </div>
-          </div>
-          <CardTitle className="text-2xl">Meeting Booked Successfully!</CardTitle>
-          <CardDescription className="text-base mt-2">
-            Your meeting has been scheduled and added to the calendar.
-          </CardDescription>
-        </CardHeader>
+            <CardTitle className="text-2xl">Meeting Booked Successfully!</CardTitle>
+            <CardDescription className="text-base mt-2">
+              Your meeting has been scheduled and added to the calendar.
+            </CardDescription>
+          </CardHeader>
 
         <CardContent className="space-y-6">
           {/* Meeting Details */}
@@ -118,21 +158,61 @@ export default function BookingSuccessPage() {
           )}
 
           {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-3 pt-4">
-            {meetLink && (
-              <Button
-                className="flex-1 rounded-lg bg-accent hover:bg-accent/90 text-accent-foreground"
-                asChild
-              >
-                <a href={meetLink} target="_blank" rel="noopener noreferrer">
-                  <Video className="size-4 mr-2" strokeWidth={1.75} />
-                  Join Meeting
-                </a>
-              </Button>
-            )}
+          <div className="flex flex-col gap-3 pt-4">
+            <div className="flex flex-col sm:flex-row gap-3">
+              {meetLink && (
+                <Button
+                  className="flex-1 rounded-lg bg-accent hover:bg-accent/90 text-accent-foreground"
+                  asChild
+                >
+                  <a href={meetLink} target="_blank" rel="noopener noreferrer">
+                    <Video className="size-4 mr-2" strokeWidth={1.75} />
+                    Join Meeting
+                  </a>
+                </Button>
+              )}
+              
+              {/* Add to Calendar Dropdown */}
+              <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="flex-1 rounded-lg"
+                  >
+                    <CalendarPlus className="size-4 mr-2" strokeWidth={1.75} />
+                    Add to Calendar
+                    <ChevronDown className="size-4 ml-2" strokeWidth={1.75} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem
+                    onClick={() => handleAddToCalendar('google')}
+                    className="cursor-pointer"
+                  >
+                    <Calendar className="size-4 mr-2" />
+                    Google Calendar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleAddToCalendar('outlook')}
+                    className="cursor-pointer"
+                  >
+                    <Calendar className="size-4 mr-2" />
+                    Outlook Calendar
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleAddToCalendar('apple')}
+                    className="cursor-pointer"
+                  >
+                    <Calendar className="size-4 mr-2" />
+                    Apple Calendar
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+            
             <Button
               variant="outline"
-              className="flex-1 rounded-lg"
+              className="w-full rounded-lg"
               onClick={() => router.push('/')}
             >
               Go to Dashboard
@@ -140,6 +220,25 @@ export default function BookingSuccessPage() {
           </div>
         </CardContent>
       </Card>
+      </div>
+      
+      {/* Footer */}
+      <footer className="py-6">
+        <div className="flex flex-col items-center gap-2">
+          <Logo size="sm" />
+          <p className="text-sm text-muted-foreground">
+            Powered by{' '}
+            <a 
+              href="https://khanflow.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="font-medium text-accent hover:text-accent/80 transition-colors"
+            >
+              KhanFlow
+            </a>
+          </p>
+        </div>
+      </footer>
     </div>
   )
 }

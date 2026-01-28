@@ -195,25 +195,25 @@ export function AddIntentPopover({
       className={cn(
         'group flex items-center gap-2 w-full px-4 py-3 rounded-xl',
         'border border-dashed border-border-subtle hover:border-primary/30',
-        'text-sm text-muted-foreground hover:text-foreground',
+        'text-sm text-foreground/90 hover:text-foreground',
         'transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         className
       )}
     >
-      <Plus className="size-4 text-muted-foreground group-hover:text-primary transition-colors" strokeWidth={1.75} />
+      <Plus className="size-4 text-foreground/85 group-hover:text-primary transition-colors" strokeWidth={1.75} />
       <span>{mode === 'intentBoard' ? 'Add Intent Board' : 'Add Intent'}</span>
     </button>
   ) : (
     <button
       className={cn(
         'group inline-flex items-center gap-1.5 px-2 py-1 rounded-lg',
-        'text-xs text-muted-foreground hover:text-foreground',
+        'text-xs text-foreground/90 hover:text-foreground',
         'hover:bg-muted/50 transition-all duration-150',
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
         className
       )}
     >
-      <Plus className="size-3.5 text-muted-foreground group-hover:text-primary transition-colors" strokeWidth={2} />
+      <Plus className="size-3.5 text-foreground/85 group-hover:text-primary transition-colors" strokeWidth={2} />
       <span>{mode === 'intentBoard' ? 'Add Board' : 'Add Intent'}</span>
     </button>
   )
@@ -239,7 +239,7 @@ export function AddIntentPopover({
           </span>
           <button 
             onClick={() => setOpen(false)}
-            className="p-1 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+            className="p-1 rounded-md hover:bg-muted transition-colors text-foreground/85 hover:text-foreground"
           >
             <X className="size-4" strokeWidth={1.75} />
           </button>
@@ -254,7 +254,7 @@ export function AddIntentPopover({
             value={text}
             onChange={(e) => setText(e.target.value)}
             className={cn(
-              'w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground',
+              'w-full bg-transparent text-sm text-foreground placeholder:text-foreground/85',
               'border-none outline-none',
               'leading-relaxed'
             )}
@@ -273,7 +273,7 @@ export function AddIntentPopover({
                   'transition-all duration-150',
                   intentType === type
                     ? 'bg-accent/15 text-accent-foreground border border-accent/30'
-                    : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground border border-transparent'
+                    : 'bg-muted/50 text-foreground/90 hover:bg-muted hover:text-foreground border border-transparent'
                 )}
               >
                 <Icon className="size-3.5" strokeWidth={1.75} />
@@ -287,7 +287,7 @@ export function AddIntentPopover({
         {mode === 'intent' && (
           <div className="px-4 pb-3">
             <div className="flex items-center gap-2 flex-wrap">
-              <Calendar className="size-3.5 text-muted-foreground shrink-0" strokeWidth={1.75} />
+              <Calendar className="size-3.5 text-foreground/85 shrink-0" strokeWidth={1.75} />
               {timelineOptions.map((option) => {
                 const Icon = option.icon || Calendar
                 const isSelected = timeline === option.value
@@ -302,7 +302,7 @@ export function AddIntentPopover({
                       'transition-all duration-150',
                       isSelected
                         ? 'bg-primary/10 text-primary'
-                        : 'text-muted-foreground hover:text-foreground hover:bg-muted/50',
+                        : 'text-foreground/90 hover:text-foreground hover:bg-muted/50',
                       isCustom && 'font-medium'
                     )}
                   >
@@ -321,7 +321,7 @@ export function AddIntentPopover({
         <button
           onClick={() => setShowMoreOptions(!showMoreOptions)}
           className={cn(
-            'w-full flex items-center justify-between px-4 py-2.5 text-xs text-muted-foreground',
+            'w-full flex items-center justify-between px-4 py-2.5 text-xs text-foreground/90',
             'hover:bg-muted/30 transition-colors border-t border-border-subtle'
           )}
         >
@@ -337,7 +337,7 @@ export function AddIntentPopover({
           <div className="px-4 pb-3 space-y-3 border-t border-border-subtle pt-3">
             {/* Tags */}
             <div className="flex items-center gap-2">
-              <Tag className="size-3.5 text-muted-foreground shrink-0" strokeWidth={1.75} />
+              <Tag className="size-3.5 text-foreground/85 shrink-0" strokeWidth={1.75} />
               <div className="flex items-center gap-1.5 flex-wrap">
                 <Badge variant="secondary" className="text-xs px-2 py-0.5 rounded-md bg-muted">
                   personal
@@ -345,7 +345,7 @@ export function AddIntentPopover({
                 <Badge variant="secondary" className="text-xs px-2 py-0.5 rounded-md bg-muted">
                   high priority
                 </Badge>
-                <button className="text-xs text-muted-foreground hover:text-foreground">
+                <button className="text-xs text-foreground/90 hover:text-foreground">
                   + Add tag
                 </button>
               </div>
@@ -355,7 +355,7 @@ export function AddIntentPopover({
 
         {/* Footer */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-border-subtle bg-muted/20">
-          <span className="text-[11px] text-muted-foreground">
+          <span className="text-[11px] text-foreground/90">
             Press <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono">Enter</kbd> to save
           </span>
           <Button

@@ -37,6 +37,7 @@ interface Integration {
   hasManageOption?: boolean
   helpUrl?: string
   appType: IntegrationAppType
+  comingSoon?: boolean
 }
 
 // Default integrations list (for apps not yet connected)
@@ -91,11 +92,31 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     category: 'tasks',
     helpUrl: '#',
   },
-  {
-    id: 'microsoft-todo',
+  {     id: 'microsoft-todo',
     name: 'Microsoft To Do',
     description: 'Sync your Microsoft To Do lists and tasks. Access your tasks from anywhere.',
-    icon: <Image src="/logos/microsoft-todo.png" alt="Microsoft To Do" width={28} height={28} unoptimized />,
+    icon: (
+      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="msToDoGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#1e40af" />
+            <stop offset="100%" stopColor="#3b82f6" />
+          </linearGradient>
+        </defs>
+        {/* White border/outline */}
+        <path 
+          d="M6 12 L12 18 L26 4 Q28 2 30 4 Q32 6 30 8 L14 24 Q12 26 10 24 L2 16 Q0 14 2 12 Q4 10 6 12 Z" 
+          fill="white" 
+          stroke="#e5e7eb" 
+          strokeWidth="1"
+        />
+        {/* Main checkmark with gradient */}
+        <path 
+          d="M7 13 L12 18 L25 5 Q27 3 28 5 Q29 7 27 9 L13 23 Q12 24 11 23 L4 16 Q2 14 4 13 Q5 12 7 13 Z" 
+          fill="url(#msToDoGradient)"
+        />
+      </svg>
+    ),
     category: 'tasks',
     helpUrl: '#',
   },
@@ -103,9 +124,25 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     id: 'notion',
     name: 'Notion',
     description: 'Connect Notion databases for task management. Keep your workspace in sync.',
-    icon: <div className="size-7 bg-foreground rounded flex items-center justify-center text-background text-sm font-bold">N</div>,
+    icon: (
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* Main cube structure */}
+        <path d="M1 3 L1 23 Q1 25 3 25 L23 25 Q25 25 25 23 L25 5 Q25 3 23 3 L3 3 Q1 3 1 3 Z" fill="#000000" stroke="none"/>
+        {/* Top face */}
+        <path d="M0 2 L23 2 Q24 2 24 3 L24 4 L3 4 Q2 4 2 3 L2 2 Q1 2 0 2 Z" fill="#000000" stroke="none"/>
+        {/* Right face */}
+        <path d="M24 3 L26 5 L26 24 Q26 25 25 25 L23 25 L23 5 Q23 3 24 3 Z" fill="#000000" stroke="none"/>
+        {/* White front face */}
+        <rect x="3" y="5" width="20" height="18" rx="1" fill="#ffffff"/>
+        {/* Letter N */}
+        <text x="13" y="15.5" textAnchor="middle" dominantBaseline="middle" fill="#000000" fontSize="14" fontWeight="bold" fontFamily="serif">
+          N
+        </text>
+      </svg>
+    ),
     category: 'other',
     helpUrl: '#',
+    comingSoon: true,
   },
   {
     id: 'slack',
@@ -114,6 +151,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     icon: <Image src="https://img.icons8.com/color/48/slack-new.png" alt="Slack" width={28} height={28} />,
     category: 'other',
     helpUrl: '#',
+    comingSoon: true,
   },
   {
     id: 'linear',
@@ -122,6 +160,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     icon: <div className="size-7 bg-[#5E6AD2] rounded flex items-center justify-center text-white text-xs font-bold">L</div>,
     category: 'other',
     helpUrl: '#',
+    comingSoon: true,
   },
   {
     id: 'github',
@@ -132,6 +171,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     </div>,
     category: 'other',
     helpUrl: '#',
+    comingSoon: true,
   },
   {
     id: 'todoist',
@@ -140,6 +180,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     icon: <div className="size-7 bg-[#E44332] rounded flex items-center justify-center text-white text-xs font-bold">T</div>,
     category: 'tasks',
     helpUrl: '#',
+    comingSoon: true,
   },
 ]
 
@@ -299,7 +340,7 @@ export default function IntegrationsPage() {
       const backend = backendIntegrations.find((b: IntegrationType) => b.app_type === appType)
       return {
         ...def,
-        status: backend?.isConnected ? 'connected' : 'not_connected',
+        status: def.comingSoon ? 'not_connected' : (backend?.isConnected ? 'connected' : 'not_connected'),
         appType,
       }
     })
@@ -403,8 +444,6 @@ export default function IntegrationsPage() {
           <PageHeader
             title="Integrations & Apps"
             subtitle="Connect your favorite tools to supercharge your workflow."
-            isAuthenticated
-            user={mockUser}
           />
 
           {/* Filters Row */}
@@ -460,6 +499,7 @@ export default function IntegrationsPage() {
                           status={integration.status}
                           isSelected={selectedIntegration?.id === integration.id && drawerOpen}
                           onClick={() => handleTileClick(integration)}
+                          comingSoon={integration.comingSoon}
                         />
                       ))}
                     </div>

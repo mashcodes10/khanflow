@@ -9,11 +9,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Plus, MoreVertical, ChevronDown, Circle, CheckCircle2, Trash2, ListTodo } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu'
+import { Plus, MoreVertical, ChevronDown, Circle, CheckCircle2, Trash2, ListTodo, Upload } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { microsoftTodoAPI, integrationsAPI } from '@/lib/api'
+import { microsoftTodoAPI, integrationsAPI, lifeOrganizationAPI } from '@/lib/api'
 import { toast } from 'sonner'
+import { ExportToLifeOSModal } from '@/components/life-org/export-to-lifeos-modal'
 
 interface MicrosoftTodoTask {
   id: string
@@ -56,6 +57,8 @@ export default function MicrosoftTodoPage() {
   const [expandedLists, setExpandedLists] = useState<Record<string, boolean>>({})
   const [newTaskInputs, setNewTaskInputs] = useState<Record<string, boolean>>({})
   const [newTaskTitles, setNewTaskTitles] = useState<Record<string, string>>({})
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<{ task: MicrosoftTodoTask; listId: string } | null>(null)
 
   // Check authentication
   useEffect(() => {
@@ -92,6 +95,26 @@ export default function MicrosoftTodoPage() {
     queryFn: microsoftTodoAPI.getAllTasks,
     enabled: !!isMicrosoftTodoConnected && taskLists.length > 0,
     retry: false,
+  })
+
+  // Fetch life areas for export modal
+  const { data: lifeAreasData } = useQuery({
+    queryKey: ['life-areas'],
+    queryFn: lifeOrganizationAPI.getLifeAreas,
+  })
+
+  // Export to Life OS mutation
+  const exportToLifeOSMutation = useMutation({
+    mutationFn: lifeOrganizationAPI.exportTaskToLifeOS,
+    onSuccess: () => {
+      toast.success('Task exported to Life OS')
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+      setExportModalOpen(false)
+      setSelectedTask(null)
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to export task')
+    },
   })
 
   // Create task mutation
@@ -183,6 +206,11 @@ export default function MicrosoftTodoPage() {
     createTaskMutation.mutate({ taskListId, title })
   }
 
+  const handleExportToLifeOS = (task: MicrosoftTodoTask, listId: string) => {
+    setSelectedTask({ task, listId })
+    setExportModalOpen(true)
+  }
+
   return (
     <div className="flex h-screen bg-background">
       <AppSidebar activePage="Microsoft Todo" />
@@ -192,8 +220,6 @@ export default function MicrosoftTodoPage() {
           <PageHeader
             title="Microsoft Todo"
             subtitle={isMicrosoftTodoConnected ? 'Microsoft Todo integration' : 'Connect Microsoft Todo to use tasks'}
-            isAuthenticated
-            user={mockUser}
           />
 
           <div className="mt-6">
@@ -305,6 +331,11 @@ export default function MicrosoftTodoPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleExportToLifeOS(task, list.id)}>
+                                <Upload className="h-4 w-4 mr-2" />
+                                Export to Life OS
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 onClick={() => handleDeleteTask(list.id, task.id)}
                                 className="text-destructive"
@@ -376,6 +407,28 @@ export default function MicrosoftTodoPage() {
           </div>
         </div>
       </main>
+
+      {/* Export to Life OS Modal */}
+      <ExportToLifeOSModal
+        open={exportModalOpen}
+        onClose={() => {
+          setExportModalOpen(false)
+          setSelectedTask(null)
+        }}
+        taskTitle={selectedTask?.task.title || ''}
+        lifeAreas={lifeAreasData?.data || []}
+        onExport={(params) => {
+          if (!selectedTask) return
+          exportToLifeOSMutation.mutate({
+            taskTitle: selectedTask.task.title,
+            taskNotes: selectedTask.task.body?.content,
+            ...params,
+            provider: 'microsoft',
+            providerTaskId: selectedTask.task.id,
+            providerListId: selectedTask.listId,
+          })
+        }}
+      />
     </div>
   )
 }

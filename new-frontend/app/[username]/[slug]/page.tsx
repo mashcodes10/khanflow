@@ -8,10 +8,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Calendar } from '@/components/ui/calendar'
+import { Logo } from '@/components/shared/logo'
 import { Clock, MapPin, Users, Video } from 'lucide-react'
 import { toast } from 'sonner'
 import { eventsAPI, availabilityAPI, meetingsAPI } from '@/lib/api'
 import { format, isBefore, startOfToday } from 'date-fns'
+import { fromZonedTime } from 'date-fns-tz'
 import { cn } from '@/lib/utils'
 
 interface EventDetails {
@@ -62,13 +64,16 @@ export default function BookingPage() {
     enabled: !!event?.id,
   })
 
+  // Extract host's timezone from availability data
+  const hostTimezone = availabilityData?.data?.timezone || 'America/New_York'
+
   // Find available slots for selected date
   const availableSlots = useMemo(() => {
     if (!selectedDate || !availabilityData?.data) return []
 
     const selectedDayName = format(selectedDate, 'EEEE').toUpperCase()
     
-    // Backend returns array of available days
+    // Backend returns either array (old format) or object with availableDays + timezone (new format)
     const availableDays: AvailableDay[] = Array.isArray(availabilityData.data) 
       ? availabilityData.data 
       : availabilityData.data?.availableDays || []
@@ -93,6 +98,7 @@ export default function BookingPage() {
         time: selectedTime,
         hostName: event?.user.name || username,
         meetLink: data.data?.meetLink || '',
+        duration: event?.duration.toString() || '30',
       })
       router.push(`/${username}/${slug}/success?${queryParams.toString()}`)
     },
@@ -122,7 +128,13 @@ export default function BookingPage() {
     if (!event) return
 
     // Calculate start and end times
-    const startDateTime = new Date(`${format(selectedDate, 'yyyy-MM-dd')}T${selectedTime}`)
+    // IMPORTANT: The slots are in the host's timezone, so we need to interpret
+    // the selected time as being in the host's timezone, not the guest's timezone
+    const dateStr = format(selectedDate, 'yyyy-MM-dd')
+    const dateTimeStr = `${dateStr}T${selectedTime}:00`
+    
+    // Convert from host's timezone to UTC
+    const startDateTime = fromZonedTime(dateTimeStr, hostTimezone)
     const endDateTime = new Date(startDateTime.getTime() + event.duration * 60000)
 
     createMeetingMutation.mutate({
@@ -149,6 +161,7 @@ export default function BookingPage() {
   const availableDates = useMemo(() => {
     if (!availabilityData?.data) return []
     
+    // Backend returns either array (old format) or object with availableDays + timezone (new format)
     const availableDays: AvailableDay[] = Array.isArray(availabilityData.data)
       ? availabilityData.data
       : availabilityData.data?.availableDays || []
@@ -302,7 +315,7 @@ export default function BookingPage() {
                           {format(selectedDate, 'EEE, MMM d')}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                          {hostTimezone}
                         </span>
                       </div>
                     )}
@@ -407,6 +420,26 @@ export default function BookingPage() {
           </Card>
         </div>
       </div>
+      
+      {/* Footer */}
+      <footer className="py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center gap-2">
+            <Logo size="sm" />
+            <p className="text-sm text-muted-foreground">
+              Powered by{' '}
+              <a 
+                href="https://khanflow.com" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="font-medium text-accent hover:text-accent/80 transition-colors"
+              >
+                KhanFlow
+              </a>
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   )
 }

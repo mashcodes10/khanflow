@@ -91,7 +91,8 @@ export function IntegrationDrawer({
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent 
-        side="right" 
+        side="right"
+        showCloseButton={false}
         className={cn(
           'w-full sm:max-w-md p-0 border-l border-border bg-card',
           'flex flex-col'

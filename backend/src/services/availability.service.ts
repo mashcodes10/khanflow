@@ -10,7 +10,7 @@ import { addDays, addMinutes, format, parseISO } from "date-fns";
 import { Integration, IntegrationAppTypeEnum } from "../database/entities/integration.entity";
 import { googleOAuth2Client } from "../config/oauth.config";
 import { google } from "googleapis";
-import { validateGoogleToken } from "./integration.service";
+import { validateGoogleToken, validateMicrosoftToken } from "./integration.service";
 import { DayAvailability } from "../database/entities/day-availability";
 
 export const getUserAvailabilityService = async (userId: string) => {
@@ -46,6 +46,9 @@ export const getUserAvailabilityService = async (userId: string) => {
 
   const availabilityData: AvailabilityResponseType = {
     timeGap: user.availability.timeGap,
+    timezone: user.availability.timezone || 'America/New_York',
+    minimumNotice: user.availability.minimumNotice || 240,
+    bookingWindow: user.availability.bookingWindow || 60,
     days: [],
   };
 
@@ -91,6 +94,9 @@ export const updateAvailabilityService = async (
     await availabilityRepository.save({
       id: user.availability.id,
       timeGap: data.timeGap,
+      timezone: data.timezone,
+      minimumNotice: data.minimumNotice,
+      bookingWindow: data.bookingWindow,
       days: dayAvailabilityData.map((day) => ({
         ...day,
         availability: { id: user.availability.id },
@@ -122,12 +128,19 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
 
   const availableDays = [];
 
-  // Fetch Google integration (for free/busy)
+  // Fetch calendar integrations (for free/busy)
   const integrationRepository = AppDataSource.getRepository(Integration);
   const googleIntegration = await integrationRepository.findOne({
     where: {
       user: { id: event.user.id },
       app_type: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR,
+    },
+  });
+
+  const outlookIntegration = await integrationRepository.findOne({
+    where: {
+      user: { id: event.user.id },
+      app_type: IntegrationAppTypeEnum.OUTLOOK_CALENDAR,
     },
   });
 
@@ -148,40 +161,102 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
           )
         : [];
 
-      // Filter with Google busy times if integration exists
-      let filteredSlots = slots;
+      // Collect busy blocks from all selected calendars
+      const busyBlocks: { start: Date; end: Date }[] = [];
+      const dayStart = parseISO(`${format(nextDate, "yyyy-MM-dd")}T00:00:00Z`);
+      const dayEnd = parseISO(`${format(nextDate, "yyyy-MM-dd")}T23:59:59Z`);
+
+      // Check Google Calendar if integration exists and has selected calendars
       if (googleIntegration && slots.length) {
-        const { calendar } = await getGoogleCalendarClient(googleIntegration);
-
-        const dayStart = parseISO(`${format(nextDate, "yyyy-MM-dd")}T00:00:00Z`);
-        const dayEnd = parseISO(`${format(nextDate, "yyyy-MM-dd")}T23:59:59Z`);
-
         const selectedIds =
           ((googleIntegration.metadata as any)?.selectedCalendarIds as
             | string[]
             | undefined) ?? ["primary"];
 
-        const fb = await calendar.freebusy.query({
-          requestBody: {
-            timeMin: dayStart.toISOString(),
-            timeMax: dayEnd.toISOString(),
-            items: selectedIds.map((id) => ({ id })),
-          },
-        });
+        // Only check if calendars are selected
+        if (selectedIds.length > 0) {
+          try {
+            const { calendar } = await getGoogleCalendarClient(googleIntegration);
 
-        const busyBlocks: { start: Date; end: Date }[] = [];
-        Object.values(fb.data.calendars ?? {}).forEach((c) => {
-          c.busy?.forEach((b) => {
-            busyBlocks.push({ start: new Date(b.start!), end: new Date(b.end!) });
-          });
-        });
+            const fb = await calendar.freebusy.query({
+              requestBody: {
+                timeMin: dayStart.toISOString(),
+                timeMax: dayEnd.toISOString(),
+                items: selectedIds.map((id) => ({ id })),
+              },
+            });
 
-        filteredSlots = slots.filter((time) => {
-          const slotStart = parseISO(`${format(nextDate, "yyyy-MM-dd")}T${time}:00`);
-          const slotEnd = addMinutes(slotStart, event.duration);
-          return !busyBlocks.some((b) => slotStart < b.end && slotEnd > b.start);
-        });
+            Object.values(fb.data.calendars ?? {}).forEach((c) => {
+              c.busy?.forEach((b) => {
+                busyBlocks.push({ start: new Date(b.start!), end: new Date(b.end!) });
+              });
+            });
+          } catch (error) {
+            console.error("Error checking Google Calendar:", error);
+            // Continue with other calendars even if one fails
+          }
+        }
       }
+
+      // Check Outlook Calendar if integration exists and has selected calendars
+      if (outlookIntegration && slots.length) {
+        const selectedIds =
+          ((outlookIntegration.metadata as any)?.selectedCalendarIds as
+            | string[]
+            | undefined) ?? [];
+
+        // Only check if calendars are selected
+        if (selectedIds.length > 0) {
+          try {
+            const validToken = await validateMicrosoftToken(
+              outlookIntegration.access_token,
+              outlookIntegration.refresh_token ?? "",
+              outlookIntegration.expiry_date
+            );
+
+            // Check each selected calendar individually using calendarView
+            for (const calendarId of selectedIds) {
+              try {
+                const calendarViewResponse = await fetch(
+                  `https://graph.microsoft.com/v1.0/me/calendars/${calendarId}/calendarView?startDateTime=${dayStart.toISOString()}&endDateTime=${dayEnd.toISOString()}&$select=start,end,isAllDay`,
+                  {
+                    method: "GET",
+                    headers: {
+                      Authorization: `Bearer ${validToken}`,
+                      "Content-Type": "application/json",
+                    },
+                  }
+                );
+
+                if (calendarViewResponse.ok) {
+                  const calendarViewData = await calendarViewResponse.json();
+                  calendarViewData.value?.forEach((event: any) => {
+                    if (!event.isAllDay) {
+                      busyBlocks.push({
+                        start: new Date(event.start.dateTime),
+                        end: new Date(event.end.dateTime),
+                      });
+                    }
+                  });
+                }
+              } catch (calendarError) {
+                console.error(`Error checking Outlook calendar ${calendarId}:`, calendarError);
+                // Continue with other calendars even if one fails
+              }
+            }
+          } catch (error) {
+            console.error("Error checking Outlook Calendar:", error);
+            // Continue with other calendars even if one fails
+          }
+        }
+      }
+
+      // Filter slots based on all busy blocks
+      const filteredSlots = slots.filter((time) => {
+        const slotStart = parseISO(`${format(nextDate, "yyyy-MM-dd")}T${time}:00`);
+        const slotEnd = addMinutes(slotStart, event.duration);
+        return !busyBlocks.some((b) => slotStart < b.end && slotEnd > b.start);
+      });
 
       availableDays.push({
         day: dayOfWeek,
@@ -191,7 +266,10 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
     }
   }
 
-  return availableDays;
+  return {
+    availableDays,
+    timezone: availability.timezone || 'America/New_York',
+  };
 };
 
 function getNextDateForDay(dayOfWeek: string): Date {

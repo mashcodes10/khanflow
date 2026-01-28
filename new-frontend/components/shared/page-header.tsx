@@ -4,7 +4,6 @@ import React from "react"
 
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/life-org/theme-toggle'
-import { ProfileMenu } from './profile-menu'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 
@@ -14,14 +13,6 @@ interface PageHeaderProps {
   showCreate?: boolean
   createLabel?: string
   onCreate?: () => void
-  isAuthenticated?: boolean
-  user?: {
-    name: string
-    email: string
-    avatar?: string
-  }
-  onSignIn?: () => void
-  onSignOut?: () => void
   className?: string
   children?: React.ReactNode
 }
@@ -32,10 +23,6 @@ export function PageHeader({
   showCreate = false,
   createLabel = 'Create',
   onCreate,
-  isAuthenticated = true,
-  user = { name: 'Demo User', email: 'demo@example.com' },
-  onSignIn,
-  onSignOut,
   className,
   children,
 }: PageHeaderProps) {
@@ -64,13 +51,6 @@ export function PageHeader({
         )}
         
         <ThemeToggle />
-        
-        <ProfileMenu 
-          isAuthenticated={isAuthenticated}
-          user={user}
-          onSignIn={onSignIn}
-          onSignOut={onSignOut}
-        />
       </div>
     </header>
   )

@@ -3,6 +3,7 @@
 import { Sparkles } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Logo } from "@/components/shared/logo"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card"
@@ -139,9 +140,7 @@ export function SignUpForm({
           href="/"
           className="flex flex-col items-center gap-2 font-medium"
         >
-          <div className="flex aspect-square size-10 items-center justify-center rounded-xl bg-accent text-accent-foreground">
-            <Sparkles className="size-5" strokeWidth={1.75} />
-          </div>
+          <Logo size="lg" />
           <span className="sr-only">Khanflow</span>
         </Link>
         <h2 className="text-2xl font-semibold text-foreground">
@@ -186,14 +185,13 @@ export function SignUpForm({
               <div className="size-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : (
               <>
-                <Image
-                  src="https://img.icons8.com/fluency/48/microsoft-outlook-2019.png"
-                  alt="Microsoft"
-                  width={20}
-                  height={20}
-                  className="object-contain"
-                />
-                <span>Continue with Microsoft</span>
+                <svg width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="1" y="1" width="9" height="9" fill="#f35325"/>
+                  <rect x="11" y="1" width="9" height="9" fill="#81bc06"/>
+                  <rect x="1" y="11" width="9" height="9" fill="#05a6f0"/>
+                  <rect x="11" y="11" width="9" height="9" fill="#ffba08"/>
+                </svg>
+                <span>Sign up with Microsoft</span>
               </>
             )}
           </Button>

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Globe, Clock, CalendarClock, CalendarRange } from 'lucide-react'
+import { TIMEZONES } from '@/lib/timezones'
 
 interface GlobalRulesProps {
   timezone: string
@@ -19,18 +20,7 @@ interface GlobalRulesProps {
   className?: string
 }
 
-const timezones = [
-  { value: 'America/New_York', label: 'Eastern Time (ET)' },
-  { value: 'America/Chicago', label: 'Central Time (CT)' },
-  { value: 'America/Denver', label: 'Mountain Time (MT)' },
-  { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-  { value: 'America/Phoenix', label: 'Arizona (MST)' },
-  { value: 'Europe/London', label: 'London (GMT)' },
-  { value: 'Europe/Paris', label: 'Paris (CET)' },
-  { value: 'Asia/Tokyo', label: 'Tokyo (JST)' },
-  { value: 'Asia/Dubai', label: 'Dubai (GST)' },
-  { value: 'Australia/Sydney', label: 'Sydney (AEST)' },
-]
+// Timezones are now imported from @/lib/timezones
 
 const timeGapOptions = [
   { value: 0, label: 'No gap' },
@@ -70,7 +60,7 @@ interface RuleCardProps {
 
 function RuleCard({ icon, label, description, children }: RuleCardProps) {
   return (
-    <div className="flex items-start gap-4 p-4 rounded-xl bg-card border border-border-subtle hover:border-border transition-colors">
+    <div className="relative flex items-start gap-4 p-4 rounded-xl bg-card border border-border-subtle hover:border-border transition-colors">
       <div className="size-9 flex items-center justify-center rounded-lg bg-muted/50 shrink-0 mt-0.5">
         {icon}
       </div>
@@ -80,7 +70,7 @@ function RuleCard({ icon, label, description, children }: RuleCardProps) {
             <p className="text-sm font-medium text-foreground">{label}</p>
             <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
           </div>
-          <div className="shrink-0">
+          <div className="relative z-10 shrink-0">
             {children}
           </div>
         </div>
@@ -104,7 +94,7 @@ export function GlobalRulesSection({
     <section className={cn('space-y-3', className)}>
       <h2 className="text-sm font-medium text-foreground px-1">Global Rules</h2>
       
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 relative">
         {/* Timezone */}
         <RuleCard
           icon={<Globe className="size-4 text-muted-foreground" strokeWidth={1.75} />}
@@ -116,7 +106,7 @@ export function GlobalRulesSection({
               <SelectValue placeholder="Select timezone" />
             </SelectTrigger>
             <SelectContent>
-              {timezones.map((tz) => (
+              {TIMEZONES.map((tz) => (
                 <SelectItem key={tz.value} value={tz.value} className="text-xs">
                   {tz.label}
                 </SelectItem>

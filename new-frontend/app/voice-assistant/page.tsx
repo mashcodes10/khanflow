@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { PageHeader } from '@/components/life-org/page-header'
@@ -10,16 +10,20 @@ import { HelpAccordion } from '@/components/voice/help-accordion'
 
 export default function VoiceAssistantPage() {
   const router = useRouter()
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true)
 
-  // Check authentication
+  // Check authentication on mount
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('accessToken')
       if (!token) {
-        router.push('/auth/signin')
+        // Don't redirect immediately, let the component show the sign-in message
+        setIsCheckingAuth(false)
+      } else {
+        setIsCheckingAuth(false)
       }
     }
-  }, [router])
+  }, [])
 
   return (
     <div className="flex h-screen bg-background">

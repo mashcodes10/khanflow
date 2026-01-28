@@ -5,6 +5,16 @@ import { SectionHeader } from './section-header'
 import { BoardCard } from './board-card'
 import { AddIntentPopover } from './add-intent-popover'
 import { Plus } from 'lucide-react'
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+  DragOverlay,
+} from '@dnd-kit/core'
 
 interface Intent {
   id: string
@@ -21,13 +31,15 @@ interface Board {
 interface LifeAreaSectionProps {
   title: string
   tag: string
-  tagColor?: 'default' | 'health' | 'career' | 'relationships' | 'learning' | 'hobbies'
+  tagColor?: 'default' | 'health' | 'career' | 'relationships' | 'learning' | 'hobbies' | 'financial' | 'travel' | 'personal'
   boards: Board[]
   lifeAreaId?: string
   className?: string
   onAddBoard?: (lifeAreaId: string, boardName: string) => void
   onAddIntent?: (boardId: string, intent: { text: string; type: 'task' | 'reminder' | 'goal'; timeline?: string }) => void
   onToggleIntent?: (boardId: string, intentId: string) => void
+  onDeleteIntent?: (intentId: string) => void
+  onMoveIntent?: (intentId: string, targetBoardId: string, newOrder: number) => void
 }
 
 export function LifeAreaSection({ 
@@ -39,9 +51,47 @@ export function LifeAreaSection({
   className,
   onAddBoard,
   onAddIntent,
-  onToggleIntent
+  onToggleIntent,
+  onDeleteIntent,
+  onMoveIntent,
 }: LifeAreaSectionProps) {
   const isEmpty = boards.length === 0
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // Require 8px of movement before drag starts
+      },
+    }),
+    useSensor(KeyboardSensor)
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+
+    if (!over || active.id === over.id || !onMoveIntent) {
+      return
+    }
+
+    // Check if dropping over a board (board IDs) or over another intent
+    const targetBoardId = over.id as string
+    
+    // Find which board contains the target
+    let targetBoard = boards.find(b => b.id === targetBoardId)
+    
+    // If not found, it might be an intent ID, find the board containing it
+    if (!targetBoard) {
+      targetBoard = boards.find(b => b.intents.some(i => i.id === targetBoardId))
+    }
+    
+    if (!targetBoard) return
+
+    // Calculate new order based on where it's being dropped
+    const targetIntentIndex = targetBoard.intents.findIndex(i => i.id === over.id)
+    const newOrder = targetIntentIndex >= 0 ? targetIntentIndex : targetBoard.intents.length
+
+    onMoveIntent(active.id as string, targetBoard.id, newOrder)
+  }
 
   return (
     <section className={cn(
@@ -67,16 +117,24 @@ export function LifeAreaSection({
           )}
         </div>
       ) : (
-        <div className="space-y-3">
-          {boards.map((board) => (
-            <BoardCard
-              key={board.id}
-              title={board.title}
-              intents={board.intents}
-              onAddIntent={(intent) => onAddIntent?.(board.id, intent)}
-              onToggleIntent={(intentId) => onToggleIntent?.(board.id, intentId)}
-            />
-          ))}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="space-y-3">
+            {boards.map((board) => (
+              <BoardCard
+                key={board.id}
+                boardId={board.id}
+                title={board.title}
+                intents={board.intents}
+                onAddIntent={(intent) => onAddIntent?.(board.id, intent)}
+                onToggleIntent={(intentId) => onToggleIntent?.(board.id, intentId)}
+                onDeleteIntent={onDeleteIntent}
+              />
+            ))}
+          </div>
           
           {lifeAreaId && (
             <AddIntentPopover 
@@ -87,7 +145,7 @@ export function LifeAreaSection({
               className="mt-2"
             />
           )}
-        </div>
+        </DndContext>
       )}
     </section>
   )

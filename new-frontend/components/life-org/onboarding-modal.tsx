@@ -32,14 +32,14 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
     mutationFn: (templateId: string) =>
       lifeOrganizationAPI.seedLifeOrganization(templateId, 'v1'),
     onSuccess: () => {
-      toast.success('Life organization set up successfully!')
+      toast.success('life os set up successfully!')
       queryClient.invalidateQueries({ queryKey: ['life-areas'] })
       queryClient.invalidateQueries({ queryKey: ['suggestions'] })
       onComplete()
       onClose()
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to set up life organization')
+      toast.error(error.response?.data?.message || 'Failed to set up life os')
     },
   })
 

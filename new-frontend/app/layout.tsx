@@ -22,7 +22,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Khanflow - Life Organization',
+  title: 'Khanflow - life os',
   description: 'Organize what matters to you - capture intentions, not just tasks',
   generator: 'v0.app',
   icons: {

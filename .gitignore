@@ -1,9 +1,18 @@
 # Dependencies
 node_modules/
 */node_modules/
+.pnp
+.pnp.js
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
 
 # Environment variables
 .env
+.env.*
+!.env.example
 .env.local
 .env.development.local
 .env.test.local
@@ -14,10 +23,14 @@ dist/
 build/
 */dist/
 */build/
+.next/
+out/
+*.tsbuildinfo
 
 # Database
 *.db
 *.sqlite
+*.sql
 
 # Logs
 logs
@@ -37,13 +50,13 @@ pids
 # Coverage directory used by tools like istanbul
 coverage/
 *.lcov
+.nyc_output
 
 # Test results
 test-results/
 */test-results/
-
-# nyc test coverage
-.nyc_output
+playwright-report/
+*/playwright-report/
 
 # Dependency directories
 jspm_packages/

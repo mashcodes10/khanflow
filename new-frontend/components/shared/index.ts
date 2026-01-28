@@ -1,5 +1,4 @@
 export { AppSidebar } from './app-sidebar'
 export { PageHeader } from './page-header'
-export { ProfileMenu } from './profile-menu'
 export { SoftTabs } from './soft-tabs'
 export { StatusDot } from './status-dot'

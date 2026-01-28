@@ -21,7 +21,7 @@ import {
   Intent,
   Suggestion,
 } from "./types";
-import { API, PublicAPI } from "./axios-client";
+import { API, PublicAPI, NextAPI } from "./axios-client";
 
 // ============ AUTH API ============
 export const authAPI = {
@@ -214,6 +214,75 @@ export const voiceAPI = {
       option,
       transcript,
     });
+    return response.data;
+  },
+  // New job-based API endpoints (using Next.js API routes)
+  createJob: async (data?: { boardId?: string; intentId?: string }): Promise<{ jobId: string }> => {
+    const response = await NextAPI.post("/api/voice/jobs", data || {});
+    return response.data;
+  },
+  uploadAndProcess: async (jobId: string, audioBlob: Blob): Promise<{ transcript: string; actions: any[] }> => {
+    // Determine safe MIME type with fallbacks
+    let mimeType = audioBlob.type || 'audio/webm';
+    let filename = 'audio.webm';
+    
+    // Normalize MIME type - remove codecs parameter for better compatibility
+    if (mimeType.includes('webm')) {
+      mimeType = 'audio/webm';
+      filename = 'audio.webm';
+    } else if (mimeType.includes('wav')) {
+      mimeType = 'audio/wav';
+      filename = 'audio.wav';
+    } else if (mimeType.includes('m4a') || mimeType.includes('x-m4a')) {
+      mimeType = 'audio/m4a';
+      filename = 'audio.m4a';
+    } else if (mimeType.includes('mp3')) {
+      mimeType = 'audio/mpeg';
+      filename = 'audio.mp3';
+    } else if (mimeType.includes('mp4')) {
+      mimeType = 'audio/mp4';
+      filename = 'audio.mp4';
+    }
+    
+    // Create File object with normalized type
+    const audioFile = new File([audioBlob], filename, { type: mimeType });
+    
+    console.log('Uploading audio file:', {
+      originalType: audioBlob.type,
+      normalizedType: mimeType,
+      filename,
+      size: audioFile.size
+    });
+    
+    const formData = new FormData();
+    formData.append("audio", audioFile);
+    
+    const response = await NextAPI.post(`/api/voice/jobs/${jobId}/upload-and-process`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+  getJobStatus: async (jobId: string): Promise<{
+    status: string;
+    transcript?: string;
+    extracted_actions?: any[];
+    error_message?: string;
+    created_at: string;
+    board_id?: string | null;
+    intent_id?: string | null;
+  }> => {
+    const response = await NextAPI.get(`/api/voice/jobs/${jobId}`);
+    return response.data;
+  },
+  confirm: async (jobId: string, data: {
+    boardId: string; // Required: always save to local board
+    destination: "google" | "microsoft" | "local"; // Provider sync (optional, creates additional copy)
+    schedule: { enabled: boolean; startAt?: string; durationMin?: number };
+    actions: any[];
+  }): Promise<{ success: boolean; createdIntentIds?: string[]; localBoardId?: string }> => {
+    const response = await NextAPI.post(`/api/voice/jobs/${jobId}/confirm`, data);
     return response.data;
   },
 };
@@ -495,6 +564,34 @@ export const lifeOrganizationAPI = {
   },
   getTemplates: async (): Promise<{ data: Array<{ id: string; name: string; description: string; lifeAreaCount: number; intentBoardCount: number }> }> => {
     const response = await API.get("/life-organization/templates");
+    return response.data;
+  },
+
+  // Export task to Life OS
+  exportTaskToLifeOS: async (data: {
+    taskTitle: string
+    taskNotes?: string
+    lifeAreaId: string
+    boardId?: string
+    newBoardName?: string
+    keepSynced?: boolean
+    provider?: 'google' | 'microsoft'
+    providerTaskId?: string
+    providerListId?: string
+  }) => {
+    const response = await API.post("/life-organization/import-task", data);
+    return response.data;
+  },
+
+  // Reorder boards within a life area
+  reorderBoards: async (lifeAreaId: string, boardOrders: { id: string; order: number }[]) => {
+    const response = await API.post("/life-organization/reorder-boards", { lifeAreaId, boardOrders });
+    return response.data;
+  },
+
+  // Move intent to another board or reorder within board
+  moveIntent: async (intentId: string, targetBoardId: string, newOrder: number) => {
+    const response = await API.post("/life-organization/move-intent", { intentId, targetBoardId, newOrder });
     return response.data;
   },
 };
