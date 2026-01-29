@@ -71,6 +71,10 @@ export default function BookingPage() {
     queryKey: ['public-availability', event?.id],
     queryFn: () => availabilityAPI.getPublicForEvent(event!.id),
     enabled: !!event?.id,
+    staleTime: 0, // Always fetch fresh data
+    cacheTime: 0, // Don't cache
+    retry: 3, // Retry failed requests
+    refetchOnMount: true, // Always refetch on mount
   })
 
   // Debug: Log availability data whenever it changes
