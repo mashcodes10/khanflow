@@ -542,7 +542,6 @@ export default function IntegrationsPage() {
         onConnect={handleConnect}
         onDisconnect={handleDisconnect}
         onManage={handleManage}
-        onManageCalendars={() => setCalendarModalOpen(true)}
       />
 
       {/* Calendar Selection Modal */}

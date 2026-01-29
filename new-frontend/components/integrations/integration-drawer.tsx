@@ -38,7 +38,6 @@ interface IntegrationDrawerProps {
   onConnect?: () => void
   onDisconnect?: () => void
   onManage?: () => void
-  onManageCalendars?: () => void // Open calendar selection modal
 }
 
 export function IntegrationDrawer({
@@ -51,7 +50,6 @@ export function IntegrationDrawer({
   onConnect,
   onDisconnect,
   onManage,
-  onManageCalendars,
 }: IntegrationDrawerProps) {
   const [view, setView] = useState<DrawerView>('main')
 
@@ -225,28 +223,15 @@ export function IntegrationDrawer({
               <div className="flex flex-col gap-3">
                 {isConnected ? (
                   <>
-                    {/* Calendar-specific actions */}
-                    {isCalendarIntegration && (
-                      <div className="flex items-center gap-2">
-                        {onManageCalendars && (
-                          <Button
-                            variant="outline"
-                            onClick={onManageCalendars}
-                            className="flex-1 rounded-lg bg-transparent text-sm"
-                          >
-                            Manage Calendars
-                          </Button>
-                        )}
-                        {hasCalendarPrefs && (
-                          <Button
-                            variant="outline"
-                            onClick={() => setView('preferences')}
-                            className="flex-1 rounded-lg bg-transparent text-sm"
-                          >
-                            Preferences
-                          </Button>
-                        )}
-                      </div>
+                    {/* Calendar preferences button */}
+                    {isCalendarIntegration && hasCalendarPrefs && (
+                      <Button
+                        variant="outline"
+                        onClick={() => setView('preferences')}
+                        className="w-full rounded-lg bg-transparent text-sm"
+                      >
+                        Preferences
+                      </Button>
                     )}
                     
                     {/* Non-calendar manage option */}

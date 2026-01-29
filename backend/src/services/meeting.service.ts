@@ -155,7 +155,7 @@ export const createMeetBookingForGuestService = async (
     eventIdMap[IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR] = response.data.id!;
     calendarAppType = calendarType;
   } else if (event.locationType === EventLocationEnumType.ZOOM_MEETING) {
-    // --- Check Google calendars for conflicts first ---
+    // --- Check connected calendars for conflicts ---
     const googleIntegration = await integrationRepository.findOne({
       where: {
         user: { id: event.user.id },
@@ -163,36 +163,67 @@ export const createMeetBookingForGuestService = async (
       },
     });
 
-    if (!googleIntegration) {
-      throw new BadRequestException("Google Calendar is not connected");
-    }
-
-    const { calendar } = await getCalendarClient(
-      googleIntegration.app_type,
-      googleIntegration.access_token,
-      googleIntegration.refresh_token!,
-      googleIntegration.expiry_date
-    );
-
-    const selectedIds =
-      ((googleIntegration.metadata as any)?.selectedCalendarIds as
-        | string[]
-        | undefined) ?? ["primary"];
-
-    const fb = await calendar.freebusy.query({
-      requestBody: {
-        timeMin: startTime.toISOString(),
-        timeMax: endTime.toISOString(),
-        items: selectedIds.map((id) => ({ id })),
+    const outlookIntegration = await integrationRepository.findOne({
+      where: {
+        user: { id: event.user.id },
+        app_type: IntegrationAppTypeEnum.OUTLOOK_CALENDAR,
       },
     });
 
-    const overlap = Object.values(fb.data.calendars ?? {}).some(
-      (c) => c.busy && c.busy.length > 0
-    );
+    if (!googleIntegration && !outlookIntegration) {
+      throw new BadRequestException("No calendar integration connected");
+    }
 
-    if (overlap) {
-      throw new BadRequestException("Time slot is no longer available");
+    // Check Google Calendar for conflicts if connected
+    if (googleIntegration) {
+      const { calendar } = await getCalendarClient(
+        googleIntegration.app_type,
+        googleIntegration.access_token,
+        googleIntegration.refresh_token!,
+        googleIntegration.expiry_date
+      );
+
+      const selectedIds =
+        ((googleIntegration.metadata as any)?.selectedCalendarIds as
+          | string[]
+          | undefined) ?? ["primary"];
+
+      const fb = await calendar.freebusy.query({
+        requestBody: {
+          timeMin: startTime.toISOString(),
+          timeMax: endTime.toISOString(),
+          items: selectedIds.map((id) => ({ id })),
+        },
+      });
+
+      const overlap = Object.values(fb.data.calendars ?? {}).some(
+        (c) => c.busy && c.busy.length > 0
+      );
+
+      if (overlap) {
+        throw new BadRequestException("Time slot is no longer available");
+      }
+    }
+
+    // Check Outlook Calendar for conflicts if connected
+    if (outlookIntegration) {
+      const validOutlookToken = await validateMicrosoftToken(
+        outlookIntegration.access_token,
+        outlookIntegration.refresh_token ?? "",
+        outlookIntegration.expiry_date
+      );
+
+      const calendarViewUrl = `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${startTime.toISOString()}&endDateTime=${endTime.toISOString()}`;
+      const outlookEventsResp = await fetch(calendarViewUrl, {
+        headers: { Authorization: `Bearer ${validOutlookToken}` },
+      });
+
+      if (outlookEventsResp.ok) {
+        const outlookEvents: any = await outlookEventsResp.json();
+        if (outlookEvents.value && outlookEvents.value.length > 0) {
+          throw new BadRequestException("Time slot is no longer available");
+        }
+      }
     }
 
     const validToken = await validateZoomToken(
@@ -228,7 +259,7 @@ export const createMeetBookingForGuestService = async (
     event.locationType === EventLocationEnumType.OUTLOOK_CALENDAR ||
     event.locationType === EventLocationEnumType.MICROSOFT_TEAMS
   ) {
-    // --- Check Google calendars for conflicts first (same as Zoom path) ---
+    // --- Check connected calendars for conflicts ---
     const googleIntegration = await integrationRepository.findOne({
       where: {
         user: { id: event.user.id },
@@ -236,36 +267,67 @@ export const createMeetBookingForGuestService = async (
       },
     });
 
-    if (!googleIntegration) {
-      throw new BadRequestException("Google Calendar is not connected");
-    }
-
-    const { calendar } = await getCalendarClient(
-      googleIntegration.app_type,
-      googleIntegration.access_token,
-      googleIntegration.refresh_token!,
-      googleIntegration.expiry_date
-    );
-
-    const selectedIds =
-      ((googleIntegration.metadata as any)?.selectedCalendarIds as
-        | string[]
-        | undefined) ?? ["primary"];
-
-    const fb = await calendar.freebusy.query({
-      requestBody: {
-        timeMin: startTime.toISOString(),
-        timeMax: endTime.toISOString(),
-        items: selectedIds.map((id) => ({ id })),
+    const outlookIntegrationCheck = await integrationRepository.findOne({
+      where: {
+        user: { id: event.user.id },
+        app_type: IntegrationAppTypeEnum.OUTLOOK_CALENDAR,
       },
     });
 
-    const overlap = Object.values(fb.data.calendars ?? {}).some(
-      (c) => c.busy && c.busy.length > 0
-    );
+    if (!googleIntegration && !outlookIntegrationCheck) {
+      throw new BadRequestException("No calendar integration connected");
+    }
 
-    if (overlap) {
-      throw new BadRequestException("Time slot is no longer available");
+    // Check Google Calendar for conflicts if connected
+    if (googleIntegration) {
+      const { calendar } = await getCalendarClient(
+        googleIntegration.app_type,
+        googleIntegration.access_token,
+        googleIntegration.refresh_token!,
+        googleIntegration.expiry_date
+      );
+
+      const selectedIds =
+        ((googleIntegration.metadata as any)?.selectedCalendarIds as
+          | string[]
+          | undefined) ?? ["primary"];
+
+      const fb = await calendar.freebusy.query({
+        requestBody: {
+          timeMin: startTime.toISOString(),
+          timeMax: endTime.toISOString(),
+          items: selectedIds.map((id) => ({ id })),
+        },
+      });
+
+      const overlap = Object.values(fb.data.calendars ?? {}).some(
+        (c) => c.busy && c.busy.length > 0
+      );
+
+      if (overlap) {
+        throw new BadRequestException("Time slot is no longer available");
+      }
+    }
+
+    // Check Outlook Calendar for conflicts if connected
+    if (outlookIntegrationCheck) {
+      const validOutlookToken = await validateMicrosoftToken(
+        outlookIntegrationCheck.access_token,
+        outlookIntegrationCheck.refresh_token ?? "",
+        outlookIntegrationCheck.expiry_date
+      );
+
+      const calendarViewUrl = `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${startTime.toISOString()}&endDateTime=${endTime.toISOString()}`;
+      const outlookEventsResp = await fetch(calendarViewUrl, {
+        headers: { Authorization: `Bearer ${validOutlookToken}` },
+      });
+
+      if (outlookEventsResp.ok) {
+        const outlookEvents: any = await outlookEventsResp.json();
+        if (outlookEvents.value && outlookEvents.value.length > 0) {
+          throw new BadRequestException("Time slot is no longer available");
+        }
+      }
     }
 
     // --- Create Outlook / Teams event via Microsoft Graph ---
