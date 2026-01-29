@@ -229,6 +229,10 @@ export const validateZoomToken = async (
 ) => {
   if (expiryDate && Date.now() < expiryDate) return accessToken;
 
+  if (!refreshToken) {
+    throw new Error("Zoom refresh token is missing. Please reconnect your Zoom integration.");
+  }
+
   const params = new URLSearchParams();
   params.append("grant_type", "refresh_token");
   params.append("refresh_token", refreshToken);
@@ -243,7 +247,11 @@ export const validateZoomToken = async (
     body: params.toString(),
   });
 
-  if (!resp.ok) throw new Error("Failed to refresh Zoom token");
+  if (!resp.ok) {
+    const errorText = await resp.text();
+    console.error("Zoom token refresh failed:", errorText);
+    throw new Error("Failed to refresh Zoom token. Please reconnect your Zoom integration.");
+  }
   const data = (await resp.json()) as any;
   return data.access_token as string;
 };

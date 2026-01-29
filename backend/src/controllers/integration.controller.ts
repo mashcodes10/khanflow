@@ -106,7 +106,12 @@ export const googleOAuthCallbackController = asyncHandler(
       return res.redirect(`${CLIENT_URL}&error=UserId is required`);
     }
 
-    const { tokens } = await googleOAuth2Client.getToken(code);
+    // Exchange code for tokens with the correct redirect URI
+    const redirectUri = config.GOOGLE_INTEGRATION_REDIRECT_URI || config.GOOGLE_REDIRECT_URI;
+    const { tokens } = await googleOAuth2Client.getToken({
+      code,
+      redirect_uri: redirectUri
+    });
 
     if (!tokens.access_token) {
       return res.redirect(`${CLIENT_URL}&error=Access Token not passed`);

@@ -80,15 +80,21 @@ export default function BookingPage() {
   const availableSlots = useMemo(() => {
     if (!selectedDate || !availabilityData?.data) return []
 
-    const selectedDayName = format(selectedDate, 'EEEE').toUpperCase()
+    const selectedDateStr = format(selectedDate, 'yyyy-MM-dd')
     
     // Backend returns either array (old format) or object with availableDays + timezone (new format)
     const availableDays: AvailableDay[] = Array.isArray(availabilityData.data) 
       ? availabilityData.data 
       : availabilityData.data?.availableDays || []
     
-    // Find the day that matches the selected day name
+    // Find the day that matches the exact selected date (if available) or fall back to day name
     const dayAvailability = availableDays.find((day: AvailableDay) => {
+      // First try to match by exact date if backend provides it
+      if ((day as any).date) {
+        return (day as any).date === selectedDateStr
+      }
+      // Fall back to matching by day name only (old behavior)
+      const selectedDayName = format(selectedDate, 'EEEE').toUpperCase()
       return day.day === selectedDayName && day.isAvailable
     })
 
@@ -166,7 +172,7 @@ export default function BookingPage() {
     return labels[locationType] || locationType
   }
 
-  // Get available dates from availability data (next 60 days)
+  // Get available dates from availability data
   const availableDates = useMemo(() => {
     if (!availabilityData?.data) return []
     
@@ -175,6 +181,16 @@ export default function BookingPage() {
       ? availabilityData.data
       : availabilityData.data?.availableDays || []
     
+    // If backend provides specific dates, use them directly
+    const datesFromBackend = availableDays
+      .filter((day: any) => day.date && day.slots && day.slots.length > 0)
+      .map((day: any) => new Date(day.date + 'T00:00:00'))
+    
+    if (datesFromBackend.length > 0) {
+      return datesFromBackend
+    }
+    
+    // Fall back to old behavior: generate dates based on day-of-week availability
     const dates: Date[] = []
     const today = startOfToday()
     
