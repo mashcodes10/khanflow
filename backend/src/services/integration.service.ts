@@ -503,10 +503,6 @@ export const saveCalendarPreferencesService = async (
     throw new BadRequestException("At least one calendar integration must be connected");
   }
 
-  if (workCalendarAppType === personalCalendarAppType) {
-    throw new BadRequestException("Work and personal calendars must be different");
-  }
-
   const preferences = {
     workCalendarAppType,
     personalCalendarAppType,

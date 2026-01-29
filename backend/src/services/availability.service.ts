@@ -6,7 +6,9 @@ import { UpdateAvailabilityDto } from "../database/dto/availability.dto";
 import { Availability } from "../database/entities/availability.entity";
 import { DayOfWeekEnum } from "../database/entities/day-availability";
 import { Event } from "../database/entities/event.entity";
+import { MeetingStatus } from "../database/entities/meeting.entity";
 import { addDays, addMinutes, format, parseISO } from "date-fns";
+import { toZonedTime, fromZonedTime } from "date-fns-tz";
 import { Integration, IntegrationAppTypeEnum } from "../database/entities/integration.entity";
 import { googleOAuth2Client } from "../config/oauth.config";
 import { google } from "googleapis";
@@ -128,6 +130,9 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
 
   const availableDays = [];
 
+  // Filter meetings to only those for this specific event
+  const eventMeetings = meetings.filter(m => m.event.id === event.id && m.status === MeetingStatus.SCHEDULED);
+
   // Fetch calendar integrations (for free/busy)
   const integrationRepository = AppDataSource.getRepository(Integration);
   const googleIntegration = await integrationRepository.findOne({
@@ -155,7 +160,7 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
             dayAvailability.startTime,
             dayAvailability.endTime,
             event.duration,
-            meetings,
+            eventMeetings,
             format(nextDate, "yyyy-MM-dd"),
             availability.timeGap
           )
@@ -163,8 +168,14 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
 
       // Collect busy blocks from all selected calendars
       const busyBlocks: { start: Date; end: Date }[] = [];
-      const dayStart = parseISO(`${format(nextDate, "yyyy-MM-dd")}T00:00:00Z`);
-      const dayEnd = parseISO(`${format(nextDate, "yyyy-MM-dd")}T23:59:59Z`);
+      const userTimezone = availability.timezone || 'America/New_York';
+      
+      // Create day boundaries in UTC for the user's date
+      // Convert the user's date at midnight in their timezone to UTC
+      const dayStartLocal = `${format(nextDate, "yyyy-MM-dd")}T00:00:00`;
+      const dayEndLocal = `${format(nextDate, "yyyy-MM-dd")}T23:59:59`;
+      const dayStart = fromZonedTime(dayStartLocal, userTimezone);
+      const dayEnd = fromZonedTime(dayEndLocal, userTimezone);
 
       // Check Google Calendar if integration exists and has selected calendars
       if (googleIntegration && slots.length) {
@@ -253,7 +264,9 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
 
       // Filter slots based on all busy blocks
       const filteredSlots = slots.filter((time) => {
-        const slotStart = parseISO(`${format(nextDate, "yyyy-MM-dd")}T${time}:00`);
+        // Create slot datetime in the user's timezone, then convert to UTC for comparison
+        const slotStartLocal = `${format(nextDate, "yyyy-MM-dd")}T${time}:00`;
+        const slotStart = fromZonedTime(slotStartLocal, userTimezone);
         const slotEnd = addMinutes(slotStart, event.duration);
         return !busyBlocks.some((b) => slotStart < b.end && slotEnd > b.start);
       });

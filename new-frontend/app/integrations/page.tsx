@@ -88,7 +88,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     id: 'google-tasks',
     name: 'Google Tasks',
     description: 'Manage your Google Tasks and track your to-do items. Sync tasks automatically.',
-    icon: <Image src="/logos/google-tasks.png" alt="Google Tasks" width={28} height={28} unoptimized />,
+    icon: <Image src="/logos/google-tasks-new.svg" alt="Google Tasks" width={28} height={28} unoptimized />,
     category: 'tasks',
     helpUrl: '#',
   },

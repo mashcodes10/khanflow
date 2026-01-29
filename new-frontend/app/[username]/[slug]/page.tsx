@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -56,6 +56,15 @@ export default function BookingPage() {
   })
 
   const event: EventDetails | null = eventData?.event || null
+
+  // Set document title based on event name
+  useEffect(() => {
+    if (event?.title) {
+      document.title = `Book ${event.title} - Khanflow`
+    } else {
+      document.title = 'Book Event - Khanflow'
+    }
+  }, [event])
 
   // Fetch availability when event is loaded
   const { data: availabilityData, isLoading: isLoadingAvailability } = useQuery({
