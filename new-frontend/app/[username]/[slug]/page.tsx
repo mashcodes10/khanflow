@@ -73,6 +73,18 @@ export default function BookingPage() {
     enabled: !!event?.id,
   })
 
+  // Debug: Log availability data whenever it changes
+  useEffect(() => {
+    console.log('[DEBUG] Raw availability data:', availabilityData)
+    if (availabilityData?.data) {
+      const availableDays = Array.isArray(availabilityData.data) 
+        ? availabilityData.data 
+        : availabilityData.data?.availableDays || []
+      console.log('[DEBUG] Parsed available days:', availableDays.length, 'days')
+      console.log('[DEBUG] First 3 days:', availableDays.slice(0, 3))
+    }
+  }, [availabilityData])
+
   // Extract host's timezone from availability data
   const hostTimezone = availabilityData?.data?.timezone || 'America/New_York'
 
