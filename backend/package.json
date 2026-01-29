@@ -69,9 +69,13 @@
     "serverless": "^3.39.0",
     "serverless-offline": "^13.8.1",
     "serverless-plugin-scripts": "^1.0.2",
+    "serverless-webpack": "^5.15.3",
+    "ts-loader": "^9.5.4",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.7.3",
     "vitest": "^2.1.8",
+    "webpack": "^5.104.1",
+    "webpack-node-externals": "^3.0.0",
     "zod": "^3.24.1"
   }
 }

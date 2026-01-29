@@ -2,7 +2,7 @@
 
 import React from "react"
 import { useState, useMemo, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { PageHeader } from '@/components/shared/page-header'
@@ -234,6 +234,7 @@ const categoryConfig: Record<string, { label: string; icon: React.ReactNode }> =
 
 export default function IntegrationsPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const queryClient = useQueryClient()
   const [searchQuery, setSearchQuery] = useState('')
   const [activeTab, setActiveTab] = useState('all')
@@ -252,6 +253,31 @@ export default function IntegrationsPage() {
       }
     }
   }, [router])
+
+  // Handle OAuth callback success/error
+  useEffect(() => {
+    const success = searchParams.get('success')
+    const error = searchParams.get('error')
+    const appType = searchParams.get('app_type')
+
+    if (success === 'true') {
+      toast.success(`${appType || 'Integration'} connected successfully`)
+      // Refresh integrations data
+      queryClient.invalidateQueries({ queryKey: ['integrations'] })
+      // Clear URL parameters
+      const url = new URL(window.location.href)
+      url.searchParams.delete('success')
+      url.searchParams.delete('app_type')
+      window.history.replaceState({}, '', url.toString())
+    } else if (error) {
+      toast.error(`Failed to connect: ${error}`)
+      // Clear URL parameters
+      const url = new URL(window.location.href)
+      url.searchParams.delete('error')
+      url.searchParams.delete('app_type')
+      window.history.replaceState({}, '', url.toString())
+    }
+  }, [searchParams, queryClient])
 
   // Fetch integrations from backend
   const { data: integrationsData, isLoading: isLoadingIntegrations } = useQuery({

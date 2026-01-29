@@ -52,14 +52,20 @@ custom:
     host: 0.0.0.0
 
 package:
-  individually: false
   patterns:
-    - '!test/**'
-    - '!tests/**'
-    - '!.git/**'
-    - '!.github/**'
-    - '!*.md'
-    - '!.env*'
-    - '!src/**'
     - 'dist/**'
-    - 'node_modules/**'
+    - '!src/**'
+    - '!tests/**'
+    - '!node_modules/@types/**'
+    - '!node_modules/typescript/**'
+    - '!node_modules/ts-node*/**'
+    - '!node_modules/@typescript-eslint/**'
+    - '!node_modules/eslint*/**'
+    - '!node_modules/vitest/**'
+    - '!node_modules/@vitest/**'
+    - '!node_modules/serverless*/**'
+    - '!node_modules/webpack*/**'
+    - '!node_modules/ts-loader/**'
+    - '!**/*.md'
+    - '!**/*.d.ts'
+    - '!**/*.map'

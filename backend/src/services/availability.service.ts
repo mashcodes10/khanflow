@@ -119,6 +119,7 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
       "user.availability",
       "user.availability.days",
       "user.meetings",
+      "user.meetings.event",
     ],
   });
 
@@ -160,7 +161,7 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
             dayAvailability.startTime,
             dayAvailability.endTime,
             event.duration,
-            eventMeetings,
+            [], // Don't filter meetings here, we'll do it with busy blocks
             format(nextDate, "yyyy-MM-dd"),
             availability.timeGap
           )
@@ -177,14 +178,25 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
       const dayStart = fromZonedTime(dayStartLocal, userTimezone);
       const dayEnd = fromZonedTime(dayEndLocal, userTimezone);
 
-      // Check Google Calendar if integration exists and has selected calendars
+      // Add booked meetings for this event as busy blocks
+      eventMeetings.forEach((meeting) => {
+        // Only include meetings that fall within this day
+        if (meeting.startTime >= dayStart && meeting.startTime < dayEnd) {
+          busyBlocks.push({
+            start: meeting.startTime,
+            end: meeting.endTime,
+          });
+        }
+      });
+
+      // Check Google Calendar if integration exists
       if (googleIntegration && slots.length) {
         const selectedIds =
           ((googleIntegration.metadata as any)?.selectedCalendarIds as
             | string[]
             | undefined) ?? ["primary"];
 
-        // Only check if calendars are selected
+        // Always check - defaults to primary if no calendars selected
         if (selectedIds.length > 0) {
           try {
             const { calendar } = await getGoogleCalendarClient(googleIntegration);
@@ -209,23 +221,50 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
         }
       }
 
-      // Check Outlook Calendar if integration exists and has selected calendars
+      // Check Outlook Calendar if integration exists
       if (outlookIntegration && slots.length) {
-        const selectedIds =
-          ((outlookIntegration.metadata as any)?.selectedCalendarIds as
-            | string[]
-            | undefined) ?? [];
+        try {
+          const validToken = await validateMicrosoftToken(
+            outlookIntegration.access_token,
+            outlookIntegration.refresh_token ?? "",
+            outlookIntegration.expiry_date
+          );
 
-        // Only check if calendars are selected
-        if (selectedIds.length > 0) {
-          try {
-            const validToken = await validateMicrosoftToken(
-              outlookIntegration.access_token,
-              outlookIntegration.refresh_token ?? "",
-              outlookIntegration.expiry_date
-            );
+          const selectedIds =
+            ((outlookIntegration.metadata as any)?.selectedCalendarIds as
+              | string[]
+              | undefined);
 
-            // Check each selected calendar individually using calendarView
+          // If no specific calendars selected, check default calendar using /me/calendarview
+          if (!selectedIds || selectedIds.length === 0) {
+            try {
+              const calendarViewResponse = await fetch(
+                `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${dayStart.toISOString()}&endDateTime=${dayEnd.toISOString()}&$select=start,end,isAllDay`,
+                {
+                  method: "GET",
+                  headers: {
+                    Authorization: `Bearer ${validToken}`,
+                    "Content-Type": "application/json",
+                  },
+                }
+              );
+
+              if (calendarViewResponse.ok) {
+                const calendarViewData = await calendarViewResponse.json();
+                calendarViewData.value?.forEach((event: any) => {
+                  if (!event.isAllDay) {
+                    busyBlocks.push({
+                      start: new Date(event.start.dateTime),
+                      end: new Date(event.end.dateTime),
+                    });
+                  }
+                });
+              }
+            } catch (calendarError) {
+              console.error(`Error checking Outlook default calendar:`, calendarError);
+            }
+          } else {
+            // Check each selected calendar individually
             for (const calendarId of selectedIds) {
               try {
                 const calendarViewResponse = await fetch(
@@ -255,20 +294,30 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
                 // Continue with other calendars even if one fails
               }
             }
-          } catch (error) {
-            console.error("Error checking Outlook Calendar:", error);
-            // Continue with other calendars even if one fails
           }
+        } catch (error) {
+          console.error("Error checking Outlook Calendar:", error);
+          // Continue with other calendars even if one fails
         }
       }
 
-      // Filter slots based on all busy blocks
+      // Filter slots based on all busy blocks (with buffer time)
       const filteredSlots = slots.filter((time) => {
         // Create slot datetime in the user's timezone, then convert to UTC for comparison
         const slotStartLocal = `${format(nextDate, "yyyy-MM-dd")}T${time}:00`;
         const slotStart = fromZonedTime(slotStartLocal, userTimezone);
         const slotEnd = addMinutes(slotStart, event.duration);
-        return !busyBlocks.some((b) => slotStart < b.end && slotEnd > b.start);
+        
+        // Check if slot conflicts with any busy block (including buffer time)
+        return !busyBlocks.some((b) => {
+          // Apply buffer time (timeGap) before and after busy blocks
+          const bufferMinutes = availability.timeGap || 0;
+          const blockStartWithBuffer = addMinutes(b.start, -bufferMinutes);
+          const blockEndWithBuffer = addMinutes(b.end, bufferMinutes);
+          
+          // Check for overlap with buffer
+          return slotStart < blockEndWithBuffer && slotEnd > blockStartWithBuffer;
+        });
       });
 
       availableDays.push({
