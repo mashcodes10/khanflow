@@ -1,6 +1,6 @@
 'use client'
 
-import React from "react"
+import React, { Suspense } from "react"
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -232,7 +232,7 @@ const categoryConfig: Record<string, { label: string; icon: React.ReactNode }> =
   other: { label: 'Other Apps', icon: <Layers className="size-4" strokeWidth={1.75} /> },
 }
 
-export default function IntegrationsPage() {
+function IntegrationsPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
@@ -578,5 +578,13 @@ export default function IntegrationsPage() {
         onSave={handleSaveCalendars}
       />
     </div>
+  )
+}
+
+export default function IntegrationsPage() {
+  return (
+    <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
+      <IntegrationsPageContent />
+    </Suspense>
   )
 }
