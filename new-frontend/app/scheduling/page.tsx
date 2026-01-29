@@ -11,9 +11,15 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Plus, CalendarRange } from 'lucide-react'
 import { eventsAPI, integrationsAPI } from '@/lib/api'
-import type { EventType, IntegrationType, VideoConferencingPlatform } from '@/lib/types'
+import type { EventType, IntegrationType } from '@/lib/types'
 import { toast } from 'sonner'
 import { ENV } from '@/lib/get-env'
+
+type LocationType =
+  | 'GOOGLE_MEET_AND_CALENDAR'
+  | 'ZOOM_MEETING'
+  | 'OUTLOOK_CALENDAR'
+  | 'MICROSOFT_TEAMS'
 
 // Mock data for event types (fallback)
 const mockEventTypes = [
@@ -78,10 +84,10 @@ export default function SchedulingPage() {
     queryFn: integrationsAPI.getAll,
   })
 
-  const connectedLocationTypes: VideoConferencingPlatform[] = useMemo(() => {
+  const connectedLocationTypes: LocationType[] = useMemo(() => {
     const integrations: IntegrationType[] = integrationsData?.integrations || []
 
-    const types: VideoConferencingPlatform[] = []
+    const types: LocationType[] = []
     if (integrations.some(i => i.app_type === 'GOOGLE_MEET_AND_CALENDAR' && i.isConnected)) {
       types.push('GOOGLE_MEET_AND_CALENDAR')
     }
