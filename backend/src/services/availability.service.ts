@@ -146,6 +146,7 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
     where: {
       user: { id: event.user.id },
       app_type: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR,
+      isConnected: true,
     },
   });
 
@@ -153,13 +154,17 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
     where: {
       user: { id: event.user.id },
       app_type: IntegrationAppTypeEnum.OUTLOOK_CALENDAR,
+      isConnected: true,
     },
   });
   console.log(`[AVAILABILITY] Integrations fetched - Google: ${!!googleIntegration}, Outlook: ${!!outlookIntegration}`);
+  if (outlookIntegration) {
+    console.log(`[AVAILABILITY] Outlook metadata:`, JSON.stringify(outlookIntegration.metadata));
+  }
 
-  // Check next 60 days of availability (checking each specific date)
+  // Check next 30 days of availability (reduced from 60 to prevent timeout)
   const today = new Date();
-  for (let dayOffset = 0; dayOffset < 60; dayOffset++) {
+  for (let dayOffset = 0; dayOffset < 30; dayOffset++) {
     const checkDate = addDays(today, dayOffset);
     const dayOfWeek = format(checkDate, 'EEEE').toUpperCase() as DayOfWeekEnum;
     
@@ -207,49 +212,50 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
         }
       });
 
-      // Check Google Calendar if integration exists AND has selected calendars
+      // Check Google Calendar if integration exists
       if (googleIntegration && slots.length) {
         const selectedIds =
           ((googleIntegration.metadata as any)?.selectedCalendarIds as
             | string[]
             | undefined);
 
-        // Only check if user has explicitly selected calendars
-        if (selectedIds && selectedIds.length > 0) {
-          try {
-            console.log(`Checking Google Calendar for ${selectedIds.length} calendars`);
-            const { calendar } = await getGoogleCalendarClient(googleIntegration);
+        // If user hasn't selected specific calendars, check the primary calendar
+        // Otherwise check only the selected calendars
+        const calendarsToCheck = (selectedIds && selectedIds.length > 0) ? selectedIds : ["primary"];
+        
+        try {
+          console.log(`Checking Google Calendar for ${calendarsToCheck.length} calendars`);
+          const { calendar } = await getGoogleCalendarClient(googleIntegration);
 
-            const fbPromise = calendar.freebusy.query({
-              requestBody: {
-                timeMin: dayStart.toISOString(),
-                timeMax: dayEnd.toISOString(),
-                items: selectedIds.map((id) => ({ id })),
-              },
+          const fbPromise = calendar.freebusy.query({
+            requestBody: {
+              timeMin: dayStart.toISOString(),
+              timeMax: dayEnd.toISOString(),
+              items: calendarsToCheck.map((id) => ({ id })),
+            },
+          });
+
+          // Add 10 second timeout
+          const fb = await Promise.race([
+            fbPromise,
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Google Calendar API timeout')), 10000)
+            )
+          ]);
+
+          Object.values((fb as any).data.calendars ?? {}).forEach((c: any) => {
+            c.busy?.forEach((b: any) => {
+              busyBlocks.push({ start: new Date(b.start!), end: new Date(b.end!) });
             });
-
-            // Add 10 second timeout
-            const fb = await Promise.race([
-              fbPromise,
-              new Promise((_, reject) => 
-                setTimeout(() => reject(new Error('Google Calendar API timeout')), 10000)
-              )
-            ]);
-
-            Object.values((fb as any).data.calendars ?? {}).forEach((c: any) => {
-              c.busy?.forEach((b: any) => {
-                busyBlocks.push({ start: new Date(b.start!), end: new Date(b.end!) });
-              });
-            });
-            console.log(`Google Calendar check complete, found ${busyBlocks.length} busy blocks`);
-          } catch (error) {
-            console.error("Error checking Google Calendar:", error);
-            // Continue with other calendars even if one fails
-          }
+          });
+          console.log(`Google Calendar check complete, found ${busyBlocks.length} busy blocks`);
+        } catch (error) {
+          console.error("Error checking Google Calendar:", error);
+          // Continue with other calendars even if one fails
         }
       }
 
-      // Check Outlook Calendar if integration exists AND has selected calendars
+      // Check Outlook Calendar if integration exists
       if (outlookIntegration && slots.length) {
         try {
           const validToken = await validateMicrosoftToken(
@@ -263,8 +269,52 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
               | string[]
               | undefined);
 
-          // Only check if user has explicitly selected calendars
-          if (selectedIds && selectedIds.length > 0) {
+          // If user hasn't selected specific calendars, check the primary calendar
+          // Otherwise check only the selected calendars
+          if (!selectedIds || selectedIds.length === 0) {
+            console.log(`Checking Outlook primary calendar (no specific calendars selected)`);
+            try {
+              const fetchPromise = fetch(
+                `https://graph.microsoft.com/v1.0/me/calendarview?startDateTime=${dayStart.toISOString()}&endDateTime=${dayEnd.toISOString()}&$select=start,end,isAllDay`,
+                {
+                  method: "GET",
+                  headers: {
+                    Authorization: `Bearer ${validToken}`,
+                    "Content-Type": "application/json",
+                  },
+                }
+              );
+
+              // Add 10 second timeout
+              const calendarViewResponse = await Promise.race([
+                fetchPromise,
+                new Promise((_, reject) => 
+                  setTimeout(() => reject(new Error('Outlook Calendar API timeout')), 10000)
+                )
+              ]) as Response;
+
+              console.log(`[AVAILABILITY] Outlook API response status: ${calendarViewResponse.status}`);
+              
+              if (calendarViewResponse.ok) {
+                const calendarViewData = await calendarViewResponse.json();
+                console.log(`[AVAILABILITY] Outlook API returned ${calendarViewData.value?.length || 0} events`);
+                calendarViewData.value?.forEach((event: any) => {
+                  if (!event.isAllDay) {
+                    busyBlocks.push({
+                      start: new Date(event.start.dateTime),
+                      end: new Date(event.end.dateTime),
+                    });
+                  }
+                });
+              } else {
+                const errorText = await calendarViewResponse.text();
+                console.error(`[AVAILABILITY] Outlook API error response:`, errorText);
+              }
+            } catch (calendarError) {
+              console.error(`Error checking Outlook primary calendar:`, calendarError);
+            }
+            console.log(`Outlook Calendar check complete - found ${busyBlocks.length} busy blocks total`);
+          } else {
             console.log(`Checking Outlook Calendar for ${selectedIds.length} calendars`);
             // Check each selected calendar individually
             for (const calendarId of selectedIds) {
@@ -324,6 +374,16 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
         const slotStart = fromZonedTime(slotStartLocal, userTimezone);
         const slotEnd = addMinutes(slotStart, event.duration);
         
+        // Check minimum notice requirement
+        const now = new Date();
+        const minimumNoticeMinutes = availability.minimumNotice || 240; // Default 4 hours
+        const earliestBookingTime = addMinutes(now, minimumNoticeMinutes);
+        
+        // Slot must be at least minimumNotice minutes in the future
+        if (slotStart < earliestBookingTime) {
+          return false;
+        }
+        
         // Check if slot conflicts with any busy block (including buffer time)
         return !busyBlocks.some((b) => {
           // Apply buffer time (timeGap) before and after busy blocks
@@ -337,6 +397,10 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
       });
 
       console.log(`[AVAILABILITY] ${format(checkDate, 'yyyy-MM-dd')}: ${slots.length} initial slots -> ${filteredSlots.length} after filtering`);
+      
+      if (filteredSlots.length > 0) {
+        console.log(`[AVAILABILITY] ${format(checkDate, 'yyyy-MM-dd')}: Available slots: ${filteredSlots.join(', ')}`);
+      }
 
       // Only add to result if there are available slots
       if (filteredSlots.length > 0) {
