@@ -72,7 +72,7 @@ export default function BookingPage() {
     queryFn: () => availabilityAPI.getPublicForEvent(event!.id),
     enabled: !!event?.id,
     staleTime: 0, // Always fetch fresh data
-    cacheTime: 0, // Don't cache
+    gcTime: 0, // Don't cache (was cacheTime in v4)
     retry: 3, // Retry failed requests
     refetchOnMount: true, // Always refetch on mount
   })
