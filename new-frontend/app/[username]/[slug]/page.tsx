@@ -87,6 +87,10 @@ export default function BookingPage() {
       ? availabilityData.data 
       : availabilityData.data?.availableDays || []
     
+    console.log('[DEBUG] Looking for date:', selectedDateStr)
+    console.log('[DEBUG] Available days count:', availableDays.length)
+    console.log('[DEBUG] First few days:', availableDays.slice(0, 3).map(d => ({ day: d.day, date: (d as any).date, slots: d.slots?.length })))
+    
     // Find the day that matches the exact selected date (if available) or fall back to day name
     const dayAvailability = availableDays.find((day: AvailableDay) => {
       // First try to match by exact date if backend provides it
@@ -97,6 +101,8 @@ export default function BookingPage() {
       const selectedDayName = format(selectedDate, 'EEEE').toUpperCase()
       return day.day === selectedDayName && day.isAvailable
     })
+
+    console.log('[DEBUG] Found day availability:', dayAvailability ? { day: dayAvailability.day, date: (dayAvailability as any).date, slots: dayAvailability.slots?.length } : 'NOT FOUND')
 
     return dayAvailability?.slots || []
   }, [selectedDate, availabilityData])
