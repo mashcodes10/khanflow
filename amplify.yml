@@ -12,6 +12,11 @@ applications:
             - echo "SUPABASE_SERVICE_ROLE_KEY=$SUPABASE_SERVICE_ROLE_KEY" >> .env.production
             - echo "JWT_SECRET=$JWT_SECRET" >> .env.production
             - echo "OPENAI_API_KEY=$OPENAI_API_KEY" >> .env.production
+            - echo "NEXT_PUBLIC_MS_CLIENT_ID=$NEXT_PUBLIC_MS_CLIENT_ID" >> .env.production
+            - echo "NEXT_PUBLIC_MS_REDIRECT_URI=$NEXT_PUBLIC_MS_REDIRECT_URI" >> .env.production
+            - echo "NEXT_PUBLIC_GOOGLE_CLIENT_ID=$NEXT_PUBLIC_GOOGLE_CLIENT_ID" >> .env.production
+            - echo "NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL" >> .env.production
+            - echo "NEXT_PUBLIC_APP_ORIGIN=$NEXT_PUBLIC_APP_ORIGIN" >> .env.production
             - npm run build
       artifacts:
         baseDirectory: .next
