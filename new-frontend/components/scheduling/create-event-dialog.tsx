@@ -1,12 +1,18 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
+
+type LocationType =
+  | 'GOOGLE_MEET_AND_CALENDAR'
+  | 'ZOOM_MEETING'
+  | 'OUTLOOK_CALENDAR'
+  | 'MICROSOFT_TEAMS'
 
 interface CreateEventDialogProps {
   open: boolean
@@ -15,8 +21,13 @@ interface CreateEventDialogProps {
     title: string
     description: string
     duration: number
-    locationType: string
+    locationType: LocationType
   }) => Promise<void>
+  /**
+   * List of meeting providers the user has actually connected.
+   * We only allow creating events for these locations.
+   */
+  availableLocationTypes: LocationType[]
 }
 
 const durationOptions = [
@@ -28,19 +39,33 @@ const durationOptions = [
   { value: 120, label: '2 hours' },
 ]
 
-const locationTypeOptions = [
-  { value: 'GOOGLE_MEET_AND_CALENDAR', label: 'Google Meet' },
-  { value: 'ZOOM_MEETING', label: 'Zoom' },
-  { value: 'OUTLOOK_CALENDAR', label: 'Outlook Calendar' },
-  { value: 'MICROSOFT_TEAMS', label: 'Microsoft Teams' },
-]
+const LOCATION_TYPE_LABELS: Record<LocationType, string> = {
+  GOOGLE_MEET_AND_CALENDAR: 'Google Meet',
+  ZOOM_MEETING: 'Zoom',
+  OUTLOOK_CALENDAR: 'Outlook Calendar',
+  MICROSOFT_TEAMS: 'Microsoft Teams',
+}
 
-export function CreateEventDialog({ open, onOpenChange, onCreate }: CreateEventDialogProps) {
+export function CreateEventDialog({ open, onOpenChange, onCreate, availableLocationTypes }: CreateEventDialogProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [duration, setDuration] = useState<number>(30)
-  const [locationType, setLocationType] = useState<string>('GOOGLE_MEET_AND_CALENDAR')
+  const [locationType, setLocationType] = useState<LocationType | ''>(availableLocationTypes[0] ?? '')
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Keep selected location in sync with available options as integrations change.
+  useEffect(() => {
+    if (availableLocationTypes.length === 0) {
+      setLocationType('')
+      return
+    }
+
+    setLocationType((prev) =>
+      prev && availableLocationTypes.includes(prev as LocationType)
+        ? prev
+        : availableLocationTypes[0]
+    )
+  }, [availableLocationTypes])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -50,20 +75,25 @@ export function CreateEventDialog({ open, onOpenChange, onCreate }: CreateEventD
       return
     }
 
+    if (!locationType) {
+      toast.error('Connect a meeting provider in Integrations to create an event type')
+      return
+    }
+
     setIsSubmitting(true)
     try {
       await onCreate({
         title: title.trim(),
         description: description.trim(),
         duration,
-        locationType,
+        locationType: locationType as LocationType,
       })
       
       // Reset form
       setTitle('')
       setDescription('')
       setDuration(30)
-      setLocationType('GOOGLE_MEET_AND_CALENDAR')
+      setLocationType(availableLocationTypes[0] ?? '')
       onOpenChange(false)
     } catch (error) {
       // Error is handled by the parent component
@@ -80,7 +110,7 @@ export function CreateEventDialog({ open, onOpenChange, onCreate }: CreateEventD
         setTitle('')
         setDescription('')
         setDuration(30)
-        setLocationType('GOOGLE_MEET_AND_CALENDAR')
+        setLocationType(availableLocationTypes[0] ?? '')
       }
     }
   }
@@ -146,17 +176,17 @@ export function CreateEventDialog({ open, onOpenChange, onCreate }: CreateEventD
             <div className="space-y-2">
               <Label htmlFor="locationType">Location Type *</Label>
               <Select
-                value={locationType}
-                onValueChange={setLocationType}
-                disabled={isSubmitting}
+                value={locationType || undefined}
+                onValueChange={(value) => setLocationType(value as LocationType)}
+                disabled={isSubmitting || availableLocationTypes.length === 0}
               >
                 <SelectTrigger id="locationType" className="rounded-lg">
-                  <SelectValue />
+                  <SelectValue placeholder={availableLocationTypes.length === 0 ? 'Connect a provider first' : undefined} />
                 </SelectTrigger>
                 <SelectContent>
-                  {locationTypeOptions.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
+                  {availableLocationTypes.map((value) => (
+                    <SelectItem key={value} value={value}>
+                      {LOCATION_TYPE_LABELS[value]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -176,7 +206,12 @@ export function CreateEventDialog({ open, onOpenChange, onCreate }: CreateEventD
             </Button>
             <Button
               type="submit"
-              disabled={isSubmitting || !title.trim()}
+              disabled={
+                isSubmitting ||
+                !title.trim() ||
+                !locationType ||
+                availableLocationTypes.length === 0
+              }
               className="rounded-lg bg-accent hover:bg-accent/90 text-accent-foreground"
             >
               {isSubmitting ? 'Creating...' : 'Create Event'}

@@ -120,11 +120,17 @@ export const createMeetBookingForGuestService = async (
         ).map((id) => ({ id }))
       }
     });
+    
+    const selectedCalendarIds = ((meetIntegration.metadata as any)?.selectedCalendarIds as string[] | undefined) ?? ["primary"];
+    console.log('Checking freebusy for calendars:', selectedCalendarIds);
+    console.log('Freebusy response:', JSON.stringify(fbResp.data.calendars, null, 2));
+    
     const overlaps = fbResp.data.calendars
       ? Object.values(fbResp.data.calendars).some(c => c.busy?.length)
       : false;
 
     if (overlaps) {
+      console.log('Conflict detected in calendars:', fbResp.data.calendars);
       throw new BadRequestException('Time slot is no longer available');
     }
 

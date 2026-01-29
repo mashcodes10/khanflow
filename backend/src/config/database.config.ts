@@ -26,13 +26,29 @@ export const getDatabaseConfig = () => {
     finalDatabaseUrl = databaseUrl.replace(/[?&]sslmode=[^&]*/, '').replace(/[?&]$/, '');
   }
 
+  // Check if running in Lambda
+  const isLambda = process.env.AWS_EXECUTION_ENV !== undefined;
+
   const dataSourceOptions: any = {
     type: "postgres",
     url: finalDatabaseUrl,
     entities: [path.join(__dirname, "../database/entities/*{.ts,.js}")],
     migrations: [path.join(__dirname, "../database/migrations/*{.ts,.js}")],
     synchronize: !isProduction,
-    logging: isProduction ? false : ["error"],
+    logging: isProduction ? ["error"] : ["error"],
+    // Connection pool settings optimized for serverless + Supabase
+    extra: {
+      // For Lambda, use minimal connections
+      max: isLambda ? 1 : 10, // Single connection per Lambda instance
+      min: isLambda ? 0 : 2,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 20000,
+      // Supabase pooler compatibility
+      application_name: 'khanflow-backend',
+      // Keep connections alive
+      keepAlive: true,
+      keepAliveInitialDelayMillis: 10000,
+    },
   };
 
   // SSL configuration:

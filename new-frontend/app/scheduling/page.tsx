@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { AppSidebar } from '@/components/shared/app-sidebar'
@@ -10,8 +10,8 @@ import { CreateEventDialog } from '@/components/scheduling/create-event-dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Plus, CalendarRange } from 'lucide-react'
-import { eventsAPI } from '@/lib/api'
-import type { EventType } from '@/lib/types'
+import { eventsAPI, integrationsAPI } from '@/lib/api'
+import type { EventType, IntegrationType, VideoConferencingPlatform } from '@/lib/types'
 import { toast } from 'sonner'
 import { ENV } from '@/lib/get-env'
 
@@ -51,12 +51,6 @@ const mockEventTypes = [
   },
 ]
 
-const mockUser = {
-  name: 'md.mashiurrahmankhanc6e6',
-  email: 'mashiur.khan@vanderbilt.edu',
-  url: 'http://localhost:3000/md.mashiurrahmankhanc6e6',
-}
-
 export default function SchedulingPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -77,6 +71,33 @@ export default function SchedulingPage() {
     queryKey: ['events'],
     queryFn: eventsAPI.getAll,
   })
+
+  // Fetch integrations to determine which meeting providers are connected
+  const { data: integrationsData } = useQuery({
+    queryKey: ['integrations'],
+    queryFn: integrationsAPI.getAll,
+  })
+
+  const connectedLocationTypes: VideoConferencingPlatform[] = useMemo(() => {
+    const integrations: IntegrationType[] = integrationsData?.integrations || []
+
+    const types: VideoConferencingPlatform[] = []
+    if (integrations.some(i => i.app_type === 'GOOGLE_MEET_AND_CALENDAR' && i.isConnected)) {
+      types.push('GOOGLE_MEET_AND_CALENDAR')
+    }
+    if (integrations.some(i => i.app_type === 'ZOOM_MEETING' && i.isConnected)) {
+      types.push('ZOOM_MEETING')
+    }
+    if (integrations.some(i => i.app_type === 'OUTLOOK_CALENDAR' && i.isConnected)) {
+      types.push('OUTLOOK_CALENDAR')
+    }
+    if (integrations.some(i => i.app_type === 'MICROSOFT_TEAMS' && i.isConnected)) {
+      types.push('MICROSOFT_TEAMS')
+    }
+    return types
+  }, [integrationsData])
+
+  const canCreateEvents = connectedLocationTypes.length > 0
 
   // Create event mutation
   const createMutation = useMutation({
@@ -134,7 +155,17 @@ export default function SchedulingPage() {
     link: `${ENV.NEXT_PUBLIC_APP_ORIGIN}/${eventsData.data.username}/${event.slug}`,
   })) || []
 
-  const username = eventsData?.data?.username || 'user'
+  const username = eventsData?.data?.username || 'your-username'
+  const publicSchedulingUrl = `${ENV.NEXT_PUBLIC_APP_ORIGIN}/${username}`
+
+  const handleOpenCreateDialog = () => {
+    if (!canCreateEvents) {
+      toast.error('Connect Google, Outlook, Zoom, or Teams in Integrations before creating event types.')
+      router.push('/integrations')
+      return
+    }
+    setCreateDialogOpen(true)
+  }
 
   const handleToggleVisibility = (id: string) => {
     togglePrivacyMutation.mutate(id)
@@ -165,7 +196,7 @@ export default function SchedulingPage() {
             title="Scheduling"
             showCreate
             createLabel="Create"
-            onCreate={() => setCreateDialogOpen(true)}
+            onCreate={handleOpenCreateDialog}
           />
 
           {/* User Profile Section */}
@@ -177,15 +208,15 @@ export default function SchedulingPage() {
                 </AvatarFallback>
               </Avatar>
               <div>
-                <p className="text-sm font-medium text-foreground">{mockUser.name}</p>
-                <p className="text-xs text-muted-foreground">{mockUser.url}</p>
+                <p className="text-sm font-medium text-foreground">{username}</p>
+                <p className="text-xs text-muted-foreground">{publicSchedulingUrl}</p>
               </div>
             </div>
             <Button
               variant="outline"
               size="sm"
               className="gap-1.5 rounded-lg border-border-subtle hover:border-border bg-transparent"
-              onClick={() => setCreateDialogOpen(true)}
+              onClick={handleOpenCreateDialog}
             >
               <Plus className="size-3.5" strokeWidth={2} />
               Create
@@ -241,6 +272,7 @@ export default function SchedulingPage() {
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         onCreate={handleCreate}
+        availableLocationTypes={connectedLocationTypes}
       />
     </div>
   )

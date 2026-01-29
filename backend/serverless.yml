@@ -1,0 +1,65 @@
+service: khanflow-backend
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: us-east-1
+  stage: ${opt:stage, 'production'}
+  timeout: 30
+  memorySize: 1024
+  environment:
+    NODE_ENV: production
+    PORT: 8000
+    BASE_PATH: /api
+    DATABASE_URL: ${env:PROD_DATABASE_URL}
+    JWT_SECRET: ${env:PROD_JWT_SECRET}
+    JWT_EXPIRES_IN: 7d
+    GOOGLE_CLIENT_ID: ${env:PROD_GOOGLE_CLIENT_ID}
+    GOOGLE_CLIENT_SECRET: ${env:PROD_GOOGLE_CLIENT_SECRET}
+    GOOGLE_REDIRECT_URI: ${env:PROD_GOOGLE_REDIRECT_URI}
+    MICROSOFT_CLIENT_ID: ${env:PROD_MICROSOFT_CLIENT_ID}
+    MICROSOFT_CLIENT_SECRET: ${env:PROD_MICROSOFT_CLIENT_SECRET}
+    MICROSOFT_REDIRECT_URI: ${env:PROD_MICROSOFT_REDIRECT_URI}
+    OPENAI_API_KEY: ${env:PROD_OPENAI_API_KEY}
+    FRONTEND_ORIGIN: ${env:PROD_FRONTEND_ORIGIN}
+    FRONTEND_INTEGRATION_URL: ${env:PROD_FRONTEND_INTEGRATION_URL}
+    SUPABASE_URL: ${env:PROD_SUPABASE_URL}
+    SUPABASE_SERVICE_ROLE_KEY: ${env:PROD_SUPABASE_SERVICE_ROLE_KEY}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+          Resource: '*'
+
+functions:
+  api:
+    handler: dist/src/lambda.handler
+    events:
+      - httpApi: '*'
+
+plugins:
+  - serverless-offline
+
+custom:
+  serverless-offline:
+    httpPort: 8000
+    host: 0.0.0.0
+
+package:
+  individually: false
+  patterns:
+    - '!test/**'
+    - '!tests/**'
+    - '!.git/**'
+    - '!.github/**'
+    - '!*.md'
+    - '!.env*'
+    - '!src/**'
+    - 'dist/**'
+    - 'node_modules/**'

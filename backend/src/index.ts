@@ -20,6 +20,7 @@ import voiceRoutes from "./routes/voice.route";
 import actionsRoutes from "./routes/actions.route";
 import microsoftTodoRoutes from "./routes/microsoft-todo.route";
 import lifeOrganizationRoutes from "./routes/life-organization.route";
+import healthRoutes from "./routes/health.route";
 
 const app = express();
 const BASE_PATH = config.BASE_PATH;
@@ -49,6 +50,7 @@ app.get(
   })
 );
 
+app.use(`${BASE_PATH}/health`, healthRoutes);
 app.use(`${BASE_PATH}/auth`, authRoutes);
 app.use(`${BASE_PATH}/event`, eventRoutes);
 app.use(`${BASE_PATH}/availability`, availabilityRoutes);
@@ -63,7 +65,19 @@ app.use(`${BASE_PATH}/life-organization`, lifeOrganizationRoutes);
 
 app.use(errorHandler);
 
-app.listen(config.PORT, async () => {
-  await initializeDatabase();
-  console.log(`Server listening on port ${config.PORT} in ${config.NODE_ENV}`);
-});
+// Export app for Lambda and testing
+export default app;
+
+// Only start server in non-Lambda environment (local development)
+if (process.env.AWS_EXECUTION_ENV === undefined) {
+  // Initialize database for local development
+  initializeDatabase().then(() => {
+    console.log('Database initialized');
+  }).catch(error => {
+    console.error('Failed to initialize database:', error);
+  });
+  
+  app.listen(config.PORT, async () => {
+    console.log(`Server listening on port ${config.PORT} in ${config.NODE_ENV}`);
+  });
+}

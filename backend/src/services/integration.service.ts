@@ -8,6 +8,7 @@ import {
 } from "../database/entities/integration.entity";
 import { BadRequestException } from "../utils/app-error";
 import { googleOAuth2Client } from "../config/oauth.config";
+import { config } from "../config/app.config";
 import { encodeState } from "../utils/helper";
 import { google } from "googleapis";
 import { ZOOM_OAUTH_CONFIG } from "../config/zoom.config";
@@ -102,6 +103,7 @@ export const connectAppService = async (
         access_type: 'offline',
         prompt: 'consent',
         include_granted_scopes: true,
+        redirect_uri: config.GOOGLE_INTEGRATION_REDIRECT_URI || config.GOOGLE_REDIRECT_URI,
         scope: [
           'https://www.googleapis.com/auth/calendar.events',
           'https://www.googleapis.com/auth/calendar.readonly',
@@ -116,6 +118,7 @@ export const connectAppService = async (
         access_type: 'offline',
         prompt: 'consent',
         include_granted_scopes: true,
+        redirect_uri: config.GOOGLE_INTEGRATION_REDIRECT_URI || config.GOOGLE_REDIRECT_URI,
         scope: [
           'https://www.googleapis.com/auth/tasks',
           'https://www.googleapis.com/auth/tasks.readonly'

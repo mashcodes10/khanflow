@@ -14,7 +14,7 @@ import {
 } from "../database/entities/day-availability";
 import { signJwtToken } from "../utils/jwt";
 import { OAuth2Client } from "google-auth-library";
-import * as bcrypt from "bcrypt";
+import * as bcrypt from "bcryptjs";
 
 export const registerService = async (registerDto: RegisterDto) => {
   const userRepository = AppDataSource.getRepository(User);
