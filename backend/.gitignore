@@ -44,3 +44,6 @@ temp/
 .serverless/
 .serverless_nextjs/
 .webpack/
+lambda-env.json
+lambda-deployment.zip
+webpack.config.js
