@@ -61,13 +61,48 @@ export const getUserIntegrationsService = async (userId: string) => {
     userIntegrations.map((integration) => [integration.app_type, integration])
   );
 
+  // Validate tokens and update isConnected status
+  for (const [appType, integration] of connectedMap.entries()) {
+    if (integration.isConnected) {
+      try {
+        // Validate token based on app type
+        if (appType === IntegrationAppTypeEnum.ZOOM_MEETING) {
+          await validateZoomToken(
+            integration.access_token,
+            integration.refresh_token,
+            integration.expiry_date
+          );
+        } else if (appType === IntegrationAppTypeEnum.MICROSOFT_TEAMS || 
+                   appType === IntegrationAppTypeEnum.OUTLOOK_CALENDAR) {
+          await validateMicrosoftToken(
+            integration.access_token,
+            integration.refresh_token,
+            integration.expiry_date
+          );
+        } else if (appType === IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR ||
+                   appType === IntegrationAppTypeEnum.GOOGLE_TASKS) {
+          await validateGoogleToken(
+            integration.access_token,
+            integration.refresh_token,
+            integration.expiry_date
+          );
+        }
+      } catch (error) {
+        // Token validation failed - mark as disconnected
+        integration.isConnected = false;
+        await integrationRepository.save(integration);
+      }
+    }
+  }
+
   return Object.values(IntegrationAppTypeEnum).flatMap((appType) => {
+    const integration = connectedMap.get(appType);
     return {
       provider: appTypeToProviderMap[appType],
       title: appTypeToTitleMap[appType],
       app_type: appType,
       category: appTypeToCategoryMap[appType],
-      isConnected: connectedMap.has(appType) || false,
+      isConnected: integration?.isConnected || false,
     };
   });
 };
