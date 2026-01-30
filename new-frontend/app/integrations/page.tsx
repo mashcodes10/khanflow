@@ -12,7 +12,7 @@ import { IntegrationDrawer } from '@/components/integrations/integration-drawer'
 import { CalendarSelectionModal } from '@/components/integrations/calendar-selection-modal'
 import type { CalendarProvider, CalendarPreferences } from '@/components/integrations/calendar-preferences-subview'
 import { Input } from '@/components/ui/input'
-import { Puzzle, Search, Calendar, Video, CheckSquare, Layers } from 'lucide-react'
+import { Puzzle, Search, Calendar, Video, CheckSquare, Layers, AlertCircle } from 'lucide-react'
 import Image from 'next/image'
 import { integrationsAPI } from '@/lib/api'
 import type { IntegrationType, IntegrationAppType } from '@/lib/types'
@@ -33,6 +33,8 @@ interface Integration {
   description: string
   icon: React.ReactNode
   status: ConnectionStatus
+  integrationStatus?: 'active' | 'expired' | 'disconnected'
+  statusMessage?: string
   category: 'calendar' | 'video' | 'tasks' | 'other'
   hasManageOption?: boolean
   helpUrl?: string
@@ -367,6 +369,8 @@ function IntegrationsPageContent() {
       return {
         ...def,
         status: def.comingSoon ? 'not_connected' : (backend?.isConnected ? 'connected' : 'not_connected'),
+        integrationStatus: backend?.status,
+        statusMessage: backend?.statusMessage,
         appType,
       }
     })
@@ -465,6 +469,11 @@ function IntegrationsPageContent() {
     savePreferencesMutation.mutate(updatedPrefs)
   }
 
+  // Check for expired integrations
+  const expiredIntegrations = useMemo(() => {
+    return mappedIntegrations.filter(i => i.integrationStatus === 'expired')
+  }, [mappedIntegrations])
+
   return (
     <div className="flex h-screen bg-background">
       <AppSidebar activePage="Integrations & apps" />
@@ -477,6 +486,23 @@ function IntegrationsPageContent() {
             title="Integrations & Apps"
             subtitle="Connect your favorite tools to supercharge your workflow."
           />
+
+          {/* Expired Token Alert */}
+          {expiredIntegrations.length > 0 && (
+            <div className="mb-6 p-4 rounded-xl border border-destructive/20 bg-destructive-muted/30 flex items-start gap-3">
+              <AlertCircle className="size-5 text-destructive shrink-0 mt-0.5" strokeWidth={2} />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-destructive">
+                  {expiredIntegrations.length === 1 
+                    ? `${expiredIntegrations[0].name} token has expired` 
+                    : `${expiredIntegrations.length} integration tokens have expired`}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Please reconnect {expiredIntegrations.length === 1 ? 'this integration' : 'these integrations'} to continue using {expiredIntegrations.length === 1 ? 'it' : 'them'}.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Filters Row */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">

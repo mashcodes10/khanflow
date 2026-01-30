@@ -77,6 +77,8 @@ export interface IntegrationType {
   app_type: IntegrationAppType;
   category: "VIDEO_CONFERENCING" | "CALENDAR";
   isConnected: boolean;
+  status?: 'active' | 'expired' | 'disconnected';
+  statusMessage?: string;
 }
 
 export interface GetAllIntegrationResponseType {

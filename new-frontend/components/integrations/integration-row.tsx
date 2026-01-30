@@ -12,7 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { MoreHorizontal, Settings, Unplug, Link2, ExternalLink } from 'lucide-react'
+import { MoreHorizontal, Settings, Unplug, Link2, ExternalLink, AlertCircle } from 'lucide-react'
 
 export type ConnectionStatus = 'connected' | 'not_connected'
 
@@ -21,6 +21,8 @@ interface IntegrationRowProps {
   description: string
   icon: React.ReactNode
   status: ConnectionStatus
+  integrationStatus?: 'active' | 'expired' | 'disconnected'
+  statusMessage?: string
   hasManageOption?: boolean
   onConnect?: () => void
   onDisconnect?: () => void
@@ -33,6 +35,8 @@ export function IntegrationRow({
   description,
   icon,
   status,
+  integrationStatus,
+  statusMessage,
   hasManageOption = false,
   onConnect,
   onDisconnect,
@@ -40,6 +44,7 @@ export function IntegrationRow({
   className,
 }: IntegrationRowProps) {
   const isConnected = status === 'connected'
+  const isExpired = integrationStatus === 'expired'
 
   return (
     <div
@@ -70,21 +75,31 @@ export function IntegrationRow({
       </div>
 
       {/* Status Badge */}
-      <Badge
-        variant="outline"
-        className={cn(
-          'shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-md border',
-          isConnected
-            ? 'bg-success-muted/50 border-success/30 text-success'
-            : 'bg-muted/50 border-border-subtle text-muted-foreground'
-        )}
-      >
-        <span className={cn(
-          'inline-block size-1.5 rounded-full mr-1.5',
-          isConnected ? 'bg-success' : 'bg-muted-foreground/50'
-        )} />
-        {isConnected ? 'Connected' : 'Not connected'}
-      </Badge>
+      {isExpired ? (
+        <Badge
+          variant="outline"
+          className="shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-md border bg-destructive-muted/50 border-destructive/30 text-destructive"
+        >
+          <AlertCircle className="inline-block size-3 mr-1.5" strokeWidth={2} />
+          Token Expired
+        </Badge>
+      ) : (
+        <Badge
+          variant="outline"
+          className={cn(
+            'shrink-0 px-2 py-0.5 text-[10px] font-medium rounded-md border',
+            isConnected
+              ? 'bg-success-muted/50 border-success/30 text-success'
+              : 'bg-muted/50 border-border-subtle text-muted-foreground'
+          )}
+        >
+          <span className={cn(
+            'inline-block size-1.5 rounded-full mr-1.5',
+            isConnected ? 'bg-success' : 'bg-muted-foreground/50'
+          )} />
+          {isConnected ? 'Connected' : 'Not connected'}
+        </Badge>
+      )}
 
       {/* Primary Action */}
       {isConnected ? (
