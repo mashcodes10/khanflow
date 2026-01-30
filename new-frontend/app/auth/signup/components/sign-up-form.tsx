@@ -35,7 +35,7 @@ export function SignUpForm({
       localStorage.setItem('accessToken', accessToken)
       localStorage.setItem('expiresAt', expiresAt.toString())
       toast.success("Account created with Google successfully")
-       router.push("/dashboard")
+      router.push("/")
     },
     onError: (error: any) => {
       toast.error(error.message || "Google sign up failed")
@@ -50,7 +50,7 @@ export function SignUpForm({
       localStorage.setItem('accessToken', accessToken)
       localStorage.setItem('expiresAt', expiresAt.toString())
       toast.success("Account created with Microsoft successfully")
-       router.push("/dashboard")
+      router.push("/")
     },
     onError: (error: any) => {
       toast.error(error.message || "Microsoft sign up failed")
@@ -118,7 +118,7 @@ export function SignUpForm({
       {/* Top Header */}
       <div className="flex flex-col items-center gap-3">
         <Link
-          href="/dashboard"
+          href="/"
           className="flex flex-col items-center gap-2 font-medium"
         >
           <Logo size="lg" />
