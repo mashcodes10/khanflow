@@ -219,39 +219,43 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
             | string[]
             | undefined);
 
-        // If user hasn't selected specific calendars, check the primary calendar
-        // Otherwise check only the selected calendars
-        const calendarsToCheck = (selectedIds && selectedIds.length > 0) ? selectedIds : ["primary"];
+        // Only check Google Calendar if user has explicitly selected calendars
+        if (!selectedIds || selectedIds.length === 0) {
+          console.log('Skipping Google Calendar - no calendars selected');
+          // Don't check Google Calendar if no calendars are selected
+        } else {
+          const calendarsToCheck = selectedIds;
         
-        try {
-          console.log(`Checking Google Calendar for ${calendarsToCheck.length} calendars`);
-          const { calendar } = await getGoogleCalendarClient(googleIntegration);
+          try {
+            console.log(`Checking Google Calendar for ${calendarsToCheck.length} calendars`);
+            const { calendar } = await getGoogleCalendarClient(googleIntegration);
 
-          const fbPromise = calendar.freebusy.query({
-            requestBody: {
-              timeMin: dayStart.toISOString(),
-              timeMax: dayEnd.toISOString(),
-              items: calendarsToCheck.map((id) => ({ id })),
-            },
-          });
-
-          // Add 10 second timeout
-          const fb = await Promise.race([
-            fbPromise,
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('Google Calendar API timeout')), 10000)
-            )
-          ]);
-
-          Object.values((fb as any).data.calendars ?? {}).forEach((c: any) => {
-            c.busy?.forEach((b: any) => {
-              busyBlocks.push({ start: new Date(b.start!), end: new Date(b.end!) });
+            const fbPromise = calendar.freebusy.query({
+              requestBody: {
+                timeMin: dayStart.toISOString(),
+                timeMax: dayEnd.toISOString(),
+                items: calendarsToCheck.map((id) => ({ id })),
+              },
             });
-          });
-          console.log(`Google Calendar check complete, found ${busyBlocks.length} busy blocks`);
-        } catch (error) {
-          console.error("Error checking Google Calendar:", error);
-          // Continue with other calendars even if one fails
+
+            // Add 10 second timeout
+            const fb = await Promise.race([
+              fbPromise,
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('Google Calendar API timeout')), 10000)
+              )
+            ]);
+
+            Object.values((fb as any).data.calendars ?? {}).forEach((c: any) => {
+              c.busy?.forEach((b: any) => {
+                busyBlocks.push({ start: new Date(b.start!), end: new Date(b.end!) });
+              });
+            });
+            console.log(`Google Calendar check complete, found ${busyBlocks.length} busy blocks`);
+          } catch (error) {
+            console.error("Error checking Google Calendar:", error);
+            // Continue with other calendars even if one fails
+          }
         }
       }
 
@@ -297,8 +301,15 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
               
               if (calendarViewResponse.ok) {
                 const calendarViewData = await calendarViewResponse.json();
-                console.log(`[AVAILABILITY] Outlook API returned ${calendarViewData.value?.length || 0} events`);
-                calendarViewData.value?.forEach((event: any) => {
+                console.log(`[AVAILABILITY] Outlook API returned ${calendarViewData.value?.length || 0} events for ${dayStart.toISOString().split('T')[0]}`);
+                calendarViewData.value?.forEach((event: any, index: number) => {
+                  console.log(`[AVAILABILITY] Outlook Event ${index + 1}:`, {
+                    subject: event.subject,
+                    start: event.start.dateTime,
+                    end: event.end.dateTime,
+                    isAllDay: event.isAllDay,
+                    timezone: event.start.timeZone
+                  });
                   if (!event.isAllDay) {
                     busyBlocks.push({
                       start: new Date(event.start.dateTime),
@@ -340,7 +351,15 @@ export const getAvailabilityForPublicEventService = async (eventId: string) => {
 
                 if (calendarViewResponse.ok) {
                   const calendarViewData = await calendarViewResponse.json();
-                  calendarViewData.value?.forEach((event: any) => {
+                  console.log(`[AVAILABILITY] Outlook calendar ${calendarId} returned ${calendarViewData.value?.length || 0} events for ${dayStart.toISOString().split('T')[0]}`);
+                  calendarViewData.value?.forEach((event: any, index: number) => {
+                    console.log(`[AVAILABILITY] Outlook Event ${index + 1}:`, {
+                      subject: event.subject,
+                      start: event.start.dateTime,
+                      end: event.end.dateTime,
+                      isAllDay: event.isAllDay,
+                      timezone: event.start.timeZone
+                    });
                     if (!event.isAllDay) {
                       busyBlocks.push({
                         start: new Date(event.start.dateTime),

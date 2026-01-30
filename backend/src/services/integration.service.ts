@@ -230,7 +230,7 @@ export const validateZoomToken = async (
   if (expiryDate && Date.now() < expiryDate) return accessToken;
 
   if (!refreshToken) {
-    throw new Error("Zoom refresh token is missing. Please reconnect your Zoom integration.");
+    throw new BadRequestException("The host's Zoom integration needs to be reconnected. Please contact the event organizer.");
   }
 
   const params = new URLSearchParams();
@@ -250,7 +250,7 @@ export const validateZoomToken = async (
   if (!resp.ok) {
     const errorText = await resp.text();
     console.error("Zoom token refresh failed:", errorText);
-    throw new Error("Failed to refresh Zoom token. Please reconnect your Zoom integration.");
+    throw new BadRequestException("The host's Zoom integration has expired. Please contact the event organizer to reconnect their Zoom account.");
   }
   const data = (await resp.json()) as any;
   return data.access_token as string;
@@ -275,7 +275,11 @@ export const validateMicrosoftToken = async (
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: params.toString(),
   });
-  if (!resp.ok) throw new Error("Failed to refresh Microsoft token");
+  if (!resp.ok) {
+    const errorText = await resp.text();
+    console.error("Microsoft token refresh failed:", errorText);
+    throw new BadRequestException("The host's Microsoft integration has expired. Please contact the event organizer to reconnect their Microsoft account.");
+  }
   const data = (await resp.json()) as any;
   return data.access_token as string;
 };
