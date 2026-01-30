@@ -156,7 +156,6 @@ export async function POST(
       user_id: user.userId,
       source: 'voice',
       status: 'confirmed',
-      payload: voiceActionPayload,
     };
 
     let { data: acceptedAction, error: insertError } = await supabase
