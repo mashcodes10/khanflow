@@ -67,7 +67,7 @@ export default function BookingPage() {
   }, [event])
 
   // Fetch availability when event is loaded
-  const { data: availabilityData, isLoading: isLoadingAvailability } = useQuery({
+  const { data: availabilityData, isLoading: isLoadingAvailability, error: availabilityError } = useQuery({
     queryKey: ['public-availability', event?.id],
     queryFn: () => availabilityAPI.getPublicForEvent(event!.id),
     enabled: !!event?.id,
@@ -76,6 +76,13 @@ export default function BookingPage() {
     retry: 3, // Retry failed requests
     refetchOnMount: true, // Always refetch on mount
   })
+
+  // Debug: Log errors
+  useEffect(() => {
+    if (availabilityError) {
+      console.error('[DEBUG] Availability error:', availabilityError)
+    }
+  }, [availabilityError])
 
   // Debug: Log availability data whenever it changes
   useEffect(() => {
