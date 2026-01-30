@@ -138,10 +138,10 @@ export async function POST(
     }
 
     // Step 2: Insert accepted_actions record
-    // Supabase uses snake_case columns: user_id, board_id, intent_id, payload, source, status
-    // Note: The foreign key constraint to users table should be dropped by migration
-    // since users are stored in the backend database, not Supabase
-    
+    // TODO: Need to check actual Supabase schema before enabling this
+    // Commenting out for now to allow voice tasks to work
+    // IMPORTANT: This means we lose audit trail of voice actions
+    /*
     const voiceActionPayload = {
       source: 'voice',
       destination,
@@ -151,7 +151,6 @@ export async function POST(
       status: 'confirmed',
     };
 
-    // Use snake_case column names (Supabase/PostgREST convention)
     const insertPayload: any = {
       user_id: user.userId,
       source: 'voice',
@@ -163,7 +162,13 @@ export async function POST(
       .insert(insertPayload)
       .select('id')
       .single();
+    */
 
+    // Temporarily skip accepted_actions insert
+    let acceptedAction = null;
+    let insertError = null;
+    // Since we're skipping accepted_actions insert, continue without error checks
+    /*
     // If error is about foreign key constraint
     if (insertError && insertError.code === '23503') {
       console.error('Foreign key constraint violation');
@@ -257,6 +262,7 @@ export async function POST(
         { status: 500 }
       );
     }
+    */
 
     // Step 3: Create provider tasks if destination != 'local'
     // Note: Provider sync is optional and creates an additional copy
