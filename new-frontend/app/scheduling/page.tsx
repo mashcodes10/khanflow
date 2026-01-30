@@ -111,7 +111,7 @@ export default function SchedulingPage() {
     const integrations: IntegrationType[] = integrationsData?.integrations || []
     
     return events.filter(event => {
-      const locationType = event.location_type
+      const locationType = event.locationType
       const integration = integrations.find(i => i.app_type === locationType)
       return integration && !integration.isConnected
     })
