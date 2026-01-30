@@ -5,6 +5,7 @@ import { ThemeProvider } from 'next-themes'
 import { QueryProvider } from '@/components/query-provider'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/next'
+import { Footer } from '@/components/shared/footer'
 import 'react-day-picker/style.css'
 import './globals.css'
 
@@ -22,8 +23,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Khanflow - life os',
-  description: 'Organize what matters to you - capture intentions, not just tasks',
+  title: 'Khanflow - Smart Calendar & Meeting Management',
+  description: 'Khanflow helps you organize your life with smart calendar management, meeting scheduling, and task integration. Connect Google Calendar, Microsoft Outlook, Zoom, and more to streamline your workflow.',
   generator: 'v0.app',
   icons: {
     icon: [
@@ -51,7 +52,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${lora.variable} ${geistMono.variable} font-sans antialiased`}>
+      <body className={`${inter.variable} ${lora.variable} ${geistMono.variable} font-sans antialiased flex flex-col min-h-screen`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -59,7 +60,8 @@ export default function RootLayout({
           storageKey="khanflow-theme"
         >
           <QueryProvider>
-            {children}
+            <div className="flex-1">{children}</div>
+            <Footer />
             <Toaster position="top-right" />
           </QueryProvider>
         </ThemeProvider>
