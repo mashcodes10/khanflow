@@ -29,7 +29,7 @@ export async function POST(
     // Verify job exists and belongs to user
     const { data: job, error: jobError } = await supabase
       .from('voice_jobs')
-      .select('id, board_id, intent_id')
+      .select('id, intent_id')
       .eq('id', jobId)
       .eq('user_id', user.userId)
       .single();
@@ -148,7 +148,6 @@ export async function POST(
       schedule,
       actions,
       createdIntentIds,
-      board_id: boardId,
       intent_id: createdIntentIds[0] || null,
       status: 'confirmed',
     };
@@ -156,7 +155,6 @@ export async function POST(
     // Use snake_case column names (Supabase/PostgREST convention)
     const insertPayload: any = {
       user_id: user.userId,
-      board_id: boardId,
       intent_id: createdIntentIds[0] || null,
       source: 'voice',
       status: 'confirmed',

@@ -58,7 +58,6 @@ export async function POST(request: NextRequest) {
       .insert({
         user_id: user.userId,
         status: 'pending',
-        board_id: validated.data.boardId || null,
         intent_id: validated.data.intentId || null,
       })
       .select('id')

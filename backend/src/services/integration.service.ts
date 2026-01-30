@@ -64,6 +64,7 @@ export const getUserIntegrationsService = async (userId: string) => {
   // Validate tokens and update isConnected status
   for (const [appType, integration] of connectedMap.entries()) {
     if (integration.isConnected) {
+      console.log(`[Integration Validation] Checking ${appType} token...`);
       try {
         // Validate token based on app type
         if (appType === IntegrationAppTypeEnum.ZOOM_MEETING) {
@@ -72,6 +73,7 @@ export const getUserIntegrationsService = async (userId: string) => {
             integration.refresh_token,
             integration.expiry_date
           );
+          console.log(`[Integration Validation] ${appType} token is valid`);
         } else if (appType === IntegrationAppTypeEnum.MICROSOFT_TEAMS || 
                    appType === IntegrationAppTypeEnum.OUTLOOK_CALENDAR) {
           await validateMicrosoftToken(
@@ -79,6 +81,7 @@ export const getUserIntegrationsService = async (userId: string) => {
             integration.refresh_token,
             integration.expiry_date
           );
+          console.log(`[Integration Validation] ${appType} token is valid`);
         } else if (appType === IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR ||
                    appType === IntegrationAppTypeEnum.GOOGLE_TASKS) {
           await validateGoogleToken(
@@ -86,11 +89,15 @@ export const getUserIntegrationsService = async (userId: string) => {
             integration.refresh_token,
             integration.expiry_date
           );
+          console.log(`[Integration Validation] ${appType} token is valid`);
         }
       } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        console.log(`[Integration Validation] ${appType} token validation FAILED:`, errorMessage);
         // Token validation failed - mark as disconnected
         integration.isConnected = false;
         await integrationRepository.save(integration);
+        console.log(`[Integration Validation] ${appType} marked as disconnected in database`);
       }
     }
   }
