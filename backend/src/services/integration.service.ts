@@ -62,32 +62,12 @@ export const getUserIntegrationsService = async (userId: string) => {
   );
 
   return Object.values(IntegrationAppTypeEnum).flatMap((appType) => {
-    const integration = connectedMap.get(appType);
-    let status: 'active' | 'expired' | 'disconnected' = 'disconnected';
-    let statusMessage: string | undefined;
-
-    // Only check expiry for currently connected integrations
-    if (integration && integration.isConnected) {
-      // Check if token is expired
-      const now = Date.now();
-      const expiryDate = integration.expiry_date;
-
-      if (expiryDate && now >= expiryDate) {
-        status = 'expired';
-        statusMessage = `Token expired. Please reconnect your ${appTypeToTitleMap[appType]} account.`;
-      } else {
-        status = 'active';
-      }
-    }
-
     return {
       provider: appTypeToProviderMap[appType],
       title: appTypeToTitleMap[appType],
       app_type: appType,
       category: appTypeToCategoryMap[appType],
       isConnected: connectedMap.has(appType) || false,
-      status,
-      statusMessage,
     };
   });
 };

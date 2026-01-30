@@ -26,8 +26,6 @@ interface IntegrationDrawerProps {
     description: string
     icon: React.ReactNode
     status: ConnectionStatus
-    integrationStatus?: 'active' | 'expired' | 'disconnected'
-    statusMessage?: string
     category: string
     permissions?: Permission[]
     hasManageOption?: boolean
@@ -145,21 +143,15 @@ export function IntegrationDrawer({
               {/* Connection Status */}
               <div className={cn(
                 'flex items-center gap-3 p-4 rounded-xl border',
-                integration.integrationStatus === 'expired'
-                  ? 'bg-destructive-muted/30 border-destructive/20'
-                  : isConnected 
+                isConnected 
                   ? 'bg-accent-muted/30 border-accent/20' 
                   : 'bg-muted/30 border-border-subtle'
               )}>
                 <div className={cn(
                   'size-10 flex items-center justify-center rounded-full',
-                  integration.integrationStatus === 'expired' 
-                    ? 'bg-destructive/10' 
-                    : isConnected ? 'bg-accent/10' : 'bg-muted'
+                  isConnected ? 'bg-accent/10' : 'bg-muted'
                 )}>
-                  {integration.integrationStatus === 'expired' ? (
-                    <AlertCircle className="size-5 text-destructive" strokeWidth={2} />
-                  ) : isConnected ? (
+                  {isConnected ? (
                     <Check className="size-5 text-accent" strokeWidth={2} />
                   ) : (
                     <AlertCircle className="size-5 text-muted-foreground" strokeWidth={1.75} />
@@ -168,18 +160,12 @@ export function IntegrationDrawer({
                 <div>
                   <p className={cn(
                     'text-sm font-medium',
-                    integration.integrationStatus === 'expired' 
-                      ? 'text-destructive' 
-                      : isConnected ? 'text-accent' : 'text-foreground'
+                    isConnected ? 'text-accent' : 'text-foreground'
                   )}>
-                    {integration.integrationStatus === 'expired' 
-                      ? 'Token Expired' 
-                      : isConnected ? 'Connected' : 'Not connected'}
+                    {isConnected ? 'Connected' : 'Not connected'}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    {integration.integrationStatus === 'expired' && integration.statusMessage
-                      ? integration.statusMessage
-                      : isConnected 
+                    {isConnected 
                       ? 'This integration is active and syncing.' 
                       : 'Connect to enable this integration.'}
                   </p>
