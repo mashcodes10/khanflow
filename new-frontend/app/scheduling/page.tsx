@@ -107,7 +107,7 @@ export default function SchedulingPage() {
 
   // Check for events with disconnected integrations
   const eventsWithDisconnectedIntegrations = useMemo(() => {
-    const events = eventsData?.data || []
+    const events = eventsData?.data?.events || []
     const integrations: IntegrationType[] = integrationsData?.integrations || []
     
     return events.filter(event => {
