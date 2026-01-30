@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Copy, Globe, Lock, MoreHorizontal, Pencil, Trash2, Check } from 'lucide-react'
+import { Copy, Globe, Lock, MoreHorizontal, Pencil, Trash2, Check, AlertCircle } from 'lucide-react'
 
 interface EventTypeCardProps {
   id: string
@@ -19,6 +19,7 @@ interface EventTypeCardProps {
   duration: number
   isPublic: boolean
   link?: string
+  hasDisconnectedIntegration?: boolean
   onCopyLink?: () => void
   onToggleVisibility?: () => void
   onEdit?: () => void
@@ -32,6 +33,7 @@ export function EventTypeCard({
   duration,
   isPublic,
   link,
+  hasDisconnectedIntegration = false,
   onCopyLink,
   onToggleVisibility,
   onEdit,
@@ -58,10 +60,20 @@ export function EventTypeCard({
       className={cn(
         'group relative rounded-xl bg-card p-5 border-0',
         'transition-all duration-200 hover:shadow-md',
+        hasDisconnectedIntegration && 'ring-2 ring-destructive/20',
         className
       )}
       style={{ border: 'none' }}
     >
+      {/* Disconnected integration warning */}
+      {hasDisconnectedIntegration && (
+        <div className="absolute -top-2 -right-2 z-10">
+          <div className="size-6 rounded-full bg-destructive flex items-center justify-center shadow-md">
+            <AlertCircle className="size-4 text-destructive-foreground" strokeWidth={2} />
+          </div>
+        </div>
+      )}
+
       {/* Title & Description */}
       <div className="mb-4">
         <h3 className="text-base font-semibold text-foreground mb-1">{title}</h3>

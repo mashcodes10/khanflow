@@ -9,7 +9,7 @@ import { EventTypeCard } from '@/components/scheduling/event-type-card'
 import { CreateEventDialog } from '@/components/scheduling/create-event-dialog'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
-import { Plus, CalendarRange } from 'lucide-react'
+import { Plus, CalendarRange, AlertCircle } from 'lucide-react'
 import { eventsAPI, integrationsAPI } from '@/lib/api'
 import type { EventType, IntegrationType } from '@/lib/types'
 import { toast } from 'sonner'
@@ -104,6 +104,18 @@ export default function SchedulingPage() {
   }, [integrationsData])
 
   const canCreateEvents = connectedLocationTypes.length > 0
+
+  // Check for events with disconnected integrations
+  const eventsWithDisconnectedIntegrations = useMemo(() => {
+    const events = eventsData?.data || []
+    const integrations: IntegrationType[] = integrationsData?.integrations || []
+    
+    return events.filter(event => {
+      const locationType = event.location_type
+      const integration = integrations.find(i => i.app_type === locationType)
+      return integration && !integration.isConnected
+    })
+  }, [eventsData, integrationsData])
 
   // Create event mutation
   const createMutation = useMutation({
@@ -205,6 +217,30 @@ export default function SchedulingPage() {
             onCreate={handleOpenCreateDialog}
           />
 
+          {/* Warning for disconnected integrations */}
+          {eventsWithDisconnectedIntegrations.length > 0 && (
+            <div className="mb-6 p-4 rounded-xl border border-destructive/20 bg-destructive-muted/30 flex items-start gap-3">
+              <AlertCircle className="size-5 text-destructive shrink-0 mt-0.5" strokeWidth={2} />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-destructive">
+                  {eventsWithDisconnectedIntegrations.length === 1 
+                    ? `"${eventsWithDisconnectedIntegrations[0].title}" requires a disconnected integration` 
+                    : `${eventsWithDisconnectedIntegrations.length} events require disconnected integrations`}
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Please reconnect the required integrations in{' '}
+                  <button 
+                    onClick={() => router.push('/integrations')}
+                    className="underline hover:text-foreground transition-colors"
+                  >
+                    Integrations & Apps
+                  </button>
+                  {' '}to enable booking for {eventsWithDisconnectedIntegrations.length === 1 ? 'this event' : 'these events'}.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* User Profile Section */}
           <div className="flex items-center justify-between p-4 rounded-xl border border-border-subtle bg-surface mb-6">
             <div className="flex items-center gap-3">
@@ -236,18 +272,22 @@ export default function SchedulingPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {eventTypes.map((eventType) => (
-                <EventTypeCard
-                  key={eventType.id}
-                  {...eventType}
-                  onCopyLink={() => handleCopyLink(eventType.link)}
-                  onToggleVisibility={() => handleToggleVisibility(eventType.id)}
-                  onEdit={() => {
-                    toast.info('Edit feature coming soon')
-                  }}
-                  onDelete={() => handleDelete(eventType.id)}
-                />
-              ))}
+              {eventTypes.map((eventType) => {
+                const hasDisconnectedIntegration = eventsWithDisconnectedIntegrations.some(e => e.id === eventType.id)
+                return (
+                  <EventTypeCard
+                    key={eventType.id}
+                    {...eventType}
+                    hasDisconnectedIntegration={hasDisconnectedIntegration}
+                    onCopyLink={() => handleCopyLink(eventType.link)}
+                    onToggleVisibility={() => handleToggleVisibility(eventType.id)}
+                    onEdit={() => {
+                      toast.info('Edit feature coming soon')
+                    }}
+                    onDelete={() => handleDelete(eventType.id)}
+                  />
+                )
+              })}
             </div>
           )}
 
