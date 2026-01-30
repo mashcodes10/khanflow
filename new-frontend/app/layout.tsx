@@ -5,7 +5,6 @@ import { ThemeProvider } from 'next-themes'
 import { QueryProvider } from '@/components/query-provider'
 import { Toaster } from 'sonner'
 import { Analytics } from '@vercel/analytics/next'
-import { Footer } from '@/components/shared/footer'
 import 'react-day-picker/style.css'
 import './globals.css'
 
@@ -27,21 +26,8 @@ export const metadata: Metadata = {
   description: 'Khanflow helps you organize your life with smart calendar management, meeting scheduling, and task integration. Connect Google Calendar, Microsoft Outlook, Zoom, and more to streamline your workflow.',
   generator: 'v0.app',
   icons: {
-    icon: [
-      {
-        url: '/icon-light-32x32.png',
-        media: '(prefers-color-scheme: light)',
-      },
-      {
-        url: '/icon-dark-32x32.png',
-        media: '(prefers-color-scheme: dark)',
-      },
-      {
-        url: '/icon.svg',
-        type: 'image/svg+xml',
-      },
-    ],
-    apple: '/apple-icon.png',
+    icon: '/icon.svg',
+    apple: '/icon.svg',
   },
 }
 
@@ -52,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${lora.variable} ${geistMono.variable} font-sans antialiased flex flex-col min-h-screen`}>
+      <body className={`${inter.variable} ${lora.variable} ${geistMono.variable} font-sans antialiased`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -60,8 +46,7 @@ export default function RootLayout({
           storageKey="khanflow-theme"
         >
           <QueryProvider>
-            <div className="flex-1">{children}</div>
-            <Footer />
+            {children}
             <Toaster position="top-right" />
           </QueryProvider>
         </ThemeProvider>
