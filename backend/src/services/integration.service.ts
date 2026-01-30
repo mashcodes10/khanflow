@@ -66,7 +66,8 @@ export const getUserIntegrationsService = async (userId: string) => {
     let status: 'active' | 'expired' | 'disconnected' = 'disconnected';
     let statusMessage: string | undefined;
 
-    if (integration) {
+    // Only check expiry for currently connected integrations
+    if (integration && integration.isConnected) {
       // Check if token is expired
       const now = Date.now();
       const expiryDate = integration.expiry_date;
