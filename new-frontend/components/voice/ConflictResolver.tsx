@@ -90,9 +90,9 @@ export function ConflictResolver({
 
   const severityColor = {
     high: "destructive",
-    medium: "warning",
+    medium: "secondary",
     low: "secondary",
-  }[conflict.severity] as "destructive" | "warning" | "secondary";
+  }[conflict.severity] as "destructive" | "secondary";
 
   return (
     <Dialog open={!!conflict} onOpenChange={(isOpen) => !isOpen && handleCancel()}>

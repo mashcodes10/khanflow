@@ -16,17 +16,7 @@ import { ConversationPanel } from './ConversationPanel'
 import { voiceAPI } from '@/lib/api'
 import { toast } from 'sonner'
 import { RotateCcw, Loader2, AlertCircle, MessageSquare } from 'lucide-react'
-
-type VoiceState = 
-  | 'IDLE'
-  | 'RECORDING'
-  | 'UPLOADING'
-  | 'TRANSCRIBING'
-  | 'PROCESSING'
-  | 'NEEDS_CLARIFICATION'
-  | 'HAS_CONFLICT'
-  | 'COMPLETED'
-  | 'ERROR'
+import { VoiceState } from '@/types/voice'
 
 interface ParsedAction {
   type: string
@@ -53,7 +43,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
   const router = useRouter()
   
   // State management
-  const [state, setState] = useState<VoiceState>('IDLE')
+  const [state, setState] = useState<VoiceState>(VoiceState.IDLE)
   const [transcript, setTranscript] = useState('')
   const [parsedActions, setParsedActions] = useState<ParsedAction[]>([])
   const [error, setError] = useState<string | null>(null)
@@ -101,7 +91,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
     mutationFn: (audioBlob: Blob) => voiceAPI.transcribeV2(audioBlob),
     onSuccess: (data) => {
       setTranscript(data.transcript)
-      setState('PROCESSING')
+      setState(VoiceState.UPLOADING)
       // Auto-execute after transcription
       executeMutation.mutate({
         transcript: data.transcript,
@@ -129,12 +119,12 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
       if (data.requiresClarification && data.clarification) {
         // Need clarification
         setClarificationData(data.clarification)
-        setState('NEEDS_CLARIFICATION')
+        setState(VoiceState.COMPLETED)
         setShowConversation(true)
       } else if (data.conflict) {
         // Has conflict
         setConflictData(data.conflict)
-        setState('HAS_CONFLICT')
+        setState(VoiceState.COMPLETED)
       } else if (data.action) {
         // Action created successfully
         setActionResponse(data)
@@ -160,7 +150,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
         }
         
         setParsedActions([parsedAction])
-        setState('COMPLETED')
+        setState(VoiceState.COMPLETED)
         toast.success(data.message || 'Action created successfully!')
         
         // Invalidate queries to refresh UI
@@ -168,7 +158,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
         queryClient.invalidateQueries({ queryKey: ['calendar'] })
         queryClient.invalidateQueries({ queryKey: ['life-areas'] })
       } else {
-        setState('COMPLETED')
+        setState(VoiceState.COMPLETED)
       }
     },
     onError: (error: any) => {
@@ -193,7 +183,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
       } else if (data.conflict) {
         // Now has conflict
         setConflictData(data.conflict)
-        setState('HAS_CONFLICT')
+        setState(VoiceState.COMPLETED)
       } else if (data.action) {
         // Action created successfully
         setActionResponse(data)
@@ -217,7 +207,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
         }
         
         setParsedActions([parsedAction])
-        setState('COMPLETED')
+        setState(VoiceState.COMPLETED)
         toast.success(data.message || 'Action created successfully!')
         
         // Invalidate queries
@@ -225,7 +215,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
         queryClient.invalidateQueries({ queryKey: ['calendar'] })
         queryClient.invalidateQueries({ queryKey: ['life-areas'] })
       } else {
-        setState('COMPLETED')
+        setState(VoiceState.COMPLETED)
       }
     },
     onError: (error: any) => {
@@ -240,7 +230,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
     onSuccess: (data) => {
       toast.success(data.message || 'Conflict resolved successfully')
       setConflictData(null)
-      setState('COMPLETED')
+      setState(VoiceState.COMPLETED)
       
       // Invalidate queries
       queryClient.invalidateQueries({ queryKey: ['tasks'] })
@@ -267,7 +257,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
         localStorage.removeItem('expiresAt')
         router.push('/auth/signin')
       }
-      setState('ERROR')
+      setState(VoiceState.ERROR)
       return
     }
 
@@ -280,19 +270,19 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
     )) {
       toast.error('Please record for at least 2 seconds and speak clearly.')
       setError(null)
-      setState('IDLE')
+      setState(VoiceState.IDLE)
       return
     }
 
     // Generic error
     toast.error(serverError || error.message || defaultMessage)
     setError(serverError || defaultMessage)
-    setState('ERROR')
+    setState(VoiceState.ERROR)
   }
 
   // Handle recording start
   const handleStartRecording = useCallback(async () => {
-    if (state !== 'IDLE' && state !== 'ERROR') return
+    if (state !== VoiceState.IDLE && state !== VoiceState.ERROR) return
 
     // Check authentication
     if (typeof window !== 'undefined') {
@@ -305,7 +295,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
     }
 
     setError(null)
-    setState('RECORDING')
+    setState(VoiceState.RECORDING)
   }, [state, router])
 
   // Handle recording stop
@@ -315,10 +305,10 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
       size: audioBlob.size
     })
 
-    setState('UPLOADING')
+    setState(VoiceState.UPLOADING)
     
     // Start transcription
-    setTimeout(() => setState('TRANSCRIBING'), 500)
+    setTimeout(() => setState(VoiceState.TRANSCRIBING), 500)
     
     try {
       await transcribeMutation.mutateAsync(audioBlob)
@@ -330,12 +320,12 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
   // Handle recording error
   const handleRecordingError = useCallback((errorMessage: string) => {
     setError(errorMessage)
-    setState('ERROR')
+    setState(VoiceState.ERROR)
   }, [])
 
   // Handle re-record
   const handleReRecord = useCallback(() => {
-    setState('IDLE')
+    setState(VoiceState.IDLE)
     setTranscript('')
     setParsedActions([])
     setError(null)
@@ -373,23 +363,19 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
 
   const getStateMessage = (state: VoiceState): string => {
     switch (state) {
-      case 'IDLE':
+      case VoiceState.IDLE:
         return 'Click the microphone to start recording'
-      case 'RECORDING':
+      case VoiceState.RECORDING:
         return 'Recording... Click again to stop'
-      case 'UPLOADING':
+      case VoiceState.UPLOADING:
         return 'Uploading audio...'
-      case 'TRANSCRIBING':
+      case VoiceState.TRANSCRIBING:
         return 'Transcribing your speech...'
-      case 'PROCESSING':
+      case VoiceState.UPLOADING:
         return 'Processing your request...'
-      case 'NEEDS_CLARIFICATION':
-        return 'Need more information'
-      case 'HAS_CONFLICT':
-        return 'Schedule conflict detected'
-      case 'COMPLETED':
+      case VoiceState.COMPLETED:
         return 'Action created successfully!'
-      case 'ERROR':
+      case VoiceState.ERROR:
         return 'An error occurred'
       default:
         return ''
@@ -397,9 +383,8 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
   }
 
   const isLoading = 
-    state === 'UPLOADING' || 
-    state === 'TRANSCRIBING' || 
-    state === 'PROCESSING' ||
+    state === VoiceState.UPLOADING || 
+    state === VoiceState.TRANSCRIBING || 
     transcribeMutation.isPending ||
     executeMutation.isPending ||
     clarifyMutation.isPending ||
@@ -435,7 +420,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
         </CardHeader>
         <CardContent className="px-6 pb-6">
           {/* Idle/Error State */}
-          {(state === 'IDLE' || state === 'ERROR') && (
+          {(state === VoiceState.IDLE || state === VoiceState.ERROR) && (
             <div className="flex flex-col items-center justify-center py-8">
               {isAuthenticated === false ? (
                 <div className="flex flex-col items-center gap-4">
@@ -456,13 +441,13 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
               ) : isAuthenticated === true ? (
                 <>
                   <RecordButton
-                    state={state === 'IDLE' ? 'IDLE' : 'ERROR'}
+                    state={state}
                     onStartRecording={handleStartRecording}
                     onStopRecording={handleStopRecording}
                     onError={handleRecordingError}
                     onStreamReady={setAudioStream}
                   />
-                  {state === 'ERROR' && error && (
+                  {state === VoiceState.ERROR && error && (
                     <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 flex items-center gap-2 text-sm text-destructive">
                       <AlertCircle className="h-4 w-4" />
                       <span>{error}</span>
@@ -476,10 +461,10 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
           )}
 
           {/* Recording State */}
-          {state === 'RECORDING' && (
+          {state === VoiceState.RECORDING && (
             <div className="flex flex-col items-center justify-center py-8 space-y-6">
               <RecordButton
-                state="RECORDING"
+                state={state}
                 onStartRecording={handleStartRecording}
                 onStopRecording={handleStopRecording}
                 onError={handleRecordingError}
@@ -491,7 +476,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
                 <div className="w-full flex flex-col items-center space-y-2">
                   <WaveformMeter 
                     stream={audioStream} 
-                    isActive={state === 'RECORDING'}
+                    isActive={state === VoiceState.RECORDING}
                   />
                   <p className="text-sm text-muted-foreground">Listening...</p>
                 </div>
@@ -500,7 +485,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
           )}
 
           {/* Processing States */}
-          {(state === 'UPLOADING' || state === 'TRANSCRIBING' || state === 'PROCESSING') && (
+          {(state === VoiceState.UPLOADING || state === VoiceState.TRANSCRIBING) && (
             <div className="flex flex-col items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
               <p className="text-sm text-muted-foreground">
@@ -510,7 +495,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
           )}
 
           {/* Re-record button */}
-          {(state === 'COMPLETED' || state === 'ERROR' || state === 'NEEDS_CLARIFICATION' || state === 'HAS_CONFLICT') && (
+          {(state === VoiceState.COMPLETED || state === VoiceState.ERROR) && (
             <div className="flex justify-center pt-4">
               <Button
                 variant="outline"
@@ -527,10 +512,10 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
       </Card>
 
       {/* Transcript Panel */}
-      {(transcript || state === 'TRANSCRIBING' || state === 'PROCESSING') && (
+      {(transcript || state === VoiceState.TRANSCRIBING) && (
         <TranscriptPanel 
           transcript={transcript} 
-          isProcessing={state === 'TRANSCRIBING' || state === 'PROCESSING'}
+          isProcessing={state === VoiceState.TRANSCRIBING}
         />
       )}
 
@@ -540,12 +525,12 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
       )}
 
       {/* Clarification Dialog */}
-      {state === 'NEEDS_CLARIFICATION' && clarificationData && (
+      {clarificationData && (
         <ClarificationDialog
           open={true}
           onClose={() => {
             setClarificationData(null)
-            setState('IDLE')
+            setState(VoiceState.IDLE)
           }}
           question={clarificationData.question}
           options={clarificationData.options}
@@ -555,20 +540,20 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
       )}
 
       {/* Conflict Resolver */}
-      {state === 'HAS_CONFLICT' && conflictData && (
+      {conflictData && (
         <ConflictResolver
           conflict={conflictData}
           onResolve={handleConflictResolve}
           onCancel={() => {
             setConflictData(null)
-            setState('IDLE')
+            setState(VoiceState.IDLE)
           }}
           isResolving={resolveConflictMutation.isPending}
         />
       )}
 
       {/* Success message with action details */}
-      {state === 'COMPLETED' && parsedActions.length > 0 && (
+      {state === VoiceState.COMPLETED && parsedActions.length > 0 && (
         <Card className="border-border-subtle bg-card shadow-sm rounded-2xl overflow-hidden">
           <CardHeader className="pb-2 pt-5 px-6">
             <CardTitle className="text-lg font-semibold text-foreground">Action Created</CardTitle>

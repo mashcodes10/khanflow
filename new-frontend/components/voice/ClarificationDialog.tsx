@@ -112,7 +112,7 @@ export function ClarificationDialog({
                 id="response"
                 placeholder="Type your answer here..."
                 value={freeTextResponse}
-                onChange={(e) => setFreeTextResponse(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setFreeTextResponse(e.target.value)}
                 rows={4}
                 className="resize-none"
               />

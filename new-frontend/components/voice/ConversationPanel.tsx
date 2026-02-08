@@ -124,14 +124,3 @@ function ConversationMessageItem({ message }: { message: ConversationMessage }) 
     </div>
   );
 }
-
-// Add CSS for animation delays
-const style = document.createElement("style");
-style.textContent = `
-  .delay-0 { animation-delay: 0ms; }
-  .delay-100 { animation-delay: 100ms; }
-  .delay-200 { animation-delay: 200ms; }
-`;
-if (typeof document !== "undefined") {
-  document.head.appendChild(style);
-}
