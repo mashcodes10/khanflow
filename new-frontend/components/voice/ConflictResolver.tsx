@@ -48,25 +48,35 @@ export interface ConflictInfo {
 }
 
 export interface ConflictResolverProps {
-  open: boolean;
   conflict: ConflictInfo | null;
-  onResolve: (conflictId: string, selectedSlotId: string) => void;
+  onResolve: (resolution: { resolutionType: string; alternativeSlotId?: string }) => void;
   onCancel: () => void;
-  isProcessing?: boolean;
+  isResolving?: boolean;
 }
 
 export function ConflictResolver({
-  open,
   conflict,
   onResolve,
   onCancel,
-  isProcessing = false,
+  isResolving = false,
 }: ConflictResolverProps) {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
 
   const handleResolve = () => {
     if (conflict && selectedSlot) {
-      onResolve(conflict.id, selectedSlot);
+      onResolve({
+        resolutionType: "reschedule",
+        alternativeSlotId: selectedSlot,
+      });
+      setSelectedSlot(null);
+    }
+  };
+
+  const handleIgnore = () => {
+    if (conflict) {
+      onResolve({
+        resolutionType: "ignore",
+      });
       setSelectedSlot(null);
     }
   };
@@ -85,7 +95,7 @@ export function ConflictResolver({
   }[conflict.severity] as "destructive" | "warning" | "secondary";
 
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && handleCancel()}>
+    <Dialog open={!!conflict} onOpenChange={(isOpen) => !isOpen && handleCancel()}>
       <DialogContent className="sm:max-w-[600px] max-h-[90vh]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -128,7 +138,7 @@ export function ConflictResolver({
             <div className="space-y-2">
               <h4 className="font-semibold text-sm text-muted-foreground">Conflicts With</h4>
               {conflict.conflictingEvents.map((event) => (
-                <Card key={event.id} className="border-yellow-200 bg-yellow-50/50">
+                <Card key={event.id} className="border-yellow-200 bg-yellow-50/50 dark:bg-yellow-950/20 dark:border-yellow-900/50">
                   <CardContent className="pt-4">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
@@ -158,66 +168,76 @@ export function ConflictResolver({
             </div>
 
             {/* Alternative Time Slots */}
-            <div className="space-y-2">
-              <h4 className="font-semibold text-sm text-muted-foreground">
-                Suggested Alternatives
-              </h4>
+            {conflict.suggestions && conflict.suggestions.length > 0 && (
               <div className="space-y-2">
-                {conflict.suggestions.map((slot, index) => (
-                  <Card
-                    key={slot.id}
-                    className={`cursor-pointer transition-all ${
-                      selectedSlot === slot.id
-                        ? "border-primary bg-primary/5 ring-2 ring-primary"
-                        : "hover:border-primary/50"
-                    }`}
-                    onClick={() => setSelectedSlot(slot.id)}
-                  >
-                    <CardContent className="pt-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">Option {index + 1}</span>
-                            {index === 0 && (
-                              <Badge variant="secondary" className="text-xs">
-                                Best match
-                              </Badge>
+                <h4 className="font-semibold text-sm text-muted-foreground">
+                  Suggested Alternatives
+                </h4>
+                <div className="space-y-2">
+                  {conflict.suggestions.map((slot, index) => (
+                    <Card
+                      key={slot.id}
+                      className={`cursor-pointer transition-all ${
+                        selectedSlot === slot.id
+                          ? "border-primary bg-primary/5 ring-2 ring-primary"
+                          : "hover:border-primary/50"
+                      }`}
+                      onClick={() => setSelectedSlot(slot.id)}
+                    >
+                      <CardContent className="pt-4">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">Option {index + 1}</span>
+                              {index === 0 && (
+                                <Badge variant="secondary" className="text-xs">
+                                  Best match
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 mt-2 text-sm">
+                              <Calendar className="h-4 w-4 text-muted-foreground" />
+                              <span>{format(new Date(slot.startTime), "PPP")}</span>
+                            </div>
+                            <div className="flex items-center gap-2 mt-1 text-sm">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              <span>
+                                {format(new Date(slot.startTime), "p")} -{" "}
+                                {format(new Date(slot.endTime), "p")}
+                              </span>
+                            </div>
+                            {slot.reason && (
+                              <p className="text-xs text-muted-foreground mt-2">{slot.reason}</p>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 mt-2 text-sm">
-                            <Calendar className="h-4 w-4 text-muted-foreground" />
-                            <span>{format(new Date(slot.startTime), "PPP")}</span>
-                          </div>
-                          <div className="flex items-center gap-2 mt-1 text-sm">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span>
-                              {format(new Date(slot.startTime), "p")} -{" "}
-                              {format(new Date(slot.endTime), "p")}
-                            </span>
-                          </div>
-                          {slot.reason && (
-                            <p className="text-xs text-muted-foreground mt-2">{slot.reason}</p>
-                          )}
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </ScrollArea>
 
-        <DialogFooter className="gap-2">
-          <Button type="button" variant="outline" onClick={handleCancel} disabled={isProcessing}>
+        <DialogFooter className="gap-2 flex-col sm:flex-row">
+          <Button type="button" variant="outline" onClick={handleCancel} disabled={isResolving}>
             Cancel
           </Button>
           <Button
             type="button"
-            onClick={handleResolve}
-            disabled={!selectedSlot || isProcessing}
+            variant="secondary"
+            onClick={handleIgnore}
+            disabled={isResolving}
           >
-            {isProcessing ? "Scheduling..." : "Schedule at Selected Time"}
+            Schedule Anyway
+          </Button>
+          <Button
+            type="button"
+            onClick={handleResolve}
+            disabled={!selectedSlot || isResolving}
+          >
+            {isResolving ? "Scheduling..." : "Use Selected Time"}
           </Button>
         </DialogFooter>
       </DialogContent>

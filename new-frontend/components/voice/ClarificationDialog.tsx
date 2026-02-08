@@ -23,41 +23,36 @@ export interface ClarificationOption {
   description?: string;
 }
 
-export interface ClarificationRequest {
-  question: string;
-  options?: ClarificationOption[];
-  fieldName: string;
-  conversationId: string;
-}
-
 export interface ClarificationDialogProps {
   open: boolean;
-  clarification: ClarificationRequest | null;
-  onResponse: (response: string, selectedOptionValue?: any) => void;
-  onCancel: () => void;
-  isProcessing?: boolean;
+  onClose: () => void;
+  question: string;
+  options?: ClarificationOption[];
+  onSubmit: (response: string, selectedOptionId?: string, selectedOptionValue?: any) => void;
+  isSubmitting?: boolean;
 }
 
 export function ClarificationDialog({
   open,
-  clarification,
-  onResponse,
-  onCancel,
-  isProcessing = false,
+  onClose,
+  question,
+  options,
+  onSubmit,
+  isSubmitting = false,
 }: ClarificationDialogProps) {
   const [selectedOption, setSelectedOption] = useState<string>("");
   const [freeTextResponse, setFreeTextResponse] = useState("");
 
-  const hasOptions = clarification?.options && clarification.options.length > 0;
+  const hasOptions = options && options.length > 0;
 
   const handleSubmit = () => {
     if (hasOptions && selectedOption) {
-      const option = clarification!.options!.find((opt) => opt.id === selectedOption);
+      const option = options!.find((opt) => opt.id === selectedOption);
       if (option) {
-        onResponse(option.label, option.value);
+        onSubmit(option.label, option.id, option.value);
       }
     } else if (freeTextResponse.trim()) {
-      onResponse(freeTextResponse.trim());
+      onSubmit(freeTextResponse.trim());
     }
 
     // Reset state
@@ -68,7 +63,7 @@ export function ClarificationDialog({
   const handleCancel = () => {
     setSelectedOption("");
     setFreeTextResponse("");
-    onCancel();
+    onClose();
   };
 
   const canSubmit = hasOptions ? !!selectedOption : !!freeTextResponse.trim();
@@ -82,7 +77,7 @@ export function ClarificationDialog({
             Clarification Needed
           </DialogTitle>
           <DialogDescription>
-            {clarification?.question || "Please provide more information"}
+            {question || "Please provide more information"}
           </DialogDescription>
         </DialogHeader>
 
@@ -90,7 +85,7 @@ export function ClarificationDialog({
           {hasOptions ? (
             <RadioGroup value={selectedOption} onValueChange={setSelectedOption}>
               <div className="space-y-3">
-                {clarification!.options!.map((option) => (
+                {options!.map((option) => (
                   <div key={option.id} className="flex items-start space-x-3">
                     <RadioGroupItem value={option.id} id={option.id} className="mt-1" />
                     <Label
@@ -126,11 +121,11 @@ export function ClarificationDialog({
         </div>
 
         <DialogFooter className="gap-2">
-          <Button type="button" variant="outline" onClick={handleCancel} disabled={isProcessing}>
+          <Button type="button" variant="outline" onClick={handleCancel} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button type="button" onClick={handleSubmit} disabled={!canSubmit || isProcessing}>
-            {isProcessing ? "Processing..." : "Submit"}
+          <Button type="button" onClick={handleSubmit} disabled={!canSubmit || isSubmitting}>
+            {isSubmitting ? "Processing..." : "Submit"}
           </Button>
         </DialogFooter>
       </DialogContent>

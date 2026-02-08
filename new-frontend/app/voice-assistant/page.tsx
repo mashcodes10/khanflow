@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { PageHeader } from '@/components/life-org/page-header'
 import { ThemeToggle } from '@/components/life-org/theme-toggle'
-import { RecorderPanel } from '@/components/voice/recorder-panel'
+import { EnhancedRecorderPanel } from '@/components/voice/enhanced-recorder-panel'
 import { HelpAccordion } from '@/components/voice/help-accordion'
 
 export default function VoiceAssistantPage() {
@@ -44,7 +44,7 @@ export default function VoiceAssistantPage() {
           {/* Content Grid */}
           <div className="space-y-4">
             {/* Recorder Panel */}
-            <RecorderPanel />
+            <EnhancedRecorderPanel />
             
             {/* Help Section */}
             <HelpAccordion />

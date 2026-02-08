@@ -12,3 +12,9 @@ export { WaveformMeter } from './WaveformMeter'
 export { ActionEditorSheet } from './ActionEditorSheet'
 export { DestinationSelector } from './DestinationSelector'
 export { ScheduleControls } from './ScheduleControls'
+
+// Enhanced voice components (v2 with multi-turn conversations, conflict detection, recurring tasks)
+export { EnhancedRecorderPanel } from './enhanced-recorder-panel'
+export { ConversationPanel } from './ConversationPanel'
+export { ClarificationDialog } from './ClarificationDialog'
+export { ConflictResolver } from './ConflictResolver'

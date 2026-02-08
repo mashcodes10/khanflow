@@ -1,17 +1,19 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { User, Bot } from "lucide-react";
+import { User, Bot, Loader2 } from "lucide-react";
+import { voiceAPI } from "@/lib/api";
 
 export interface ConversationMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
-  timestamp: Date;
+  createdAt: string;
   metadata?: {
     audioFileName?: string;
     parsedData?: any;
@@ -19,17 +21,25 @@ export interface ConversationMessage {
 }
 
 export interface ConversationPanelProps {
-  messages: ConversationMessage[];
-  isProcessing?: boolean;
+  conversationId: string;
   className?: string;
 }
 
 export function ConversationPanel({
-  messages,
-  isProcessing = false,
+  conversationId,
   className,
 }: ConversationPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // Fetch conversation data
+  const { data: conversation, isLoading } = useQuery({
+    queryKey: ['conversation', conversationId],
+    queryFn: () => voiceAPI.getConversationV2(conversationId),
+    enabled: !!conversationId,
+    refetchInterval: 3000, // Refetch every 3 seconds to get updates
+  });
+
+  const messages = conversation?.messages || [];
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -39,52 +49,39 @@ export function ConversationPanel({
   }, [messages]);
 
   return (
-    <Card className={cn("flex flex-col h-full", className)}>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
+    <Card className={cn(
+      "flex flex-col border-border-subtle bg-card shadow-sm rounded-2xl overflow-hidden",
+      className
+    )}>
+      <CardHeader className="pb-3 pt-5 px-6">
+        <CardTitle className="text-lg flex items-center gap-2 font-semibold text-foreground">
           <Bot className="h-5 w-5" />
           Conversation
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 overflow-hidden p-0">
-        <ScrollArea className="h-full px-6 pb-4">
-          <div className="space-y-4">
-            {messages.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                <Bot className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                <p>Start speaking to begin a conversation</p>
-              </div>
-            ) : (
-              messages.map((message) => (
-                <ConversationMessageItem key={message.id} message={message} />
-              ))
-            )}
-
-            {isProcessing && (
-              <div className="flex items-start gap-3">
-                <Avatar className="h-8 w-8 mt-1">
-                  <AvatarFallback className="bg-primary/10">
-                    <Bot className="h-4 w-4 text-primary" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 space-y-2 max-w-[80%]">
-                  <div className="bg-muted rounded-lg px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-1">
-                        <span className="animate-bounce delay-0 inline-block h-2 w-2 rounded-full bg-primary"></span>
-                        <span className="animate-bounce delay-100 inline-block h-2 w-2 rounded-full bg-primary"></span>
-                        <span className="animate-bounce delay-200 inline-block h-2 w-2 rounded-full bg-primary"></span>
-                      </div>
-                      <span className="text-sm text-muted-foreground">Processing...</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div ref={scrollRef} />
+        {isLoading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           </div>
-        </ScrollArea>
+        ) : (
+          <ScrollArea className="h-full px-6 pb-4" style={{ maxHeight: '400px' }}>
+            <div className="space-y-4">
+              {messages.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Bot className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm">Start speaking to begin a conversation</p>
+                </div>
+              ) : (
+                messages.map((message) => (
+                  <ConversationMessageItem key={message.id} message={message} />
+                ))
+              )}
+
+              <div ref={scrollRef} />
+            </div>
+          </ScrollArea>
+        )}
       </CardContent>
     </Card>
   );
@@ -118,7 +115,7 @@ function ConversationMessageItem({ message }: { message: ConversationMessage }) 
         </div>
 
         <span className="text-xs text-muted-foreground">
-          {new Date(message.timestamp).toLocaleTimeString([], {
+          {new Date(message.createdAt).toLocaleTimeString([], {
             hour: "2-digit",
             minute: "2-digit",
           })}
