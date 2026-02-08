@@ -1,0 +1,2274 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Khanflow API",
+    "version": "1.0.0",
+    "description": "AI-powered productivity platform that integrates with your calendar and communication tools to simplify meeting management.",
+    "contact": {
+      "email": "support@khanflow.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.khanflow.com",
+      "description": "Production server"
+    },
+    {
+      "url": "http://localhost:8000",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Health",
+      "description": "API health and status endpoints"
+    },
+    {
+      "name": "Authentication",
+      "description": "User authentication and registration"
+    },
+    {
+      "name": "Events",
+      "description": "Scheduling templates management"
+    },
+    {
+      "name": "Meetings",
+      "description": "Meeting bookings and management"
+    },
+    {
+      "name": "Availability",
+      "description": "User availability schedules"
+    },
+    {
+      "name": "Calendar",
+      "description": "Calendar events management"
+    },
+    {
+      "name": "Integrations",
+      "description": "Third-party integrations (Google, Microsoft, Zoom)"
+    },
+    {
+      "name": "AI Calendar & Tasks",
+      "description": "AI-powered task management and Google Tasks integration"
+    },
+    {
+      "name": "Microsoft Todo",
+      "description": "Microsoft Todo task management"
+    },
+    {
+      "name": "Voice Assistant",
+      "description": "Natural language voice command processing"
+    },
+    {
+      "name": "Actions",
+      "description": "Execute and manage voice-commanded actions"
+    },
+    {
+      "name": "Life Organization",
+      "description": "Intent-based life organization system"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Check API health",
+        "description": "Check API and database health status",
+        "operationId": "checkHealth",
+        "responses": {
+          "200": {
+            "description": "Health check successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "ok" },
+                    "timestamp": { "type": "string", "format": "date-time" },
+                    "environment": { "type": "string", "example": "production" },
+                    "database": {
+                      "type": "object",
+                      "properties": {
+                        "status": { "type": "string" },
+                        "test": { "type": "object" }
+                      }
+                    },
+                    "lambda": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Root endpoint",
+        "description": "Basic API information",
+        "operationId": "getRoot",
+        "responses": {
+          "200": {
+            "description": "API information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "version": { "type": "string" },
+                    "status": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register user",
+        "description": "Create a new user account",
+        "operationId": "registerUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password", "username"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string", "minLength": 8 },
+                  "username": { "type": "string", "minLength": 3, "maxLength": 30 },
+                  "name": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login",
+        "description": "Authenticate user with email and password",
+        "operationId": "loginUser",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": { "type": "string", "format": "email" },
+                  "password": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User logged in successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/google": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Google login",
+        "description": "Authenticate or register user via Google OAuth",
+        "operationId": "googleLogin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["idToken"],
+                "properties": {
+                  "idToken": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User logged in with Google successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/microsoft": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Microsoft login",
+        "description": "Authenticate or register user via Microsoft OAuth",
+        "operationId": "microsoftLogin",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "code": { "type": "string" },
+                  "accessToken": { "type": "string" },
+                  "redirectUri": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User logged in with Microsoft successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/event/create": {
+      "post": {
+        "tags": ["Events"],
+        "summary": "Create event",
+        "description": "Create a new event template for scheduling",
+        "operationId": "createEvent",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEventRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Event created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "event": { "$ref": "#/components/schemas/Event" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/event/all": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get user events",
+        "description": "Retrieve all events for the authenticated user",
+        "operationId": "getUserEvents",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Events fetched successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "events": {
+                          "type": "array",
+                          "items": { "$ref": "#/components/schemas/Event" }
+                        },
+                        "username": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/event/public/{username}": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get public events by username",
+        "description": "Retrieve all public events for a specific user",
+        "operationId": "getPublicEventsByUsername",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Public events fetched successfully"
+          }
+        }
+      }
+    },
+    "/api/event/public/{username}/{slug}": {
+      "get": {
+        "tags": ["Events"],
+        "summary": "Get public event details",
+        "description": "Get detailed information about a specific public event",
+        "operationId": "getPublicEventDetails",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event details fetched successfully"
+          }
+        }
+      }
+    },
+    "/api/event/toggle-privacy": {
+      "put": {
+        "tags": ["Events"],
+        "summary": "Toggle event privacy",
+        "description": "Toggle event between public and private",
+        "operationId": "toggleEventPrivacy",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["eventId"],
+                "properties": {
+                  "eventId": { "type": "string", "format": "uuid" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event privacy toggled successfully"
+          }
+        }
+      }
+    },
+    "/api/event/{eventId}": {
+      "delete": {
+        "tags": ["Events"],
+        "summary": "Delete event",
+        "description": "Delete an event",
+        "operationId": "deleteEvent",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event deleted successfully"
+          }
+        }
+      }
+    },
+    "/api/meeting/user/all": {
+      "get": {
+        "tags": ["Meetings"],
+        "summary": "Get user meetings",
+        "description": "Get all meetings for authenticated user",
+        "operationId": "getUserMeetings",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "filter",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["upcoming", "past", "cancelled", "all"],
+              "default": "upcoming"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Meetings fetched successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": { "type": "string" },
+                    "meetings": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Meeting" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/meeting/public/create": {
+      "post": {
+        "tags": ["Meetings"],
+        "summary": "Create meeting (public)",
+        "description": "Book a meeting on a public event (for guests)",
+        "operationId": "createPublicMeeting",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateMeetingRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Meeting scheduled successfully"
+          }
+        }
+      }
+    },
+    "/api/meeting/cancel/{meetingId}": {
+      "put": {
+        "tags": ["Meetings"],
+        "summary": "Cancel meeting",
+        "description": "Cancel a scheduled meeting",
+        "operationId": "cancelMeeting",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "meetingId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Meeting cancelled successfully"
+          }
+        }
+      }
+    },
+    "/api/availability/me": {
+      "get": {
+        "tags": ["Availability"],
+        "summary": "Get user availability",
+        "description": "Get authenticated user's availability schedule",
+        "operationId": "getUserAvailability",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Availability fetched successfully"
+          }
+        }
+      }
+    },
+    "/api/availability/public/{eventId}": {
+      "get": {
+        "tags": ["Availability"],
+        "summary": "Get public availability for event",
+        "description": "Get available time slots for booking a public event",
+        "operationId": "getPublicAvailability",
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string", "format": "uuid" }
+          },
+          {
+            "name": "startDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "timezone",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Availability fetched successfully"
+          }
+        }
+      }
+    },
+    "/api/availability/update": {
+      "put": {
+        "tags": ["Availability"],
+        "summary": "Update availability",
+        "description": "Update user's availability schedule",
+        "operationId": "updateAvailability",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AvailabilitySchedule"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Availability updated successfully"
+          }
+        }
+      }
+    },
+    "/api/calendar/events": {
+      "get": {
+        "tags": ["Calendar"],
+        "summary": "Get calendar events",
+        "description": "Retrieve calendar events from all connected calendars",
+        "operationId": "getCalendarEvents",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "startDate",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "endDate",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "calendarIds",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calendar events fetched successfully"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Calendar"],
+        "summary": "Create calendar event",
+        "description": "Create a new event in the primary calendar",
+        "operationId": "createCalendarEvent",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCalendarEventRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Event created successfully"
+          }
+        }
+      }
+    },
+    "/api/calendar/events/{eventId}": {
+      "put": {
+        "tags": ["Calendar"],
+        "summary": "Update calendar event",
+        "description": "Update an existing calendar event",
+        "operationId": "updateCalendarEvent",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCalendarEventRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Event updated successfully"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Calendar"],
+        "summary": "Delete calendar event",
+        "description": "Delete a calendar event",
+        "operationId": "deleteCalendarEvent",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "eventId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "calendarId",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["google", "microsoft"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event deleted successfully"
+          }
+        }
+      }
+    },
+    "/api/integration/all": {
+      "get": {
+        "tags": ["Integrations"],
+        "summary": "Get all integrations",
+        "description": "Get status of all integrations for the user",
+        "operationId": "getAllIntegrations",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Integrations fetched successfully"
+          }
+        }
+      }
+    },
+    "/api/integration/check/{appType}": {
+      "get": {
+        "tags": ["Integrations"],
+        "summary": "Check integration status",
+        "description": "Check if a specific integration is connected",
+        "operationId": "checkIntegrationStatus",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "appType",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["google", "microsoft", "zoom"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Integration status fetched"
+          }
+        }
+      }
+    },
+    "/api/integration/connect/{appType}": {
+      "get": {
+        "tags": ["Integrations"],
+        "summary": "Connect integration",
+        "description": "Initiate OAuth flow for connecting an integration",
+        "operationId": "connectIntegration",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "appType",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["google", "microsoft", "zoom"]
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to OAuth provider"
+          }
+        }
+      }
+    },
+    "/api/integration/disconnect/{appType}": {
+      "delete": {
+        "tags": ["Integrations"],
+        "summary": "Disconnect integration",
+        "description": "Disconnect an integration and revoke access",
+        "operationId": "disconnectIntegration",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "appType",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["google", "microsoft", "zoom"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Integration disconnected successfully"
+          }
+        }
+      }
+    },
+    "/api/integration/google/callback": {
+      "get": {
+        "tags": ["Integrations"],
+        "summary": "Google OAuth callback",
+        "description": "Handle Google OAuth redirect",
+        "operationId": "googleOAuthCallback",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to frontend"
+          }
+        }
+      }
+    },
+    "/api/integration/microsoft/callback": {
+      "get": {
+        "tags": ["Integrations"],
+        "summary": "Microsoft OAuth callback",
+        "description": "Handle Microsoft OAuth redirect",
+        "operationId": "microsoftOAuthCallback",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to frontend"
+          }
+        }
+      }
+    },
+    "/api/integration/zoom/callback": {
+      "get": {
+        "tags": ["Integrations"],
+        "summary": "Zoom OAuth callback",
+        "description": "Handle Zoom OAuth redirect",
+        "operationId": "zoomOAuthCallback",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to frontend"
+          }
+        }
+      }
+    },
+    "/api/integration/calendars/{appType}": {
+      "get": {
+        "tags": ["Integrations"],
+        "summary": "List calendars",
+        "description": "List all calendars from a connected integration",
+        "operationId": "listCalendars",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "appType",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["google", "microsoft"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Calendars fetched successfully"
+          }
+        }
+      }
+    },
+    "/api/integration/calendars/{appType}/select": {
+      "put": {
+        "tags": ["Integrations"],
+        "summary": "Select calendars for sync",
+        "description": "Select which calendars to sync for availability checking",
+        "operationId": "selectCalendars",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "appType",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": ["google", "microsoft"]
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["calendarIds"],
+                "properties": {
+                  "calendarIds": {
+                    "type": "array",
+                    "items": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Calendar selection saved successfully"
+          }
+        }
+      }
+    },
+    "/api/integration/calendar-preferences": {
+      "get": {
+        "tags": ["Integrations"],
+        "summary": "Get calendar preferences",
+        "description": "Get user's calendar preferences and sync settings",
+        "operationId": "getCalendarPreferences",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Preferences fetched successfully"
+          }
+        }
+      },
+      "put": {
+        "tags": ["Integrations"],
+        "summary": "Save calendar preferences",
+        "description": "Update calendar preferences",
+        "operationId": "saveCalendarPreferences",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "primaryCalendar": {
+                    "type": "object",
+                    "properties": {
+                      "source": { "type": "string" },
+                      "calendarId": { "type": "string" }
+                    }
+                  },
+                  "checkConflicts": { "type": "boolean" },
+                  "autoCreateMeetings": { "type": "boolean" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Preferences updated successfully"
+          }
+        }
+      }
+    },
+    "/api/ai-calendar/recommendations": {
+      "get": {
+        "tags": ["AI Calendar & Tasks"],
+        "summary": "Get task recommendations",
+        "description": "Get AI-powered task recommendations based on calendar and priorities",
+        "operationId": "getTaskRecommendations",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 10 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Recommendations fetched successfully"
+          }
+        }
+      }
+    },
+    "/api/ai-calendar/analyze-tasks": {
+      "post": {
+        "tags": ["AI Calendar & Tasks"],
+        "summary": "Analyze tasks",
+        "description": "Analyze specific tasks with AI to get time estimates and suggestions",
+        "operationId": "analyzeTasks",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tasks": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": { "type": "string" },
+                        "title": { "type": "string" },
+                        "description": { "type": "string" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tasks analyzed successfully"
+          }
+        }
+      }
+    },
+    "/api/ai-calendar/create-blocks": {
+      "post": {
+        "tags": ["AI Calendar & Tasks"],
+        "summary": "Create calendar blocks for tasks",
+        "description": "Automatically create calendar blocks for tasks",
+        "operationId": "createCalendarBlocks",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "201": {
+            "description": "Calendar blocks created successfully"
+          }
+        }
+      }
+    },
+    "/api/ai-calendar/task-lists": {
+      "get": {
+        "tags": ["AI Calendar & Tasks"],
+        "summary": "Get task lists (Google Tasks)",
+        "description": "Get all Google Task lists",
+        "operationId": "getTaskLists",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Task lists fetched successfully"
+          }
+        }
+      }
+    },
+    "/api/ai-calendar/tasks/{taskListId}": {
+      "get": {
+        "tags": ["AI Calendar & Tasks"],
+        "summary": "Get tasks from list",
+        "description": "Get all tasks from a specific Google Task list",
+        "operationId": "getTasksFromList",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "taskListId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tasks fetched successfully"
+          }
+        }
+      }
+    },
+    "/api/ai-calendar/tasks": {
+      "get": {
+        "tags": ["AI Calendar & Tasks"],
+        "summary": "Get all tasks",
+        "description": "Get all tasks from all Google Task lists",
+        "operationId": "getAllTasks",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "All tasks fetched successfully"
+          }
+        }
+      },
+      "post": {
+        "tags": ["AI Calendar & Tasks"],
+        "summary": "Create task",
+        "description": "Create a new Google Task",
+        "operationId": "createTask",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateTaskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Task created successfully"
+          }
+        }
+      }
+    },
+    "/api/ai-calendar/tasks/{taskListId}/{taskId}": {
+      "put": {
+        "tags": ["AI Calendar & Tasks"],
+        "summary": "Update task",
+        "description": "Update an existing Google Task",
+        "operationId": "updateTask",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "taskListId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task updated successfully"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["AI Calendar & Tasks"],
+        "summary": "Delete task",
+        "description": "Delete a Google Task",
+        "operationId": "deleteTask",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "taskListId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task deleted successfully"
+          }
+        }
+      }
+    },
+    "/api/ai-calendar/tasks/{taskListId}/{taskId}/complete": {
+      "post": {
+        "tags": ["AI Calendar & Tasks"],
+        "summary": "Complete task",
+        "description": "Mark a Google Task as completed",
+        "operationId": "completeTask",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "taskListId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task marked as completed"
+          }
+        }
+      }
+    },
+    "/api/microsoft-todo/task-lists": {
+      "get": {
+        "tags": ["Microsoft Todo"],
+        "summary": "Get task lists",
+        "description": "Get all Microsoft Todo task lists",
+        "operationId": "getMicrosoftTodoTaskLists",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Task lists fetched successfully"
+          }
+        }
+      }
+    },
+    "/api/microsoft-todo/tasks/{taskListId}": {
+      "get": {
+        "tags": ["Microsoft Todo"],
+        "summary": "Get tasks from list",
+        "description": "Get all tasks from a Microsoft Todo list",
+        "operationId": "getMicrosoftTodoTasksFromList",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "taskListId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tasks fetched successfully"
+          }
+        }
+      }
+    },
+    "/api/microsoft-todo/tasks": {
+      "get": {
+        "tags": ["Microsoft Todo"],
+        "summary": "Get all tasks",
+        "description": "Get all tasks from all Microsoft Todo lists",
+        "operationId": "getAllMicrosoftTodoTasks",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "All tasks fetched successfully"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Microsoft Todo"],
+        "summary": "Create task",
+        "description": "Create a new Microsoft Todo task",
+        "operationId": "createMicrosoftTodoTask",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "201": {
+            "description": "Task created successfully"
+          }
+        }
+      }
+    },
+    "/api/microsoft-todo/tasks/{taskListId}/{taskId}": {
+      "put": {
+        "tags": ["Microsoft Todo"],
+        "summary": "Update task",
+        "description": "Update a Microsoft Todo task",
+        "operationId": "updateMicrosoftTodoTask",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "taskListId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task updated successfully"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Microsoft Todo"],
+        "summary": "Delete task",
+        "description": "Delete a Microsoft Todo task",
+        "operationId": "deleteMicrosoftTodoTask",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "taskListId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task deleted successfully"
+          }
+        }
+      }
+    },
+    "/api/microsoft-todo/tasks/{taskListId}/{taskId}/complete": {
+      "post": {
+        "tags": ["Microsoft Todo"],
+        "summary": "Complete task",
+        "description": "Mark a Microsoft Todo task as completed",
+        "operationId": "completeMicrosoftTodoTask",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "taskListId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Task marked as completed"
+          }
+        }
+      }
+    },
+    "/api/voice/transcribe": {
+      "post": {
+        "tags": ["Voice Assistant"],
+        "summary": "Transcribe audio",
+        "description": "Convert audio to text using speech recognition",
+        "operationId": "transcribeAudio",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "audio": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Audio file (WAV, MP3, M4A, WEBM)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Audio transcribed successfully"
+          }
+        }
+      }
+    },
+    "/api/voice/parse": {
+      "post": {
+        "tags": ["Voice Assistant"],
+        "summary": "Parse transcript",
+        "description": "Parse transcript into structured JSON for action execution",
+        "operationId": "parseTranscript",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["transcript"],
+                "properties": {
+                  "transcript": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transcript parsed successfully"
+          }
+        }
+      }
+    },
+    "/api/voice/intent/parse": {
+      "post": {
+        "tags": ["Voice Assistant"],
+        "summary": "Parse intent command",
+        "description": "Parse transcript specifically for intent/task creation",
+        "operationId": "parseIntentCommand",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["transcript"],
+                "properties": {
+                  "transcript": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Intent parsed successfully"
+          }
+        }
+      }
+    },
+    "/api/voice/intent/create": {
+      "post": {
+        "tags": ["Voice Assistant"],
+        "summary": "Create intent from voice",
+        "description": "Create an intent directly from voice command",
+        "operationId": "createIntentFromVoice",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "201": {
+            "description": "Intent created successfully"
+          }
+        }
+      }
+    },
+    "/api/voice/intent/create-from-option": {
+      "post": {
+        "tags": ["Voice Assistant"],
+        "summary": "Create intent from option",
+        "description": "Create intent from one of the parsed options",
+        "operationId": "createIntentFromOption",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "201": {
+            "description": "Intent created successfully"
+          }
+        }
+      }
+    },
+    "/api/actions/execute": {
+      "post": {
+        "tags": ["Actions"],
+        "summary": "Execute action",
+        "description": "Execute a parsed action from voice command",
+        "operationId": "executeAction",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["action", "parameters"],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "create_event",
+                      "update_event",
+                      "delete_event",
+                      "create_task",
+                      "complete_task",
+                      "check_availability",
+                      "create_intent"
+                    ]
+                  },
+                  "parameters": { "type": "object" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Action executed successfully"
+          }
+        }
+      }
+    },
+    "/api/actions/undo": {
+      "post": {
+        "tags": ["Actions"],
+        "summary": "Undo action",
+        "description": "Undo the last executed action",
+        "operationId": "undoAction",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["actionId"],
+                "properties": {
+                  "actionId": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Action undone successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/life-areas": {
+      "get": {
+        "tags": ["Life Organization"],
+        "summary": "Get life areas",
+        "description": "Get all life areas for the user",
+        "operationId": "getLifeAreas",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Life areas fetched successfully"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Create life area",
+        "description": "Create a new life area",
+        "operationId": "createLifeArea",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "color": { "type": "string" },
+                  "order": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Life area created successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/life-areas/{id}": {
+      "put": {
+        "tags": ["Life Organization"],
+        "summary": "Update life area",
+        "description": "Update a life area",
+        "operationId": "updateLifeArea",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Life area updated successfully"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Life Organization"],
+        "summary": "Delete life area",
+        "description": "Delete a life area and all its boards/intents",
+        "operationId": "deleteLifeArea",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Life area deleted successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/intent-boards": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Create intent board",
+        "description": "Create a new intent board within a life area",
+        "operationId": "createIntentBoard",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "201": {
+            "description": "Intent board created successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/intent-boards/{id}": {
+      "put": {
+        "tags": ["Life Organization"],
+        "summary": "Update intent board",
+        "description": "Update an intent board",
+        "operationId": "updateIntentBoard",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Intent board updated successfully"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Life Organization"],
+        "summary": "Delete intent board",
+        "description": "Delete an intent board and all its intents",
+        "operationId": "deleteIntentBoard",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Intent board deleted successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/intents": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Create intent",
+        "description": "Create a new intent (task/goal)",
+        "operationId": "createIntent",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "201": {
+            "description": "Intent created successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/intents/{id}": {
+      "put": {
+        "tags": ["Life Organization"],
+        "summary": "Update intent",
+        "description": "Update an intent",
+        "operationId": "updateIntent",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Intent updated successfully"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Life Organization"],
+        "summary": "Delete intent",
+        "description": "Delete an intent",
+        "operationId": "deleteIntent",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Intent deleted successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/intent-boards/{id}/intents": {
+      "get": {
+        "tags": ["Life Organization"],
+        "summary": "Get intents by board",
+        "description": "Get all intents for a specific board",
+        "operationId": "getIntentsByBoard",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["not_started", "in_progress", "completed", "on_hold"]
+            }
+          },
+          {
+            "name": "priority",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": ["low", "medium", "high"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Intents fetched successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/suggestions": {
+      "get": {
+        "tags": ["Life Organization"],
+        "summary": "Get suggestions",
+        "description": "Get AI-powered suggestions for task scheduling and organization",
+        "operationId": "getSuggestions",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "date",
+            "in": "query",
+            "schema": { "type": "string", "format": "date" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": { "type": "integer", "default": 10 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suggestions fetched successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/suggestions/generate": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Generate suggestions",
+        "description": "Trigger AI to generate new suggestions",
+        "operationId": "generateSuggestions",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Suggestions generated successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/suggestions/{id}/accept": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Accept suggestion",
+        "description": "Accept and execute a suggestion",
+        "operationId": "acceptSuggestion",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suggestion accepted and executed"
+          }
+        }
+      }
+    },
+    "/api/life-organization/suggestions/{id}/snooze": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Snooze suggestion",
+        "description": "Snooze a suggestion for later",
+        "operationId": "snoozeSuggestion",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suggestion snoozed"
+          }
+        }
+      }
+    },
+    "/api/life-organization/suggestions/{id}/ignore": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Ignore suggestion",
+        "description": "Permanently ignore a suggestion",
+        "operationId": "ignoreSuggestion",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Suggestion ignored"
+          }
+        }
+      }
+    },
+    "/api/life-organization/provider/sync": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Sync providers",
+        "description": "Sync tasks and events from connected providers",
+        "operationId": "syncProviders",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Providers synced successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/onboarding/questions": {
+      "get": {
+        "tags": ["Life Organization"],
+        "summary": "Get onboarding questions",
+        "description": "Get onboarding questions for new users",
+        "operationId": "getOnboardingQuestions",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Onboarding questions fetched"
+          }
+        }
+      }
+    },
+    "/api/life-organization/onboarding/complete": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Complete onboarding",
+        "description": "Submit onboarding answers and initialize user's life organization",
+        "operationId": "completeOnboarding",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "201": {
+            "description": "Onboarding completed successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/onboarding/status": {
+      "get": {
+        "tags": ["Life Organization"],
+        "summary": "Get onboarding status",
+        "description": "Check if user has completed onboarding",
+        "operationId": "getOnboardingStatus",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Onboarding status fetched"
+          }
+        }
+      }
+    },
+    "/api/life-organization/onboarding/mark-complete": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Mark onboarding complete",
+        "description": "Manually mark onboarding as complete",
+        "operationId": "markOnboardingComplete",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Onboarding marked as complete"
+          }
+        }
+      }
+    },
+    "/api/life-organization/onboarding/reset": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Reset onboarding status",
+        "description": "Reset onboarding status to start over",
+        "operationId": "resetOnboardingStatus",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Onboarding reset successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/seed": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Seed life organization",
+        "description": "Populate user's life organization with example data",
+        "operationId": "seedLifeOrganization",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "201": {
+            "description": "Life organization seeded successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/remove-examples": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Remove example intents",
+        "description": "Remove example/demo intents from life organization",
+        "operationId": "removeExampleIntents",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Example intents removed successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/clear": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Clear life organization",
+        "description": "Delete all life organization data for the user",
+        "operationId": "clearLifeOrganization",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Life organization cleared successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/templates": {
+      "get": {
+        "tags": ["Life Organization"],
+        "summary": "Get templates",
+        "description": "Get pre-built templates for life areas and boards",
+        "operationId": "getTemplates",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Templates fetched successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/import-task": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Import task",
+        "description": "Import a task from external provider into life organization",
+        "operationId": "importTask",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "201": {
+            "description": "Task imported successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/reorder-boards": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Reorder boards",
+        "description": "Change the order of boards within a life area",
+        "operationId": "reorderBoards",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Boards reordered successfully"
+          }
+        }
+      }
+    },
+    "/api/life-organization/move-intent": {
+      "post": {
+        "tags": ["Life Organization"],
+        "summary": "Move intent",
+        "description": "Move an intent to a different board",
+        "operationId": "moveIntent",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Intent moved successfully"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string", "format": "uuid" },
+              "email": { "type": "string" },
+              "username": { "type": "string" },
+              "name": { "type": "string" }
+            }
+          },
+          "accessToken": { "type": "string" },
+          "expiresAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string" },
+          "slug": { "type": "string" },
+          "description": { "type": "string" },
+          "duration": { "type": "integer" },
+          "location": {
+            "type": "string",
+            "enum": ["zoom", "google-meet", "phone", "in-person"]
+          },
+          "isPrivate": { "type": "boolean" },
+          "bufferTimeBefore": { "type": "integer" },
+          "bufferTimeAfter": { "type": "integer" },
+          "color": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "CreateEventRequest": {
+        "type": "object",
+        "required": ["title", "slug", "duration", "location"],
+        "properties": {
+          "title": { "type": "string" },
+          "slug": { "type": "string" },
+          "description": { "type": "string" },
+          "duration": { "type": "integer" },
+          "location": {
+            "type": "string",
+            "enum": ["zoom", "google-meet", "phone", "in-person"]
+          },
+          "isPrivate": { "type": "boolean" },
+          "bufferTimeBefore": { "type": "integer" },
+          "bufferTimeAfter": { "type": "integer" },
+          "availabilityScheduleId": { "type": "string", "format": "uuid" },
+          "color": { "type": "string" }
+        }
+      },
+      "Meeting": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string" },
+          "startTime": { "type": "string", "format": "date-time" },
+          "endTime": { "type": "string", "format": "date-time" },
+          "status": { "type": "string" },
+          "guestEmail": { "type": "string" },
+          "guestName": { "type": "string" },
+          "location": { "type": "string" },
+          "meetingLink": { "type": "string" }
+        }
+      },
+      "CreateMeetingRequest": {
+        "type": "object",
+        "required": ["eventId", "guestName", "guestEmail", "startTime", "endTime"],
+        "properties": {
+          "eventId": { "type": "string", "format": "uuid" },
+          "guestName": { "type": "string" },
+          "guestEmail": { "type": "string", "format": "email" },
+          "startTime": { "type": "string", "format": "date-time" },
+          "endTime": { "type": "string", "format": "date-time" },
+          "guestTimezone": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      },
+      "AvailabilitySchedule": {
+        "type": "object",
+        "properties": {
+          "timezone": { "type": "string" },
+          "schedule": {
+            "type": "object",
+            "properties": {
+              "monday": { "type": "array", "items": { "$ref": "#/components/schemas/TimeSlot" } },
+              "tuesday": { "type": "array", "items": { "$ref": "#/components/schemas/TimeSlot" } },
+              "wednesday": { "type": "array", "items": { "$ref": "#/components/schemas/TimeSlot" } },
+              "thursday": { "type": "array", "items": { "$ref": "#/components/schemas/TimeSlot" } },
+              "friday": { "type": "array", "items": { "$ref": "#/components/schemas/TimeSlot" } },
+              "saturday": { "type": "array", "items": { "$ref": "#/components/schemas/TimeSlot" } },
+              "sunday": { "type": "array", "items": { "$ref": "#/components/schemas/TimeSlot" } }
+            }
+          },
+          "dateOverrides": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": { "type": "string", "format": "date" },
+                "isAvailable": { "type": "boolean" },
+                "reason": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "TimeSlot": {
+        "type": "object",
+        "properties": {
+          "start": { "type": "string", "pattern": "^([0-1][0-9]|2[0-3]):[0-5][0-9]$" },
+          "end": { "type": "string", "pattern": "^([0-1][0-9]|2[0-3]):[0-5][0-9]$" }
+        }
+      },
+      "CreateCalendarEventRequest": {
+        "type": "object",
+        "required": ["title", "start", "end", "calendarId", "source"],
+        "properties": {
+          "title": { "type": "string" },
+          "start": { "type": "string", "format": "date-time" },
+          "end": { "type": "string", "format": "date-time" },
+          "description": { "type": "string" },
+          "location": { "type": "string" },
+          "attendees": {
+            "type": "array",
+            "items": { "type": "string", "format": "email" }
+          },
+          "calendarId": { "type": "string" },
+          "source": {
+            "type": "string",
+            "enum": ["google", "microsoft"]
+          },
+          "sendNotifications": { "type": "boolean" }
+        }
+      },
+      "UpdateCalendarEventRequest": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "start": { "type": "string", "format": "date-time" },
+          "end": { "type": "string", "format": "date-time" },
+          "description": { "type": "string" },
+          "location": { "type": "string" },
+          "calendarId": { "type": "string" },
+          "source": {
+            "type": "string",
+            "enum": ["google", "microsoft"]
+          }
+        }
+      },
+      "CreateTaskRequest": {
+        "type": "object",
+        "required": ["taskListId", "title"],
+        "properties": {
+          "taskListId": { "type": "string" },
+          "title": { "type": "string" },
+          "notes": { "type": "string" },
+          "due": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "status": { "type": "string" },
+          "statusCode": { "type": "integer" },
+          "message": { "type": "string" },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": { "type": "string" },
+                "message": { "type": "string" }
+              }
+            }
+          },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}

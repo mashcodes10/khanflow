@@ -208,27 +208,36 @@ export const createIntegrationService = async (data: {
   });
 
   if (existingIntegration) {
-    // If Google Tasks already exists but was auto-connected, update it to be manually connected
+    // Update existing integration with new tokens (allows reconnection)
+    console.log(`Updating existing ${data.app_type} integration for user ${data.userId}`);
+    
+    existingIntegration.access_token = data.access_token;
+    if (data.refresh_token) {
+      existingIntegration.refresh_token = data.refresh_token;
+    }
+    existingIntegration.expiry_date = data.expiry_date;
+    
+    // For Google Tasks, remove auto_connected flag when manually reconnecting
     if (data.app_type === IntegrationAppTypeEnum.GOOGLE_TASKS && 
         existingIntegration.metadata && 
-        (existingIntegration.metadata as any).auto_connected) {
-      
-      // Update existing integration - remove auto_connected flag and update tokens
+        (existingIntegration.metadata as any).auto_connected &&
+        !(data.metadata as any).auto_connected) {
       const updatedMetadata = { ...existingIntegration.metadata };
       delete (updatedMetadata as any).auto_connected;
-      
-      existingIntegration.access_token = data.access_token;
-      if (data.refresh_token) {
-        existingIntegration.refresh_token = data.refresh_token;
-      }
-      existingIntegration.expiry_date = data.expiry_date;
       existingIntegration.metadata = { ...updatedMetadata, ...data.metadata };
-      
-      await integrationRepository.save(existingIntegration);
-      return existingIntegration;
+    } else {
+      // Merge metadata, keeping existing values and adding new ones
+      existingIntegration.metadata = { 
+        ...existingIntegration.metadata, 
+        ...data.metadata 
+      };
     }
     
-    throw new BadRequestException(`${data.app_type} already connected`);
+    existingIntegration.isConnected = true;
+    
+    await integrationRepository.save(existingIntegration);
+    console.log(`Successfully updated ${data.app_type} integration`);
+    return existingIntegration;
   }
 
   const integration = integrationRepository.create({
@@ -254,11 +263,27 @@ export const validateGoogleToken = async (
   expiryDate: number | null
 ) => {
   if (expiryDate === null || Date.now() >= expiryDate) {
-    googleOAuth2Client.setCredentials({
-      refresh_token: refreshToken,
-    });
-    const { credentials } = await googleOAuth2Client.refreshAccessToken();
-    return credentials.access_token;
+    try {
+      googleOAuth2Client.setCredentials({
+        refresh_token: refreshToken,
+      });
+      const { credentials } = await googleOAuth2Client.refreshAccessToken();
+      return credentials.access_token;
+    } catch (error: any) {
+      console.error("Google token refresh failed:", error);
+      
+      // Check if it's an invalid_grant error (expired or revoked token)
+      if (error.response?.data?.error === 'invalid_grant' || error.message?.includes('invalid_grant')) {
+        throw new BadRequestException(
+          "The host's Google Calendar integration has expired or been revoked. Please contact the event organizer to reconnect their Google account."
+        );
+      }
+      
+      // For other errors, throw a generic message
+      throw new BadRequestException(
+        "Unable to access the host's Google Calendar. Please contact the event organizer to check their integration settings."
+      );
+    }
   }
 
   return accessToken;

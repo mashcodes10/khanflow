@@ -67,6 +67,7 @@
     "@types/passport-jwt": "^4.0.1",
     "@vitest/ui": "^2.1.8",
     "serverless": "^3.39.0",
+    "serverless-dotenv-plugin": "^6.0.0",
     "serverless-offline": "^13.8.1",
     "serverless-plugin-scripts": "^1.0.2",
     "serverless-webpack": "^5.15.3",
