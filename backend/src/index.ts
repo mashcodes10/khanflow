@@ -61,7 +61,7 @@ app.use(`${BASE_PATH}/meeting`, meetingRoutes);
 app.use(`${BASE_PATH}/ai-calendar`, aiCalendarRoutes);
 app.use(`${BASE_PATH}/calendar`, calendarRoutes);
 app.use(`${BASE_PATH}/voice`, voiceRoutes);
-app.use(`${BASE_PATH}`, enhancedVoiceRoutes); // Enhanced voice routes (includes /voice/v2, /calendar, /tasks)
+app.use(`${BASE_PATH}/voice`, enhancedVoiceRoutes); // Enhanced voice routes (includes /v2, /calendar, /tasks)
 app.use(`${BASE_PATH}/actions`, actionsRoutes);
 app.use(`${BASE_PATH}/microsoft-todo`, microsoftTodoRoutes);
 app.use(`${BASE_PATH}/life-organization`, lifeOrganizationRoutes);
