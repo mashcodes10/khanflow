@@ -63,6 +63,7 @@ export interface ExecutedAction {
   createdIntentTitle?: string;
   lifeAreaName?: string;
   intentBoardName?: string;
+  preview?: ParsedVoiceAction; // Include full parsed action when in preview mode
 }
 
 export interface VoiceExecutionOptions {
@@ -137,19 +138,24 @@ export class VoiceService {
 1. TASK - Something with a deadline, due date, scheduled time, or urgent action needed
 2. INTENT - Something unscheduled, "someday", "maybe", "would like to", no specific deadline, vague future plans
 
-Examples of TASKS:
+Examples of TASKS (has specific date/time or deadline):
 - "Call John tomorrow at 3pm"
 - "Submit report by Friday"
 - "Buy groceries today"
 - "Meeting with client next Monday"
 - "Pay rent on the 1st"
+- "Employment verification tomorrow at 3am"
+- "Book a meeting next week"
 
-Examples of INTENTS:
+Examples of INTENTS (no date/time, aspirational, maybe/someday):
 - "I'd like to learn Spanish someday"
 - "Maybe I should call mom"
 - "I want to plan a trip to Japan"
 - "Someday I want to start a blog"
 - "I should catch up with old friends"
+
+RULE: If command includes ANY date, time, or deadline indicator → "task"
+If vague, aspirational, or uses maybe/someday → "intent"
 
 Analyze this command: "${transcript}"
 
@@ -202,11 +208,20 @@ Return ONLY "task" or "intent" (no other text).`;
 
 STRICT RULES:
 1. NEVER guess missing dates or times. If ambiguous -> clarification_required
-2. If time exists without date -> clarification_required
-3. If date exists without time -> create task only, no calendar event
-4. Convert relative dates ("tomorrow", "next Monday", "in 2 hours") using current datetime: ${currentDateTime} in timezone: ${timezone}
-5. Must return valid JSON matching the exact schema
-6. ALWAYS categorize tasks into one of: "meetings", "deadlines", "work", "personal", "errands"
+2. If time exists without date -> clarification_required  
+3. If date exists without time:
+   a. If the request is clearly a MEETING, EVENT, APPOINTMENT, or CALL (category would be "meetings") -> set is_confident to false, add "time" to missing_fields. Meetings REQUIRE a specific time.
+   b. If the request is a general task (errands, deadlines, work, personal) -> create task only, no calendar event. Tasks don't always need a specific time.
+4. For MEETINGS category specifically, ALL of these are REQUIRED:
+   a. A specific, descriptive title (NOT just "meeting", "event", "call", "appointment" by themselves). If the title is generic/vague, add "title" to missing_fields.
+   b. A date. If missing, add "date" to missing_fields.
+   c. A time. If missing, add "time" to missing_fields.
+   d. A duration. If the user didn't specify duration, add "duration" to missing_fields. Do NOT default to 30 min for meetings — ask the user.
+   If ANY of these are missing, set is_confident to false and list ALL missing ones in missing_fields.
+5. For NON-meeting tasks, title is ACTUALLY missing only if truly empty. "Employment Verification", "Team Standup" etc. are VALID titles.
+6. Convert relative dates ("tomorrow", "next Monday", "in 2 hours") using current datetime: ${currentDateTime} in timezone: ${timezone}
+7. Must return valid JSON matching the exact schema
+8. ALWAYS categorize tasks into one of: "meetings", "deadlines", "work", "personal", "errands"
 
 TASK CATEGORIZATION RULES:
 - meetings: synchronous events involving people (calls, meetings, interviews, appointments, video calls, phone calls)
@@ -243,7 +258,7 @@ SCHEMA:
     "create_event": boolean,
     "event_title": string (optional),
     "start_datetime": string ISO datetime "YYYY-MM-DDTHH:mm:ss" (required if create_event),
-    "duration_minutes": number (optional, default 30)
+    "duration_minutes": number | null (MUST be null if the user did not specify a duration — do NOT guess or default)
   },
   "confidence": {
     "is_confident": boolean,
@@ -272,6 +287,16 @@ SCHEMA:
       if (!parsed.actionType) {
         parsed.actionType = "task";
       }
+
+      // If duration is listed as missing, strip any GPT-defaulted duration_minutes
+      const missingFields = parsed.confidence?.missing_fields || [];
+      const durationMissing = missingFields.some(f => 
+        f.toLowerCase().includes('duration') || f.toLowerCase().includes('length') || f.toLowerCase().includes('how long')
+      );
+      if (durationMissing && parsed.calendar) {
+        parsed.calendar.duration_minutes = undefined as any;
+      }
+
       return parsed;
     } catch (error) {
       console.error("Error parsing transcript:", error);
@@ -380,7 +405,11 @@ SCHEMA:
     );
 
     // Execute task creation
-    if (parsedAction.intent === "create_task" && parsedAction.task) {
+    // Meetings with calendar events skip task creation — they only go to the calendar
+    const isMeetingWithCalendar = parsedAction.task?.category === 'meetings' && 
+      parsedAction.calendar?.create_event && parsedAction.calendar?.start_datetime;
+    
+    if (parsedAction.intent === "create_task" && parsedAction.task && !isMeetingWithCalendar) {
       // Determine category - check for personal keywords first
       let category = parsedAction.task.category || "work";
       const title = (parsedAction.task.title || "").toLowerCase();
@@ -634,15 +663,16 @@ SCHEMA:
           startDateTime.getTime() + (parsedAction.calendar.duration_minutes || 30) * 60000
         );
 
+        const userTimezone = parsedAction.task?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
         const event = {
           summary: parsedAction.calendar.event_title || parsedAction.task?.title || "Voice Event",
           start: {
             dateTime: startDateTime.toISOString(),
-            timeZone: parsedAction.task?.timezone || "UTC",
+            timeZone: userTimezone,
           },
           end: {
             dateTime: endDateTime.toISOString(),
-            timeZone: parsedAction.task?.timezone || "UTC",
+            timeZone: userTimezone,
           },
         };
 
@@ -668,14 +698,15 @@ SCHEMA:
           startDateTime.getTime() + (parsedAction.calendar.duration_minutes || 30) * 60000
         );
 
+        const userTimezoneMs = parsedAction.task?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
         const msEvent: any = {
           subject: parsedAction.calendar.event_title || parsedAction.task?.title || "Voice Event",
           body: {
             contentType: "HTML",
             content: parsedAction.task?.description || "",
           },
-          start: { dateTime: startDateTime.toISOString(), timeZone: parsedAction.task?.timezone || "UTC" },
-          end: { dateTime: endDateTime.toISOString(), timeZone: parsedAction.task?.timezone || "UTC" },
+          start: { dateTime: startDateTime.toISOString(), timeZone: userTimezoneMs },
+          end: { dateTime: endDateTime.toISOString(), timeZone: userTimezoneMs },
         };
 
         const msResp = await fetch("https://graph.microsoft.com/v1.0/me/events", {

@@ -4,6 +4,7 @@ import {
   transcribeEnhancedController,
   executeEnhancedController,
   clarifyController,
+  confirmActionController,
   getConversationController,
   getConversationsController,
   checkConflictsController,
@@ -32,6 +33,9 @@ router.post("/v2/execute", executeEnhancedController);
 // POST /api/voice/v2/clarify - Handle clarification in multi-turn conversation
 router.post("/v2/clarify", clarifyController);
 
+// POST /api/voice/v2/confirm - Confirm and execute action with destination selection
+router.post("/v2/confirm", confirmActionController);
+
 // GET /api/voice/v2/conversation/:id - Get specific conversation
 router.get("/v2/conversation/:id", getConversationController);
 
@@ -39,11 +43,11 @@ router.get("/v2/conversation/:id", getConversationController);
 router.get("/v2/conversations", getConversationsController);
 
 // ============= Calendar Conflict Routes =============
-// POST /api/calendar/check-conflicts - Check for calendar conflicts
-router.post("/calendar/check-conflicts", checkConflictsController);
+// POST /api/voice/v2/conflicts/check - Check for calendar conflicts
+router.post("/v2/conflicts/check", checkConflictsController);
 
-// POST /api/calendar/resolve-conflict - Resolve a conflict
-router.post("/calendar/resolve-conflict", resolveConflictController);
+// POST /api/voice/v2/conflicts/:conflictId/resolve - Resolve a conflict
+router.post("/v2/conflicts/:conflictId/resolve", resolveConflictController);
 
 // ============= Recurring Task Routes =============
 // POST /api/tasks/recurring - Create recurring task

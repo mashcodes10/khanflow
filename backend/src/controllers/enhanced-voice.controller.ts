@@ -5,6 +5,9 @@ import { EnhancedVoiceService } from "../services/enhanced-voice.service";
 import { ConversationManager } from "../services/conversation-manager.service";
 import { ConflictDetectionService } from "../services/conflict-detection.service";
 import { RecurringTaskManager } from "../services/recurring-task-manager.service";
+import { VoiceService } from "../services/voice.service";
+import { AppDataSource } from "../config/database.config";
+import { TaskConflict } from "../database/entities/task-conflict.entity";
 import multer from "multer";
 
 const enhancedVoiceService = new EnhancedVoiceService();
@@ -61,11 +64,11 @@ export const transcribeEnhancedController = asyncHandler(async (req: Request, re
 
 /**
  * POST /api/voice/v2/execute
- * Process voice command with conversation management
+ * Process voice command with conversation management (preview mode by default)
  */
 export const executeEnhancedController = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.id as string;
-  const { transcript, conversationId, taskAppType, calendarAppType } = req.body;
+  const { transcript, conversationId, taskAppType, calendarAppType, previewOnly = true, timezone, currentDateTime } = req.body;
 
   if (!transcript) {
     return res.status(HTTPSTATUS.BAD_REQUEST).json({
@@ -78,9 +81,12 @@ export const executeEnhancedController = asyncHandler(async (req: Request, res: 
     transcript,
     conversationId,
     userId,
+    timezone,
+    currentDateTime,
     options: {
       taskAppType,
       calendarAppType,
+      previewOnly,
     },
   });
 
@@ -95,7 +101,7 @@ export const executeEnhancedController = asyncHandler(async (req: Request, res: 
  */
 export const clarifyController = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.id as string;
-  const { conversationId, response, selectedOptionId, selectedOptionValue } = req.body;
+  const { conversationId, response, selectedOptionId, selectedOptionValue, timezone, currentDateTime } = req.body;
 
   if (!conversationId || !response) {
     return res.status(HTTPSTATUS.BAD_REQUEST).json({
@@ -109,6 +115,45 @@ export const clarifyController = asyncHandler(async (req: Request, res: Response
     response,
     selectedOptionId,
     selectedOptionValue,
+    timezone,
+    currentDateTime,
+  });
+
+  return res.status(HTTPSTATUS.OK).json({
+    ...result,
+  });
+});
+
+/**
+ * POST /api/voice/v2/confirm
+ * Confirm and execute an action with destination selection
+ */
+export const confirmActionController = asyncHandler(async (req: Request, res: Response) => {
+  const userId = req.user?.id as string;
+  const { 
+    conversationId, 
+    action, // The parsed action from preview
+    destination, // 'calendar' | 'tasks' | 'intent'
+    taskAppType, 
+    calendarAppType 
+  } = req.body;
+
+  if (!conversationId || !action || !destination) {
+    return res.status(HTTPSTATUS.BAD_REQUEST).json({
+      message: "conversationId, action, and destination are required",
+      errorCode: "MISSING_REQUIRED_FIELDS",
+    });
+  }
+
+  const result = await enhancedVoiceService.confirmAction({
+    conversationId,
+    userId,
+    action,
+    destination,
+    options: {
+      taskAppType,
+      calendarAppType,
+    },
   });
 
   return res.status(HTTPSTATUS.OK).json({
@@ -195,23 +240,105 @@ export const checkConflictsController = asyncHandler(async (req: Request, res: R
 });
 
 /**
- * POST /api/calendar/resolve-conflict
+ * POST /api/voice/v2/conflicts/:conflictId/resolve
  * Resolve a calendar conflict
  */
 export const resolveConflictController = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.id as string;
-  const { conflictId, resolution } = req.body;
+  const conflictId = req.params.conflictId; // Get from URL parameter
+  const { resolution, selectedAlternativeId } = req.body; // Get resolution data from body
 
-  if (!conflictId || !resolution) {
+  if (!conflictId) {
     return res.status(HTTPSTATUS.BAD_REQUEST).json({
-      message: "conflictId and resolution are required",
-      errorCode: "MISSING_REQUIRED_FIELDS",
+      message: "conflictId is required",
+      errorCode: "MISSING_CONFLICT_ID",
     });
   }
 
-  await conflictService.resolveConflict(conflictId, resolution);
+  // Get the conflict details to extract the original request
+  const conflictRepo = AppDataSource.getRepository(TaskConflict);
+  const conflict = await conflictRepo.findOne({ where: { id: conflictId } });
+
+  if (!conflict) {
+    return res.status(HTTPSTATUS.NOT_FOUND).json({
+      message: "Conflict not found",
+      errorCode: "CONFLICT_NOT_FOUND",
+    });
+  }
+
+  // Parse the selected alternative time slot
+  let newStartTime: Date | undefined;
+  let newEndTime: Date | undefined;
+
+  if (selectedAlternativeId) {
+    // Extract start and end times from the slot ID (format: ISO_ISO)
+    const [startISO, endISO] = selectedAlternativeId.split('_');
+    if (startISO && endISO) {
+      newStartTime = new Date(startISO);
+      newEndTime = new Date(endISO);
+    }
+  }
+
+  // Mark conflict as resolved
+  await conflictService.resolveConflict(conflictId, {
+    resolutionType: resolution === 'use_alternative' ? 'reschedule' : 'ignore',
+    newStartTime,
+    newEndTime,
+    alternativeSlotId: selectedAlternativeId,
+    userChoice: resolution,
+  });
+
+  // If rescheduling, create the event at the new time
+  if (resolution === 'use_alternative' && newStartTime && newEndTime && conflict.conflictDetails) {
+    try {
+      const details = conflict.conflictDetails;
+      const title = details.requestedTitle || 'Event';
+      
+      // Use voice service to create the calendar event
+      const voiceService = new VoiceService();
+      const parsedAction = {
+        actionType: 'task' as const,
+        intent: 'create_task' as const,
+        task: {
+          title,
+          description: details.description,
+          due_date: newStartTime.toISOString().split('T')[0],
+          due_time: newStartTime.toTimeString().split(' ')[0].substring(0, 5),
+        },
+        calendar: {
+          create_event: true,
+          event_title: title,
+          start_datetime: newStartTime.toISOString(),
+          duration_minutes: Math.round((newEndTime.getTime() - newStartTime.getTime()) / 60000),
+        },
+        confidence: {
+          is_confident: true,
+          missing_fields: [],
+        },
+      };
+
+      const result = await voiceService.executeAction(userId, parsedAction);
+
+      return res.status(HTTPSTATUS.OK).json({
+        success: true,
+        message: `Event scheduled for ${newStartTime.toLocaleString()}`,
+        action: {
+          title,
+          date: newStartTime.toLocaleDateString(),
+          time: newStartTime.toLocaleTimeString(),
+        },
+      });
+    } catch (error: any) {
+      console.error('Error creating event after conflict resolution:', error);
+      return res.status(HTTPSTATUS.OK).json({
+        success: true,
+        message: "Conflict resolved but event creation failed",
+      });
+    }
+  }
 
   return res.status(HTTPSTATUS.OK).json({
+    success: true,
     message: "Conflict resolved successfully",
   });
 });

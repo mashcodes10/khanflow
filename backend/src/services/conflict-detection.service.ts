@@ -309,7 +309,7 @@ export class ConflictDetectionService {
   ): Promise<void> {
     const resolutionData: any = {
       status: "resolved" as const,
-      resolved_at: new Date(),
+      resolvedAt: new Date(), // Use camelCase property name, not snake_case column name
     };
 
     // Only include resolution field if there's data

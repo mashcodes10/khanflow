@@ -301,6 +301,8 @@ export const voiceAPI = {
     conversationId?: string;
     taskAppType?: string;
     calendarAppType?: string;
+    timezone?: string;
+    currentDateTime?: string;
   }): Promise<{
     success: boolean;
     action?: any;
@@ -315,7 +317,12 @@ export const voiceAPI = {
     conversationId?: string;
     message?: string;
   }> => {
-    const response = await API.post("/voice/v2/execute", data);
+    const payload = {
+      ...data,
+      timezone: data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      currentDateTime: data.currentDateTime || new Date().toISOString(),
+    };
+    const response = await API.post("/voice/v2/execute", payload);
     return response.data;
   },
   clarifyV2: async (data: {
@@ -323,6 +330,8 @@ export const voiceAPI = {
     response: string;
     selectedOptionId?: string;
     selectedOptionValue?: any;
+    timezone?: string;
+    currentDateTime?: string;
   }): Promise<{
     success: boolean;
     action?: any;
@@ -331,7 +340,25 @@ export const voiceAPI = {
     conflict?: any;
     message?: string;
   }> => {
-    const response = await API.post("/voice/v2/clarify", data);
+    const payload = {
+      ...data,
+      timezone: data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      currentDateTime: data.currentDateTime || new Date().toISOString(),
+    };
+    const response = await API.post("/voice/v2/clarify", payload);
+    return response.data;
+  },
+  confirmV2: async (data: {
+    conversationId: string;
+    action: any;
+    destination: 'calendar' | 'tasks' | 'intent';
+  }): Promise<{
+    success: boolean;
+    action?: any;
+    requiresClarification: boolean;
+    message?: string;
+  }> => {
+    const response = await API.post("/voice/v2/confirm", data);
     return response.data;
   },
   getConversationV2: async (conversationId: string): Promise<{
