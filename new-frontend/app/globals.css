@@ -12,38 +12,47 @@
 
 :root {
   /* Core surfaces - warm paper tones */
-  --background: oklch(0.88 0.02 75);          /* Rich warm cream */
-  --foreground: oklch(0.22 0.01 50);            /* Warm charcoal */
-  
+  --background: oklch(0.88 0.02 75);
+  /* Rich warm cream */
+  --foreground: oklch(0.22 0.01 50);
+  /* Warm charcoal */
+
   /* Card/elevated surfaces */
-  --card: oklch(0.91 0.018 75);                /* Warm cream for cards */
+  --card: oklch(0.91 0.018 75);
+  /* Warm cream for cards */
   --card-foreground: oklch(0.22 0.01 50);
-  
+
   /* Surface hierarchy */
-  --surface: oklch(0.89 0.019 75);             /* Subtle elevated surface */
-  --surface-elevated: oklch(0.92 0.016 75);    /* Highest elevation */
-  
+  --surface: oklch(0.89 0.019 75);
+  /* Subtle elevated surface */
+  --surface-elevated: oklch(0.92 0.016 75);
+  /* Highest elevation */
+
   /* Popover */
   --popover: oklch(0.92 0.016 75);
   --popover-foreground: oklch(0.22 0.01 50);
-  
+
   /* Primary - warm terracotta accent */
-  --primary: oklch(0.55 0.12 35);               /* Warm terracotta */
+  --primary: oklch(0.55 0.12 35);
+  /* Warm terracotta */
   --primary-foreground: oklch(0.92 0.016 75);
-  
+
   /* Secondary - warm stone */
-  --secondary: oklch(0.84 0.02 75);            /* Rich warm stone */
+  --secondary: oklch(0.84 0.02 75);
+  /* Rich warm stone */
   --secondary-foreground: oklch(0.35 0.015 50);
-  
+
   /* Muted - soft warm gray */
   --muted: oklch(0.86 0.018 75);
   --muted-foreground: oklch(0.58 0.015 50);
-  
+
   /* Accent - sage green (used sparingly) */
-  --accent: oklch(0.65 0.08 145);               /* Muted sage */
-  --accent-muted: oklch(0.92 0.025 145);        /* Light sage tint */
+  --accent: oklch(0.65 0.08 145);
+  /* Muted sage */
+  --accent-muted: oklch(0.92 0.025 145);
+  /* Light sage tint */
   --accent-foreground: oklch(0.25 0.03 145);
-  
+
   /* Semantic colors */
   --destructive: oklch(0.55 0.18 25);
   --destructive-foreground: oklch(0.98 0.01 25);
@@ -51,30 +60,33 @@
   --success-muted: oklch(0.94 0.03 145);
   --warning: oklch(0.70 0.14 70);
   --warning-muted: oklch(0.95 0.04 70);
-  
+
   /* Borders - subtle warm */
-  --border: oklch(0.76 0.02 75);               /* Rich warm borders */
-  --border-subtle: oklch(0.82 0.018 75);        /* Subtle borders */
+  --border: oklch(0.76 0.02 75);
+  /* Rich warm borders */
+  --border-subtle: oklch(0.82 0.018 75);
+  /* Subtle borders */
   --input: oklch(0.80 0.018 75);
-  --ring: oklch(0.55 0.12 35);                  /* Matches primary */
-  
+  --ring: oklch(0.55 0.12 35);
+  /* Matches primary */
+
   /* Charts */
   --chart-1: oklch(0.55 0.12 35);
   --chart-2: oklch(0.65 0.08 145);
   --chart-3: oklch(0.70 0.14 70);
   --chart-4: oklch(0.60 0.10 200);
   --chart-5: oklch(0.55 0.08 280);
-  
+
   /* Radius - soft, not sharp */
   --radius: 0.75rem;
   --radius-soft: 1rem;
-  
+
   /* Shadows - gentle, warm-tinted */
   --shadow-sm: 0 1px 2px oklch(0.20 0.01 50 / 0.04);
   --shadow-md: 0 2px 8px oklch(0.20 0.01 50 / 0.06), 0 1px 3px oklch(0.20 0.01 50 / 0.04);
   --shadow-lg: 0 4px 16px oklch(0.20 0.01 50 / 0.08), 0 2px 6px oklch(0.20 0.01 50 / 0.04);
   --shadow-lift: 0 8px 24px oklch(0.20 0.01 50 / 0.10), 0 4px 8px oklch(0.20 0.01 50 / 0.05);
-  
+
   /* Sidebar - darker warm brown for better contrast */
   --sidebar: oklch(0.18 0.025 45);
   --sidebar-foreground: oklch(0.96 0.005 75);
@@ -86,40 +98,71 @@
   --sidebar-ring: oklch(0.75 0.12 35);
 }
 
+.landing-theme.dark {
+  /* Mapping to Tailwind v4 theme variables */
+  --color-primary: oklch(0.65 0.12 35);
+  --color-accent: oklch(0.55 0.12 160);
+  --color-background: oklch(0.25 0.01 50);
+  --color-card: oklch(0.29 0.012 50);
+  --color-foreground: oklch(0.82 0.008 75);
+  --color-muted: oklch(0.78 0.012 75);
+  --color-border: oklch(0.35 0.01 50);
+
+  /* Fallbacks for older utilities just in case */
+  --background: oklch(0.25 0.01 50);
+  --foreground: oklch(0.82 0.008 75);
+  --card: oklch(0.29 0.012 50);
+  --muted: oklch(0.78 0.012 75);
+  --border: oklch(0.35 0.01 50);
+
+  --font-sans: "Inter", sans-serif;
+  --font-serif: "Lora", serif;
+  --font-mono: "Geist Mono", monospace;
+
+  --radius-soft: 1rem;
+
+  --shadow-lift: 0 20px 25px -5px rgb(0 0 0 / 0.3),
+    0 8px 10px -6px rgb(0 0 0 / 0.3);
+}
+
 .dark {
   /* Core surfaces - softer warm dark tones */
-  --background: oklch(0.25 0.01 50);            /* Even lighter warm dark charcoal */
-  --foreground: oklch(0.82 0.008 75);           /* Even softer warm off-white */
-  
+  --background: oklch(0.25 0.01 50);
+  /* Even lighter warm dark charcoal */
+  --foreground: oklch(0.82 0.008 75);
+  /* Even softer warm off-white */
+
   /* Card/elevated surfaces */
-  --card: oklch(0.29 0.012 50);                 /* Slightly elevated */
+  --card: oklch(0.29 0.012 50);
+  /* Slightly elevated */
   --card-foreground: oklch(0.82 0.008 75);
-  
+
   /* Surface hierarchy */
   --surface: oklch(0.27 0.01 50);
   --surface-elevated: oklch(0.31 0.012 50);
-  
+
   /* Popover */
   --popover: oklch(0.31 0.012 50);
   --popover-foreground: oklch(0.82 0.008 75);
-  
+
   /* Primary - warm terracotta, slightly lighter for dark mode */
   --primary: oklch(0.65 0.12 35);
   --primary-foreground: oklch(0.23 0.01 50);
-  
+
   /* Secondary */
   --secondary: oklch(0.33 0.01 50);
   --secondary-foreground: oklch(0.80 0.008 75);
-  
+
   /* Muted */
   --muted: oklch(0.31 0.01 50);
   --muted-foreground: oklch(0.78 0.012 75);
-  
+
   /* Accent - emerald green for dark mode */
-  --accent: oklch(0.55 0.12 160);               /* Emerald green */
+  --accent: oklch(0.55 0.12 160);
+  /* Emerald green */
   --accent-muted: oklch(0.31 0.03 160);
   --accent-foreground: oklch(0.82 0.02 160);
-  
+
   /* Semantic colors */
   --destructive: oklch(0.55 0.18 25);
   --destructive-foreground: oklch(0.87 0.01 25);
@@ -127,26 +170,26 @@
   --success-muted: oklch(0.31 0.04 145);
   --warning: oklch(0.65 0.12 70);
   --warning-muted: oklch(0.33 0.05 70);
-  
+
   /* Borders */
   --border: oklch(0.35 0.01 50);
   --border-subtle: oklch(0.31 0.008 50);
   --input: oklch(0.33 0.01 50);
   --ring: oklch(0.65 0.12 35);
-  
+
   /* Charts */
   --chart-1: oklch(0.65 0.12 35);
   --chart-2: oklch(0.60 0.08 145);
   --chart-3: oklch(0.65 0.12 70);
   --chart-4: oklch(0.55 0.10 200);
   --chart-5: oklch(0.50 0.08 280);
-  
+
   /* Shadows - softer in dark mode */
   --shadow-sm: 0 1px 2px oklch(0 0 0 / 0.12);
   --shadow-md: 0 2px 8px oklch(0 0 0 / 0.16), 0 1px 3px oklch(0 0 0 / 0.10);
   --shadow-lg: 0 4px 16px oklch(0 0 0 / 0.20), 0 2px 6px oklch(0 0 0 / 0.12);
   --shadow-lift: 0 8px 24px oklch(0 0 0 / 0.25), 0 4px 8px oklch(0 0 0 / 0.15);
-  
+
   /* Sidebar - much darker than main content for dramatic contrast */
   --sidebar: oklch(0.10 0.015 45);
   --sidebar-foreground: oklch(0.92 0.008 75);
@@ -163,7 +206,7 @@
   --font-sans: 'Inter', 'Inter Fallback', system-ui, sans-serif;
   --font-mono: 'Geist Mono', 'Geist Mono Fallback', monospace;
   --font-serif: 'Lora', 'Lora Fallback', Georgia, serif;
-  
+
   /* Core colors */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -186,19 +229,19 @@
   --color-success-muted: var(--success-muted);
   --color-warning: var(--warning);
   --color-warning-muted: var(--warning-muted);
-  
+
   /* Border colors */
   --color-border: var(--border);
   --color-border-subtle: var(--border-subtle);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  
+
   /* Radius tokens */
   --radius-sm: calc(var(--radius) * 0.5);
   --radius-md: var(--radius);
   --radius-lg: var(--radius-soft);
   --radius-xl: calc(var(--radius) * 1.5);
-  
+
   /* Shadow tokens */
   --shadow-xs: var(--shadow-sm);
   --shadow-sm: var(--shadow-sm);
@@ -500,4 +543,80 @@ button.rdp-day[data-today="true"]:not([aria-selected="true"]) {
 
 .dark .rdp-day[data-available="true"]:not([aria-selected="true"]):not([data-disabled="true"]):not([data-outside-month="true"])::after {
   background-color: oklch(0.65 0.12 35 / 0.7);
+}
+
+/* Custom Animations from Landing Page */
+@keyframes float-in {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.9);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes converge {
+  0% {
+    transform: translate(var(--conv-x, 0), var(--conv-y, 0)) scale(0.5);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translate(0, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-soft {
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
+
+.animate-float {
+  animation: float-in 0.8s ease-out forwards;
+}
+
+.animate-converge {
+  animation: converge 1s ease-out forwards;
+  opacity: 0;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* Glass Panel */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Wave bar animation */
+@keyframes waveBar {
+
+  0%,
+  100% {
+    height: 7px;
+  }
+
+  50% {
+    height: var(--max-h, 30px);
+  }
+}
+
+html {
+  scroll-behavior: smooth;
 }

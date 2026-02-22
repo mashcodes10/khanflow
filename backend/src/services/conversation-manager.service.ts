@@ -269,10 +269,16 @@ export class ConversationManager {
       : missingFields;
 
     // Filter out fields that already have values in currentData
+    const genericTitles = ['meeting', 'event', 'call', 'appointment', 'task', 'voice event', ''];
     relevantFields = relevantFields.filter(field => {
       const normalizedField = field.toLowerCase();
       if (normalizedField.includes("title") && currentData?.title) {
-        return false; // Already have title
+        // Don't filter out generic titles — we still want to ask for a better one
+        const titleVal = (currentData.title as string).toLowerCase().trim();
+        if (genericTitles.includes(titleVal)) {
+          return true; // Generic title, still need clarification
+        }
+        return false; // Already have a meaningful title
       }
       if (normalizedField.includes("time") && !normalizedField.includes("date")) {
         if (currentData?.due_time || currentData?.start_time) {

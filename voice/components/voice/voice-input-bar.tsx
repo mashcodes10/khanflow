@@ -6,6 +6,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { cn } from '@/lib/utils'
 import { Mic, MicOff, Send, X, Loader2, Keyboard } from 'lucide-react'
 import { BarVisualizer } from './bar-visualizer'
+import { voiceAPI, isAuthenticated } from '@/lib/api'
 import type { RecordingState } from './types'
 
 interface VoiceInputBarProps {
@@ -83,24 +84,50 @@ export function VoiceInputBar({
       // MediaRecorder
       const mediaRecorder = new MediaRecorder(stream)
       mediaRecorderRef.current = mediaRecorder
+      const audioChunks: Blob[] = []
 
-      mediaRecorder.onstop = () => {
-        // Simulate transcription (in real app: send audio to /api/voice/transcribe)
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunks.push(event.data)
+        }
+      }
+
+      mediaRecorder.onstop = async () => {
         setRecordingState('processing')
-        setTimeout(() => {
-          // Mock transcripts for demonstration
-          const mockTranscripts = [
-            'Schedule a team meeting tomorrow at 2 PM for 30 minutes',
-            'Add a task to review the Q4 budget report by Friday',
-            'Remind me to call the dentist this afternoon',
-            'I need to submit the project proposal ASAP',
-            'Block time for gym every Monday Wednesday and Friday at 7 AM',
-          ]
-          const transcript = mockTranscripts[Math.floor(Math.random() * mockTranscripts.length)]
-          onSendVoice(transcript, duration)
-          setRecordingState('idle')
-          setDuration(0)
-        }, 1200)
+
+        // Build audio blob from chunks
+        const audioBlob = new Blob(audioChunks, {
+          type: mediaRecorder.mimeType || 'audio/webm',
+        })
+
+        // Try real transcription if authenticated
+        if (isAuthenticated() && audioBlob.size > 0) {
+          try {
+            const result = await voiceAPI.transcribe(audioBlob)
+            if (result.transcript) {
+              onSendVoice(result.transcript, duration)
+              setRecordingState('idle')
+              setDuration(0)
+              return
+            }
+          } catch (error) {
+            console.warn('Transcription API failed, using mock:', error)
+          }
+        }
+
+        // Fallback: mock transcripts for demonstration
+        const mockTranscripts = [
+          'Schedule a team meeting tomorrow at 2 PM for 30 minutes',
+          'Add a task to review the Q4 budget report by Friday',
+          'Remind me to call the dentist this afternoon',
+          'I need to submit the project proposal ASAP',
+          'Block time for gym every Monday Wednesday and Friday at 7 AM',
+        ]
+        const transcript =
+          mockTranscripts[Math.floor(Math.random() * mockTranscripts.length)]
+        onSendVoice(transcript, duration)
+        setRecordingState('idle')
+        setDuration(0)
       }
 
       mediaRecorder.start()

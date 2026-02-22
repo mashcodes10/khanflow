@@ -288,9 +288,23 @@ SCHEMA:
         parsed.actionType = "task";
       }
 
+      // Enforce: if duration is missing from user input, GPT should NOT default it.
+      // Detect when GPT returned a round number but didn't flag it as missing —
+      // if the transcript doesn't mention any duration-related words, strip it.
+      const hasDurationInTranscript = /\b(\d+\s*(min|minute|hour|hr|h)s?|half\s*an?\s*hour|quarter)\b/i.test(transcript);
+      if (!hasDurationInTranscript && parsed.calendar?.duration_minutes) {
+        // GPT guessed a duration the user never said — clear it and flag as missing
+        parsed.calendar.duration_minutes = undefined as any;
+        if (!parsed.confidence.missing_fields) parsed.confidence.missing_fields = [];
+        if (!parsed.confidence.missing_fields.some((f: string) => f.toLowerCase().includes('duration'))) {
+          parsed.confidence.missing_fields.push('duration');
+        }
+        parsed.confidence.is_confident = false;
+      }
+
       // If duration is listed as missing, strip any GPT-defaulted duration_minutes
       const missingFields = parsed.confidence?.missing_fields || [];
-      const durationMissing = missingFields.some(f => 
+      const durationMissing = missingFields.some((f: string) => 
         f.toLowerCase().includes('duration') || f.toLowerCase().includes('length') || f.toLowerCase().includes('how long')
       );
       if (durationMissing && parsed.calendar) {
@@ -657,6 +671,11 @@ SCHEMA:
           refresh_token: googleCalendarIntegration.refresh_token,
         });
 
+        // Derive the best available title
+        const eventTitle = parsedAction.calendar.event_title 
+          || parsedAction.task?.title 
+          || 'Untitled Meeting';
+
         const calendar = google.calendar({ version: "v3", auth: oauth2Client });
         const startDateTime = new Date(parsedAction.calendar.start_datetime);
         const endDateTime = new Date(
@@ -665,7 +684,7 @@ SCHEMA:
 
         const userTimezone = parsedAction.task?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
         const event = {
-          summary: parsedAction.calendar.event_title || parsedAction.task?.title || "Voice Event",
+          summary: eventTitle,
           start: {
             dateTime: startDateTime.toISOString(),
             timeZone: userTimezone,
@@ -699,8 +718,11 @@ SCHEMA:
         );
 
         const userTimezoneMs = parsedAction.task?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+        const msEventTitle = parsedAction.calendar.event_title 
+          || parsedAction.task?.title 
+          || 'Untitled Meeting';
         const msEvent: any = {
-          subject: parsedAction.calendar.event_title || parsedAction.task?.title || "Voice Event",
+          subject: msEventTitle,
           body: {
             contentType: "HTML",
             content: parsedAction.task?.description || "",

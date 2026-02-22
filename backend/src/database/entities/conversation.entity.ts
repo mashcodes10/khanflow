@@ -12,7 +12,7 @@ import { User } from "./user.entity";
 import { ConversationMessage } from "./conversation-message.entity";
 
 export type ConversationStatus = "active" | "completed" | "abandoned";
-export type ConversationStep = "initial" | "clarifying" | "confirming" | "executing";
+export type ConversationStep = "initial" | "clarifying" | "confirming" | "executing" | "preview";
 
 @Entity({ name: "conversations" })
 export class Conversation {

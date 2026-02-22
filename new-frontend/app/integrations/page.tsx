@@ -46,7 +46,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     id: 'google-calendar',
     name: 'Google Calendar',
     description: 'Sync with Google Calendar and schedule events. Keep your schedule in sync across all devices.',
-    icon: <Image src="https://www.gstatic.com/images/branding/product/1x/calendar_2020q4_48dp.png" alt="Google Calendar" width={28} height={28} />,
+    icon: <Image src="/icons/google-calendar.svg" alt="Google Calendar" width={28} height={28} unoptimized />,
     category: 'calendar',
     hasManageOption: true,
     helpUrl: '#',
@@ -55,7 +55,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     id: 'outlook-calendar',
     name: 'Outlook Calendar',
     description: 'Outlook Calendar integration for scheduling and reminders. Works with Microsoft 365.',
-    icon: <Image src="https://img.icons8.com/fluency/48/microsoft-outlook-2019.png" alt="Outlook" width={28} height={28} />,
+    icon: <Image src="/icons/outlook.svg" alt="Outlook" width={28} height={28} unoptimized />,
     category: 'calendar',
     hasManageOption: true,
     helpUrl: '#',
@@ -64,7 +64,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     id: 'google-meet',
     name: 'Google Meet',
     description: 'Include Google Meet details in your events. Automatically generate meeting links.',
-    icon: <Image src="https://fonts.gstatic.com/s/i/productlogos/meet_2020q4/v1/web-48dp/logo_meet_2020q4_color_1x_web_48dp.png" alt="Google Meet" width={28} height={28} />,
+    icon: <Image src="/icons/google-meet.svg" alt="Google Meet" width={28} height={28} unoptimized />,
     category: 'video',
     helpUrl: '#',
   },
@@ -72,7 +72,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     id: 'zoom',
     name: 'Zoom',
     description: 'Include Zoom details in your Khanflow events. Create instant meeting links.',
-    icon: <div className="size-7 rounded-full bg-[#2D8CFF] flex items-center justify-center text-white text-[9px] font-bold">zoom</div>,
+    icon: <Image src="/icons/zoom.svg" alt="Zoom" width={28} height={28} unoptimized />,
     category: 'video',
     helpUrl: '#',
   },
@@ -80,7 +80,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     id: 'microsoft-teams',
     name: 'Microsoft Teams',
     description: 'Microsoft Teams integration for video conferencing and collaboration.',
-    icon: <Image src="https://img.icons8.com/fluency/48/microsoft-teams-2019.png" alt="Teams" width={28} height={28} />,
+    icon: <Image src="/icons/ms-teams.svg" alt="Teams" width={28} height={28} unoptimized />,
     category: 'video',
     helpUrl: '#',
   },
@@ -88,35 +88,15 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     id: 'google-tasks',
     name: 'Google Tasks',
     description: 'Manage your Google Tasks and track your to-do items. Sync tasks automatically.',
-    icon: <Image src="/logos/google-tasks-new.svg" alt="Google Tasks" width={28} height={28} unoptimized />,
+    icon: <Image src="/icons/google-tasks.svg" alt="Google Tasks" width={28} height={28} unoptimized />,
     category: 'tasks',
     helpUrl: '#',
   },
-  {     id: 'microsoft-todo',
+  {
+    id: 'microsoft-todo',
     name: 'Microsoft To Do',
     description: 'Sync your Microsoft To Do lists and tasks. Access your tasks from anywhere.',
-    icon: (
-      <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="msToDoGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#1e40af" />
-            <stop offset="100%" stopColor="#3b82f6" />
-          </linearGradient>
-        </defs>
-        {/* White border/outline */}
-        <path 
-          d="M6 12 L12 18 L26 4 Q28 2 30 4 Q32 6 30 8 L14 24 Q12 26 10 24 L2 16 Q0 14 2 12 Q4 10 6 12 Z" 
-          fill="white" 
-          stroke="#e5e7eb" 
-          strokeWidth="1"
-        />
-        {/* Main checkmark with gradient */}
-        <path 
-          d="M7 13 L12 18 L25 5 Q27 3 28 5 Q29 7 27 9 L13 23 Q12 24 11 23 L4 16 Q2 14 4 13 Q5 12 7 13 Z" 
-          fill="url(#msToDoGradient)"
-        />
-      </svg>
-    ),
+    icon: <Image src="/icons/ms-todo.svg" alt="Microsoft To Do" width={28} height={28} unoptimized />,
     category: 'tasks',
     helpUrl: '#',
   },
@@ -124,22 +104,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     id: 'notion',
     name: 'Notion',
     description: 'Connect Notion databases for task management. Keep your workspace in sync.',
-    icon: (
-      <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
-        {/* Main cube structure */}
-        <path d="M1 3 L1 23 Q1 25 3 25 L23 25 Q25 25 25 23 L25 5 Q25 3 23 3 L3 3 Q1 3 1 3 Z" fill="#000000" stroke="none"/>
-        {/* Top face */}
-        <path d="M0 2 L23 2 Q24 2 24 3 L24 4 L3 4 Q2 4 2 3 L2 2 Q1 2 0 2 Z" fill="#000000" stroke="none"/>
-        {/* Right face */}
-        <path d="M24 3 L26 5 L26 24 Q26 25 25 25 L23 25 L23 5 Q23 3 24 3 Z" fill="#000000" stroke="none"/>
-        {/* White front face */}
-        <rect x="3" y="5" width="20" height="18" rx="1" fill="#ffffff"/>
-        {/* Letter N */}
-        <text x="13" y="15.5" textAnchor="middle" dominantBaseline="middle" fill="#000000" fontSize="14" fontWeight="bold" fontFamily="serif">
-          N
-        </text>
-      </svg>
-    ),
+    icon: <Image src="/icons/notion.svg" alt="Notion" width={28} height={28} unoptimized />,
     category: 'other',
     helpUrl: '#',
     comingSoon: true,
@@ -148,7 +113,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     id: 'slack',
     name: 'Slack',
     description: 'Get notifications and manage meetings from Slack. Stay connected with your team.',
-    icon: <Image src="https://img.icons8.com/color/48/slack-new.png" alt="Slack" width={28} height={28} />,
+    icon: <Image src="/icons/slack.svg" alt="Slack" width={28} height={28} unoptimized />,
     category: 'other',
     helpUrl: '#',
     comingSoon: true,
@@ -166,9 +131,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     id: 'github',
     name: 'GitHub',
     description: 'Connect GitHub repositories. Track issues and pull requests.',
-    icon: <div className="size-7 bg-foreground rounded-full flex items-center justify-center text-background">
-      <svg className="size-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
-    </div>,
+    icon: <Image src="/icons/github.svg" alt="GitHub" width={28} height={28} unoptimized />,
     category: 'other',
     helpUrl: '#',
     comingSoon: true,
@@ -177,7 +140,7 @@ const defaultIntegrations: Omit<Integration, 'status' | 'appType'>[] = [
     id: 'todoist',
     name: 'Todoist',
     description: 'Sync your Todoist tasks and projects. Manage priorities efficiently.',
-    icon: <div className="size-7 bg-[#E44332] rounded flex items-center justify-center text-white text-xs font-bold">T</div>,
+    icon: <Image src="/icons/todoist.svg" alt="Todoist" width={28} height={28} unoptimized />,
     category: 'tasks',
     helpUrl: '#',
     comingSoon: true,
@@ -202,13 +165,13 @@ const calendarProviders: CalendarProvider[] = [
   {
     id: 'google-calendar',
     name: 'Google Calendar',
-    icon: <Image src="https://www.gstatic.com/images/branding/product/1x/calendar_2020q4_48dp.png" alt="Google Calendar" width={16} height={16} />,
+    icon: <Image src="/icons/google-calendar.svg" alt="Google Calendar" width={16} height={16} unoptimized />,
     connected: true,
   },
   {
     id: 'outlook-calendar',
     name: 'Outlook Calendar',
-    icon: <Image src="https://img.icons8.com/fluency/48/microsoft-outlook-2019.png" alt="Outlook" width={16} height={16} />,
+    icon: <Image src="/icons/outlook.svg" alt="Outlook" width={16} height={16} unoptimized />,
     connected: true,
   },
 ]

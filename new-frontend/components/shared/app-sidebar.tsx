@@ -23,7 +23,7 @@ import {
 
 // Core navigation items
 const coreNavItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/' },
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
   { icon: Calendar, label: 'Calendar', href: '/calendar' },
   { icon: Users, label: 'Meetings', href: '/meetings' },
   { icon: CalendarRange, label: 'Booking types', href: '/scheduling' },

@@ -75,6 +75,37 @@ export class EnhancedVoiceService {
       });
 
       // Check if requires clarification
+      // First: server-side guard for meetings — even if GPT says confident,
+      // enforce that meetings have a quality title and explicit duration.
+      if (parsedAction.task?.category === 'meetings') {
+        const missingMeetingFields: string[] = [];
+        const title = (parsedAction.task?.title || '').toLowerCase().trim();
+        const genericTitles = ['meeting', 'event', 'call', 'appointment', 'task', 'voice event', ''];
+        if (genericTitles.includes(title)) {
+          missingMeetingFields.push('title');
+        }
+        if (!parsedAction.task?.due_date) {
+          missingMeetingFields.push('date');
+        }
+        if (!parsedAction.task?.due_time) {
+          missingMeetingFields.push('time');
+        }
+        // duration_minutes null/undefined/0 means not specified
+        if (!parsedAction.calendar?.duration_minutes) {
+          missingMeetingFields.push('duration');
+          // Also clear any GPT-defaulted value
+          if (parsedAction.calendar) {
+            parsedAction.calendar.duration_minutes = undefined as any;
+          }
+        }
+        if (missingMeetingFields.length > 0) {
+          parsedAction.confidence.is_confident = false;
+          parsedAction.confidence.missing_fields = [
+            ...new Set([...(parsedAction.confidence.missing_fields || []), ...missingMeetingFields])
+          ];
+        }
+      }
+
       if (this.conversationManager.requiresClarification(parsedAction)) {
         const context = await this.conversationManager.getContext(conversation.id);
         
@@ -190,12 +221,21 @@ export class EnhancedVoiceService {
         }
       }
 
-      // Meetings with all required info: auto-execute directly (no preview/destination selector)
+      // Meetings with all required info — verify quality before proceeding
+      const meetingTitle = (parsedAction.task?.title || parsedAction.calendar?.event_title || '').trim();
+      const genericTitlesCheck = ['meeting', 'event', 'call', 'appointment', 'task', 'voice event', ''];
+      const hasQualityTitle = !genericTitlesCheck.includes(meetingTitle.toLowerCase());
+      const hasExplicitDuration = !!parsedAction.calendar?.duration_minutes;
       const isMeetingDirect = parsedAction.task?.category === 'meetings' && 
         parsedAction.calendar?.create_event && 
         parsedAction.task?.due_date && 
-        parsedAction.task?.due_time;
-      if (isMeetingDirect) {
+        parsedAction.task?.due_time &&
+        hasQualityTitle &&
+        hasExplicitDuration;
+
+      // When previewOnly is true (default), return a preview instead of auto-executing
+      // so the user sees what will be created and can confirm.
+      if (isMeetingDirect && !options?.previewOnly) {
         try {
           const executedAction = await this.voiceService.executeAction(userId, parsedAction, options);
           await this.conversationManager.addMessage(
@@ -219,6 +259,31 @@ export class EnhancedVoiceService {
             message: execError.message || 'Failed to create calendar event. Please check your calendar integration.',
           };
         }
+      }
+
+      // Meeting with all fields + previewOnly → return preview so user confirms first
+      if (isMeetingDirect && options?.previewOnly) {
+        // Store the parsed action so confirm endpoint can execute it later
+        await this.conversationManager.updateConversation(conversation.id, {
+          currentStep: 'preview',
+          context: {
+            originalRequest: parsedAction,
+          },
+        });
+
+        return {
+          success: true,
+          action: {
+            actionId: `preview-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            intent: parsedAction.intent,
+            actionType: 'task' as const,
+            preview: parsedAction,
+          },
+          requiresClarification: false,
+          conversationId: conversation.id,
+          isPreview: true,
+        };
       }
 
       // Check if preview-only mode (don't execute, just return parsed action)
@@ -321,6 +386,10 @@ export class EnhancedVoiceService {
         if (!result.updatedData.due_date && !parsedAction.task?.due_date) missingMeetingFields.push('date');
         if (!result.updatedData.due_time && !parsedAction.task?.due_time) missingMeetingFields.push('time');
         if (!userProvidedDuration) missingMeetingFields.push('duration');
+        // Also check title quality
+        const titleVal = (result.updatedData.title || parsedAction.task?.title || '').toLowerCase().trim();
+        const genericTitles = ['meeting', 'event', 'call', 'appointment', 'task', 'voice event', ''];
+        if (genericTitles.includes(titleVal)) missingMeetingFields.push('title');
 
         if (missingMeetingFields.length > 0) {
           // Still need more info for the meeting — ask the next question
@@ -336,29 +405,37 @@ export class EnhancedVoiceService {
           };
 
           const context = await this.conversationManager.getContext(conversationId);
-          const clarification = await this.conversationManager.generateClarificationQuestion(
-            clarificationAction,
-            context || undefined
-          );
 
-          // Update conversation state with remaining fields
-          await this.conversationManager.updateConversation(conversationId, {
-            currentStep: 'clarifying',
-            pendingFields: missingMeetingFields,
-            extractedData: result.updatedData,
-          });
+          try {
+            const clarification = await this.conversationManager.generateClarificationQuestion(
+              clarificationAction,
+              context || undefined
+            );
 
-          await this.conversationManager.addMessage(conversationId, 'assistant', clarification.question);
+            // Update conversation state with remaining fields
+            await this.conversationManager.updateConversation(conversationId, {
+              currentStep: 'clarifying',
+              pendingFields: missingMeetingFields,
+              extractedData: result.updatedData,
+            });
 
-          return {
-            success: false,
-            requiresClarification: true,
-            clarification,
-            conversationId,
-          };
+            await this.conversationManager.addMessage(conversationId, 'assistant', clarification.question);
+
+            return {
+              success: false,
+              requiresClarification: true,
+              clarification,
+              conversationId,
+            };
+          } catch (clarificationError) {
+            // generateClarificationQuestion may throw if the fields are technically present
+            // (e.g., title is "meeting" — generic but still a value). In that case, proceed
+            // with execution using the data we have rather than crashing.
+            console.log(`Meeting clarification generation failed (fields may already have values): ${clarificationError}. Proceeding with execution.`);
+          }
         }
 
-        // Meeting has all required fields — auto-execute directly to calendar
+        // Meeting has all required fields after clarification
         // Use updatedData values which are the source of truth after clarifications
         const meetingDate = result.updatedData.due_date || parsedAction.task!.due_date;
         const meetingTime = result.updatedData.due_time || parsedAction.task!.due_time;
@@ -379,32 +456,46 @@ export class EnhancedVoiceService {
         }
 
         const userId = conversation.userId;
-        try {
-          const executedAction = await this.voiceService.executeAction(userId, parsedAction, undefined);
 
-          await this.conversationManager.addMessage(
-            conversationId,
-            'assistant',
-            this.generateSuccessMessage(executedAction)
-          );
-          await this.conversationManager.completeConversation(conversationId);
-
-          return {
-            success: true,
-            action: executedAction,
-            requiresClarification: false,
-            conversationId,
-          };
-        } catch (execError: any) {
-          console.error('Error executing meeting action:', execError);
-          // Return a user-friendly error instead of letting it bubble as 500
+        // Check for conflicts before executing
+        const startTime = new Date(startDatetime);
+        const durationMinutes = parsedAction.calendar.duration_minutes || 60;
+        const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
+        const conflict = await this.conflictService.checkConflicts(userId, startTime, endTime, {
+          title: meetingTitle,
+        });
+        if (conflict) {
+          await this.conversationManager.updateConversation(conversationId, {
+            currentStep: 'clarifying',
+            context: { pendingConflict: conflict.id, originalRequest: parsedAction },
+          });
           return {
             success: false,
-            requiresClarification: false,
+            requiresClarification: true,
+            conflict,
             conversationId,
-            message: execError.message || 'Failed to create calendar event. Please check your calendar integration.',
+            message: 'Calendar conflict detected. Please choose an alternative time.',
           };
         }
+
+        // Return as preview so user can confirm before creation
+        await this.conversationManager.updateConversation(conversationId, {
+          currentStep: 'preview',
+          context: { originalRequest: parsedAction },
+        });
+        return {
+          success: true,
+          action: {
+            actionId: `preview-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            intent: parsedAction.intent,
+            actionType: 'task' as const,
+            preview: parsedAction,
+          },
+          requiresClarification: false,
+          conversationId,
+          isPreview: true,
+        };
       }
 
       // Non-meeting items: return as preview so user can choose destination

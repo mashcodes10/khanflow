@@ -48,9 +48,13 @@ export interface ConflictData {
   requestedEvent: {
     title: string
     time: string
+    duration?: string
+    date?: string
   }
   conflictingEvents: ConflictingEvent[]
   alternatives: TimeSlot[]
+  severity?: 'low' | 'medium' | 'high'
+  allowScheduleAnyway?: boolean
 }
 
 export interface SuccessData {
