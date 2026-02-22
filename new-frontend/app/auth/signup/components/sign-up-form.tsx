@@ -175,10 +175,10 @@ export function SignUpForm({
             ) : (
               <>
                 <svg width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="1" y="1" width="9" height="9" fill="#f35325"/>
-                  <rect x="11" y="1" width="9" height="9" fill="#81bc06"/>
-                  <rect x="1" y="11" width="9" height="9" fill="#05a6f0"/>
-                  <rect x="11" y="11" width="9" height="9" fill="#ffba08"/>
+                  <rect x="1" y="1" width="9" height="9" fill="#f35325" />
+                  <rect x="11" y="1" width="9" height="9" fill="#81bc06" />
+                  <rect x="1" y="11" width="9" height="9" fill="#05a6f0" />
+                  <rect x="11" y="11" width="9" height="9" fill="#ffba08" />
                 </svg>
                 <span>Sign up with Microsoft</span>
               </>
@@ -199,13 +199,13 @@ export function SignUpForm({
 
       <div className="text-balance text-center text-xs text-muted-foreground">
         By continuing, you agree to our{" "}
-        <a href="#" className="underline underline-offset-4 hover:text-foreground">
+        <Link href="/terms" className="underline underline-offset-4 hover:text-foreground">
           Terms of Service
-        </a>{" "}
+        </Link>{" "}
         and{" "}
-        <a href="#" className="underline underline-offset-4 hover:text-foreground">
+        <Link href="/privacy" className="underline underline-offset-4 hover:text-foreground">
           Privacy Policy
-        </a>
+        </Link>
         .
       </div>
     </div>
