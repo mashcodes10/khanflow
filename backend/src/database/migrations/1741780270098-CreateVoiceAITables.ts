@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from "typeorm";
 
-export class CreateVoiceAITables1738886400000 implements MigrationInterface {
-  name = "CreateVoiceAITables1738886400000";
+export class CreateVoiceAITables1741780270098 implements MigrationInterface {
+  name = "CreateVoiceAITables1741780270098";
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Create conversations table
@@ -84,7 +84,7 @@ export class CreateVoiceAITables1738886400000 implements MigrationInterface {
     await queryRunner.query(`
       CREATE INDEX "IDX_conversations_user_status" ON "conversations" ("user_id", "status")
     `);
-    
+
     await queryRunner.query(`
       CREATE INDEX "IDX_conversations_timeout" ON "conversations" ("timeout_at") 
       WHERE "status" = 'active'
