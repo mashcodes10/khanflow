@@ -1,6 +1,21 @@
 "use client";
 
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+
 export default function WarmCTA() {
+  const [email, setEmail] = useState("");
+  const router = useRouter();
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (email) {
+      router.push(`/auth/signup?email=${encodeURIComponent(email)}`);
+    } else {
+      router.push("/auth/signup");
+    }
+  };
+
   return (
     <section className="py-32 relative overflow-hidden">
       {/* Background glow */}
@@ -19,10 +34,12 @@ export default function WarmCTA() {
         </p>
         <form
           className="max-w-md mx-auto flex gap-2"
-          onSubmit={(e) => e.preventDefault()}
+          onSubmit={handleSubmit}
         >
           <input
             type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
             placeholder="Enter your email"
             className="flex-1 bg-white/5 border border-[oklch(0.35_0.01_50)] rounded-full px-6 py-4 text-white placeholder-[oklch(0.58_0.015_50)] focus:outline-none focus:border-[oklch(0.65_0.12_35)] transition-colors"
           />
