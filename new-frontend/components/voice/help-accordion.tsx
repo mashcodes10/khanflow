@@ -49,7 +49,7 @@ export function HelpAccordion({ className }: HelpAccordionProps) {
               </div>
             </AccordionTrigger>
             <AccordionContent className="text-sm text-muted-foreground pl-9 pb-3">
-              <p className="mb-2">Speak naturally. For example:</p>
+              <p className="mb-2">Speak naturally. The AI can handle follow-up questions and clarifications. For example:</p>
               <ul className="space-y-1.5 text-xs">
                 <li className="flex items-start gap-2">
                   <CheckSquare className="size-3.5 mt-0.5 text-accent shrink-0" strokeWidth={1.75} />
@@ -61,9 +61,10 @@ export function HelpAccordion({ className }: HelpAccordionProps) {
                 </li>
                 <li className="flex items-start gap-2">
                   <MessageSquare className="size-3.5 mt-0.5 text-warning shrink-0" strokeWidth={1.75} />
-                  <span>{'"Remind me to call mom this weekend"'}</span>
+                  <span>{'"Create a recurring task every Friday to submit weekly report"'}</span>
                 </li>
               </ul>
+              <p className="mt-3 text-xs">💡 The AI will ask for clarification if it needs more information, and will detect and suggest alternatives for calendar conflicts.</p>
             </AccordionContent>
           </AccordionItem>
           
@@ -87,7 +88,7 @@ export function HelpAccordion({ className }: HelpAccordionProps) {
               </div>
             </AccordionTrigger>
             <AccordionContent className="text-sm text-muted-foreground pl-9 pb-3">
-              Review the transcript and parsed action. Click "Confirm & Create" to save the action, or edit it if needed.
+              Review the action and answer any clarification questions if needed. The AI will automatically detect calendar conflicts and suggest alternative times. Once everything looks good, your action will be created automatically.
             </AccordionContent>
           </AccordionItem>
         </Accordion>

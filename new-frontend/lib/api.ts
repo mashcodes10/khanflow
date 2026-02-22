@@ -285,6 +285,132 @@ export const voiceAPI = {
     const response = await NextAPI.post(`/api/voice/jobs/${jobId}/confirm`, data);
     return response.data;
   },
+  // Enhanced Voice API endpoints (v2 with multi-turn conversations, conflict detection, recurring tasks)
+  transcribeV2: async (audioBlob: Blob): Promise<{ transcript: string }> => {
+    const formData = new FormData();
+    formData.append("audio", audioBlob, "audio.webm");
+    const response = await API.post("/voice/v2/transcribe", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  },
+  executeV2: async (data: {
+    transcript: string;
+    conversationId?: string;
+    taskAppType?: string;
+    calendarAppType?: string;
+    timezone?: string;
+    currentDateTime?: string;
+  }): Promise<{
+    success: boolean;
+    action?: any;
+    requiresClarification: boolean;
+    clarification?: {
+      question: string;
+      options?: Array<{ id: string; label: string; value: any }>;
+      fieldName: string;
+      conversationId: string;
+    };
+    conflict?: any;
+    conversationId?: string;
+    message?: string;
+  }> => {
+    const payload = {
+      ...data,
+      timezone: data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      currentDateTime: data.currentDateTime || new Date().toISOString(),
+    };
+    const response = await API.post("/voice/v2/execute", payload);
+    return response.data;
+  },
+  clarifyV2: async (data: {
+    conversationId: string;
+    response: string;
+    selectedOptionId?: string;
+    selectedOptionValue?: any;
+    timezone?: string;
+    currentDateTime?: string;
+  }): Promise<{
+    success: boolean;
+    action?: any;
+    requiresClarification: boolean;
+    clarification?: any;
+    conflict?: any;
+    message?: string;
+  }> => {
+    const payload = {
+      ...data,
+      timezone: data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+      currentDateTime: data.currentDateTime || new Date().toISOString(),
+    };
+    const response = await API.post("/voice/v2/clarify", payload);
+    return response.data;
+  },
+  confirmV2: async (data: {
+    conversationId: string;
+    action: any;
+    destination: 'calendar' | 'tasks' | 'intent';
+  }): Promise<{
+    success: boolean;
+    action?: any;
+    requiresClarification: boolean;
+    message?: string;
+  }> => {
+    const response = await API.post("/voice/v2/confirm", data);
+    return response.data;
+  },
+  getConversationV2: async (conversationId: string): Promise<{
+    id: string;
+    userId: string;
+    status: string;
+    currentStep: string;
+    extractedData: any;
+    pendingFields: string[];
+    messages: Array<{
+      id: string;
+      role: "user" | "assistant";
+      content: string;
+      createdAt: string;
+    }>;
+    createdAt: string;
+    updatedAt: string;
+  }> => {
+    const response = await API.get(`/voice/v2/conversation/${conversationId}`);
+    return response.data;
+  },
+  checkConflictsV2: async (data: {
+    taskTitle: string;
+    startTime: string;
+    endTime: string;
+    taskAppType?: string;
+    calendarAppType?: string;
+  }): Promise<{
+    hasConflicts: boolean;
+    conflicts: any[];
+    alternativeSlots?: any[];
+  }> => {
+    const response = await API.post("/voice/v2/conflicts/check", data);
+    return response.data;
+  },
+  resolveConflictV2: async (conflictId: string, resolution: any): Promise<{ success: boolean; message: string }> => {
+    const response = await API.post(`/voice/v2/conflicts/${conflictId}/resolve`, resolution);
+    return response.data;
+  },
+  createRecurringTaskV2: async (data: {
+    title: string;
+    description?: string;
+    rrule: string;
+    startDate: string;
+    endDate?: string;
+    priority?: string;
+    taskAppType: string;
+    taskListId?: string;
+  }): Promise<{ success: boolean; taskTemplateId: string; message: string }> => {
+    const response = await API.post("/voice/v2/recurring-tasks", data);
+    return response.data;
+  },
 };
 
 // ============ TASKS API (Google Tasks) ============

@@ -178,42 +178,41 @@ Return JSON in this exact format:
           parsed.intentData.intentBoardName
         );
 
+        // Auto-match: If no life area found, use the first one (or best match)
         if (!resolved.lifeAreaId) {
-          // Generate clarification options for life areas
-          const options = await this.generateClarificationOptions(
-            transcript,
-            parsed.intentData,
-            lifeAreas,
-            "lifeArea"
-          );
-          return {
-            intent: "clarification_required",
-            confidence: {
-              is_confident: false,
-              clarification_question: `I couldn't find a life area matching "${parsed.intentData.lifeAreaName}". Which life area should this go in?`,
-            },
-            clarificationOptions: options,
-          };
+          const bestLifeArea = await this.findBestMatchingLifeArea(transcript, parsed.intentData, lifeAreas);
+          resolved.lifeAreaId = bestLifeArea?.id || lifeAreas[0]?.id;
+          
+          if (!resolved.lifeAreaId) {
+            return {
+              intent: "clarification_required",
+              confidence: {
+                is_confident: false,
+                clarification_question: "You don't have any life areas set up yet. Please set up your life areas first.",
+              },
+            };
+          }
         }
 
-        if (!resolved.intentBoardId && ((lifeAreas.find((a) => a.id === resolved.lifeAreaId)?.intentBoards.length ?? 0) > 1)) {
+        // Auto-match: If no intent board found, find best match or create "Other" board
+        if (!resolved.intentBoardId) {
           const selectedLifeArea = lifeAreas.find((a) => a.id === resolved.lifeAreaId);
-          // Generate clarification options for intent boards
-          const options = await this.generateClarificationOptions(
-            transcript,
-            parsed.intentData,
-            selectedLifeArea ? [selectedLifeArea] : [],
-            "intentBoard",
-            resolved.lifeAreaId
-          );
-          return {
-            intent: "clarification_required",
-            confidence: {
-              is_confident: false,
-              clarification_question: `I found the life area "${parsed.intentData.lifeAreaName}", but there are multiple boards. Which board should this go in?`,
-            },
-            clarificationOptions: options,
-          };
+          if (selectedLifeArea) {
+            // Try to find best matching board
+            const bestBoard = await this.findBestMatchingBoard(
+              transcript,
+              parsed.intentData,
+              selectedLifeArea.intentBoards
+            );
+            
+            if (bestBoard) {
+              resolved.intentBoardId = bestBoard.id;
+            } else {
+              // Create or find "Other" board as fallback
+              const otherBoard = await this.getOrCreateOtherBoard(selectedLifeArea.id, userId);
+              resolved.intentBoardId = otherBoard.id;
+            }
+          }
         }
 
         parsed.matchedLifeAreaId = resolved.lifeAreaId;
@@ -231,6 +230,113 @@ Return JSON in this exact format:
         },
       };
     }
+  }
+
+  /**
+   * Find best matching life area using AI
+   */
+  private async findBestMatchingLifeArea(
+    transcript: string,
+    intentData: ParsedIntentCommand["intentData"],
+    lifeAreas: LifeArea[]
+  ): Promise<LifeArea | null> {
+    if (lifeAreas.length === 0) return null;
+    if (lifeAreas.length === 1) return lifeAreas[0];
+
+    try {
+      const prompt = `Given the user's command: "${transcript}"
+And intent: "${intentData?.title || ""}"
+
+Which life area is the best match?
+
+Available life areas:
+${lifeAreas.map((a, i) => `${i + 1}. ${a.name}${a.description ? ` - ${a.description}` : ""}`).join("\n")}
+
+Return ONLY the number (1-${lifeAreas.length}) of the best match.`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        max_tokens: 10,
+      });
+
+      const match = response.choices[0]?.message?.content?.trim();
+      const index = parseInt(match || "1") - 1;
+      return lifeAreas[index] || lifeAreas[0];
+    } catch (error) {
+      console.error("Error finding best life area:", error);
+      return lifeAreas[0];
+    }
+  }
+
+  /**
+   * Find best matching intent board using AI
+   */
+  private async findBestMatchingBoard(
+    transcript: string,
+    intentData: ParsedIntentCommand["intentData"],
+    boards: IntentBoard[]
+  ): Promise<IntentBoard | null> {
+    if (boards.length === 0) return null;
+    if (boards.length === 1) return boards[0];
+
+    try {
+      const prompt = `Given the user's command: "${transcript}"
+And intent: "${intentData?.title || ""}"
+
+Which intent board is the best match?
+
+Available boards:
+${boards.map((b, i) => `${i + 1}. ${b.name}${b.description ? ` - ${b.description}` : ""}`).join("\n")}
+
+Return ONLY the number (1-${boards.length}) of the best match, or 0 if none are a good fit.`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.1,
+        max_tokens: 10,
+      });
+
+      const match = response.choices[0]?.message?.content?.trim();
+      const index = parseInt(match || "0") - 1;
+      
+      // If 0 or invalid, return null (will trigger "Other" board creation)
+      if (index < 0 || index >= boards.length) return null;
+      return boards[index];
+    } catch (error) {
+      console.error("Error finding best board:", error);
+      return null;
+    }
+  }
+
+  /**
+   * Get or create "Other" board in a life area
+   */
+  private async getOrCreateOtherBoard(lifeAreaId: string, userId: string): Promise<IntentBoard> {
+    const intentBoardRepo = AppDataSource.getRepository(IntentBoard);
+    
+    // Check if "Other" board exists
+    let otherBoard = await intentBoardRepo.findOne({
+      where: {
+        lifeAreaId,
+        name: "Other",
+      },
+    });
+
+    if (!otherBoard) {
+      // Create "Other" board
+      otherBoard = intentBoardRepo.create({
+        name: "Other",
+        description: "Miscellaneous items that don't fit other categories",
+        lifeAreaId,
+        order: 999, // Place at the end
+      });
+      await intentBoardRepo.save(otherBoard);
+    }
+
+    return otherBoard;
   }
 
   /**
