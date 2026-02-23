@@ -1,15 +1,17 @@
 'use client'
 
+import { withAuth } from '@/components/auth/with-auth'
+
 import { AppSidebar } from '@/components/shared/app-sidebar'
 import { PageHeader } from '@/components/shared/page-header'
 import { Button } from '@/components/ui/button'
 import { Calendar, Users } from 'lucide-react'
 
-export default function CalendarPage() {
+function CalendarPage() {
   return (
     <div className="flex h-screen bg-background">
       <AppSidebar activePage="/calendar" />
-      
+
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-5xl mx-auto px-6 py-6">
           {/* Header */}
@@ -26,7 +28,7 @@ export default function CalendarPage() {
             <p className="text-sm text-muted-foreground mb-4 max-w-sm">
               We're building a unified calendar view that brings together all your meetings and events in one place.
             </p>
-            <Button 
+            <Button
               variant="outline"
               className="gap-1.5 rounded-lg border-border-subtle hover:border-border bg-transparent"
               onClick={() => window.location.href = '/meetings'}
@@ -40,3 +42,5 @@ export default function CalendarPage() {
     </div>
   )
 }
+
+export default withAuth(CalendarPage)

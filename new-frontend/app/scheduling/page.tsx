@@ -1,5 +1,7 @@
 'use client'
 
+import { withAuth } from '@/components/auth/with-auth'
+
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -57,7 +59,7 @@ const mockEventTypes = [
   },
 ]
 
-export default function SchedulingPage() {
+function SchedulingPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -109,7 +111,7 @@ export default function SchedulingPage() {
   const eventsWithDisconnectedIntegrations = useMemo(() => {
     const events = eventsData?.data?.events || []
     const integrations: IntegrationType[] = integrationsData?.integrations || []
-    
+
     return events.filter(event => {
       const locationType = event.locationType
       const integration = integrations.find(i => i.app_type === locationType)
@@ -223,13 +225,13 @@ export default function SchedulingPage() {
               <AlertCircle className="size-5 text-destructive shrink-0 mt-0.5" strokeWidth={2} />
               <div className="flex-1">
                 <p className="text-sm font-medium text-destructive">
-                  {eventsWithDisconnectedIntegrations.length === 1 
-                    ? `"${eventsWithDisconnectedIntegrations[0].title}" requires a disconnected integration` 
+                  {eventsWithDisconnectedIntegrations.length === 1
+                    ? `"${eventsWithDisconnectedIntegrations[0].title}" requires a disconnected integration`
                     : `${eventsWithDisconnectedIntegrations.length} events require disconnected integrations`}
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Please reconnect the required integrations in{' '}
-                  <button 
+                  <button
                     onClick={() => router.push('/integrations')}
                     className="underline hover:text-foreground transition-colors"
                   >
@@ -301,7 +303,7 @@ export default function SchedulingPage() {
               <p className="text-sm text-muted-foreground mb-4 max-w-sm">
                 Create your first event type to start scheduling meetings with others.
               </p>
-              <Button 
+              <Button
                 className="gap-1.5 rounded-lg bg-accent hover:bg-accent/90 text-accent-foreground"
                 onClick={() => setCreateDialogOpen(true)}
               >
@@ -323,3 +325,5 @@ export default function SchedulingPage() {
     </div>
   )
 }
+
+export default withAuth(SchedulingPage)

@@ -1,5 +1,7 @@
 'use client'
 
+import { withAuth } from '@/components/auth/with-auth'
+
 import React, { Suspense } from "react"
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -544,10 +546,12 @@ function IntegrationsPageContent() {
   )
 }
 
-export default function IntegrationsPage() {
+function IntegrationsPage() {
   return (
     <Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
       <IntegrationsPageContent />
     </Suspense>
   )
 }
+
+export default withAuth(IntegrationsPage)

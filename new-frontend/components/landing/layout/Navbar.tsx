@@ -69,13 +69,13 @@ export default function Navbar() {
         {/* Desktop actions */}
         <div className="hidden md:flex items-center gap-6 text-sm font-medium">
           <Link
-            href="/dashboard"
+            href="/auth/signin"
             className="text-[oklch(0.58_0.015_50)] hover:text-[oklch(0.22_0.01_50)] transition-colors"
           >
             Sign in
           </Link>
           <Link
-            href="/dashboard"
+            href="/auth/signup"
             className="text-[oklch(0.55_0.12_35)] font-semibold hover:opacity-80 transition-opacity"
           >
             Start Free →
@@ -85,7 +85,7 @@ export default function Navbar() {
         {/* Mobile: CTA + hamburger */}
         <div className="flex md:hidden items-center gap-4">
           <Link
-            href="/dashboard"
+            href="/auth/signup"
             className="text-[oklch(0.55_0.12_35)] font-semibold text-sm hover:opacity-80 transition-opacity"
           >
             Start Free →
@@ -118,7 +118,7 @@ export default function Navbar() {
           ))}
           <div className="border-t border-[oklch(0.76_0.02_75)] mt-2 pt-3 px-3">
             <Link
-              href="/dashboard"
+              href="/auth/signin"
               onClick={() => setMobileOpen(false)}
               className="text-[oklch(0.58_0.015_50)] hover:text-[oklch(0.22_0.01_50)] transition-colors text-sm font-medium"
             >

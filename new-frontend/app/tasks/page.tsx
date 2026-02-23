@@ -1,5 +1,7 @@
 'use client'
 
+import { withAuth } from '@/components/auth/with-auth'
+
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -40,7 +42,7 @@ const mockUser = {
   email: 'mashiur.khan@vanderbilt.edu',
 }
 
-export default function TasksPage() {
+function TasksPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [expandedLists, setExpandedLists] = useState<Record<string, boolean>>({})
@@ -139,7 +141,7 @@ export default function TasksPage() {
   const lists: TaskListWithTasks[] = taskLists.map((list: TaskList) => {
     const listData = tasksData?.data?.find((item: any) => item.taskList?.id === list.id)
     const tasksForList = listData?.tasks || []
-    
+
     const incompleteTasks = tasksForList.filter((t: Task) => t.status === 'needsAction')
     const completedTasks = tasksForList.filter((t: Task) => t.status === 'completed')
 
@@ -343,7 +345,7 @@ export default function TasksPage() {
                                     Export to Life OS
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem 
+                                  <DropdownMenuItem
                                     onClick={() => handleDeleteTask(list.id, task.id)}
                                     className="text-destructive"
                                   >
@@ -409,3 +411,5 @@ export default function TasksPage() {
     </div>
   )
 }
+
+export default withAuth(TasksPage)

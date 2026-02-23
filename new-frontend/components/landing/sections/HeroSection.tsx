@@ -41,14 +41,14 @@ export default function HeroSection() {
               style={{ animationDelay: "0.3s" }}
             >
               <Link
-                href="/dashboard"
+                href="/auth/signup"
                 className="w-full sm:w-auto bg-white text-black px-8 py-3 rounded-[6px] text-[15px] font-semibold tracking-normal transition-all flex items-center justify-center gap-2 hover:bg-gray-200 shadow-sm"
               >
                 Connect Your Workspace
                 <Icon icon="lucide:arrow-right" className="text-lg" />
               </Link>
               <Link
-                href="/dashboard"
+                href="#features"
                 className="w-full sm:w-auto bg-[#1a1a1a] border border-white/10 text-[#ededed] hover:bg-[#2a2a2a] px-8 py-3 rounded-[6px] text-[15px] font-medium tracking-normal transition-all flex items-center justify-center shadow-sm"
               >
                 Learn More

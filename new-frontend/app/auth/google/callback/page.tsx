@@ -43,7 +43,7 @@ function GoogleCallbackContent() {
         localStorage.setItem('expiresAt', expiresAt.toString())
 
         toast.success('Signed in with Google successfully')
-        router.push('/')
+        router.push('/dashboard')
       } catch (error: any) {
         console.error('Google callback error:', error)
         toast.error(error.message || 'Failed to complete Google sign in')

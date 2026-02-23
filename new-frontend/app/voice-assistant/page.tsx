@@ -1,5 +1,7 @@
 'use client'
 
+import { withAuth } from '@/components/auth/with-auth'
+
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { AppSidebar } from '@/components/shared/app-sidebar'
@@ -7,7 +9,7 @@ import { ThemeToggle } from '@/components/life-org/theme-toggle'
 import { ConversationThread } from '@/components/voice-chat/conversation-thread'
 import { HelpCircle, X, Mic, MessageSquare, Calendar, CheckSquare, Repeat, AlertTriangle, Keyboard as KeyboardIcon } from 'lucide-react'
 
-export default function VoiceAssistantPage() {
+function VoiceAssistantPage() {
   const [showHelp, setShowHelp] = useState(false)
 
   return (
@@ -149,3 +151,5 @@ export default function VoiceAssistantPage() {
     </div>
   )
 }
+
+export default withAuth(VoiceAssistantPage)
