@@ -85,74 +85,65 @@ export function OnboardingModal({ open, onClose, onComplete }: OnboardingModalPr
         {step === 'initial' && (
           <div className="space-y-4 py-4">
             <div className="grid gap-3">
-              <Button
+              <button
                 onClick={handleRecommended}
                 disabled={isLoading}
                 className={cn(
-                  'h-auto py-4 px-6 justify-start text-left',
-                  'flex flex-col items-start gap-2',
-                  'hover:bg-accent transition-colors'
+                  'w-full text-left relative flex items-start gap-4 p-5 rounded-xl border border-border-subtle bg-card transition-all',
+                  !isLoading && 'hover:border-border hover:bg-accent/50 cursor-pointer',
+                  isLoading && 'opacity-50 cursor-not-allowed'
                 )}
-                variant="outline"
               >
-                <div className="flex items-center gap-3 w-full">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <CheckCircle2 className="size-5 text-primary" strokeWidth={1.5} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-semibold text-foreground">Use recommended setup</div>
-                    <div className="text-sm text-muted-foreground mt-0.5">
-                      Get started with a balanced structure covering major life areas
-                    </div>
-                  </div>
+                <div className="flex-shrink-0 p-2.5 rounded-full bg-primary/10">
+                  <CheckCircle2 className="size-5 text-primary" strokeWidth={1.75} />
                 </div>
-              </Button>
+                <div className="flex-1 space-y-1">
+                  <h3 className="font-semibold text-foreground text-base">Use recommended setup</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Get started with a balanced structure covering major life areas
+                  </p>
+                </div>
+              </button>
 
-              <Button
+              <button
                 onClick={() => setStep('templates')}
                 disabled={isLoading}
                 className={cn(
-                  'h-auto py-4 px-6 justify-start text-left',
-                  'flex flex-col items-start gap-2',
-                  'hover:bg-accent transition-colors'
+                  'w-full text-left relative flex items-start gap-4 p-5 rounded-xl border border-border-subtle bg-card transition-all',
+                  !isLoading && 'hover:border-border hover:bg-accent/50 cursor-pointer',
+                  isLoading && 'opacity-50 cursor-not-allowed'
                 )}
-                variant="outline"
               >
-                <div className="flex items-center gap-3 w-full">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <FileText className="size-5 text-primary" strokeWidth={1.5} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-semibold text-foreground">Start from template</div>
-                    <div className="text-sm text-muted-foreground mt-0.5">
-                      Choose from templates tailored to your lifestyle
-                    </div>
-                  </div>
+                <div className="flex-shrink-0 p-2.5 rounded-full bg-primary/10">
+                  <FileText className="size-5 text-primary" strokeWidth={1.75} />
                 </div>
-              </Button>
+                <div className="flex-1 space-y-1">
+                  <h3 className="font-semibold text-foreground text-base">Start from template</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Choose from templates tailored to your lifestyle
+                  </p>
+                </div>
+              </button>
 
-              <Button
+              <button
                 onClick={handleStartEmpty}
                 disabled={isLoading}
                 className={cn(
-                  'h-auto py-4 px-6 justify-start text-left',
-                  'flex flex-col items-start gap-2',
-                  'hover:bg-accent transition-colors'
+                  'w-full text-left relative flex items-start gap-4 p-5 rounded-xl border border-border-subtle bg-card transition-all',
+                  !isLoading && 'hover:border-border hover:bg-accent/50 cursor-pointer',
+                  isLoading && 'opacity-50 cursor-not-allowed'
                 )}
-                variant="outline"
               >
-                <div className="flex items-center gap-3 w-full">
-                  <div className="p-2 rounded-lg bg-muted">
-                    <X className="size-5 text-muted-foreground" strokeWidth={1.5} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-semibold text-foreground">Start empty</div>
-                    <div className="text-sm text-muted-foreground mt-0.5">
-                      Build your own structure from scratch
-                    </div>
-                  </div>
+                <div className="flex-shrink-0 p-2.5 rounded-full bg-muted">
+                  <X className="size-5 text-muted-foreground" strokeWidth={1.75} />
                 </div>
-              </Button>
+                <div className="flex-1 space-y-1">
+                  <h3 className="font-semibold text-foreground text-base">Start empty</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Build your own structure from scratch
+                  </p>
+                </div>
+              </button>
             </div>
           </div>
         )}

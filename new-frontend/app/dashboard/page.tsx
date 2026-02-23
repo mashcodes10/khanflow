@@ -1,5 +1,7 @@
 'use client'
 
+import { withAuth } from '@/components/auth/with-auth'
+
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
@@ -58,11 +60,13 @@ const initialLifeAreas = [
     tagColor: 'career' as const,
     boards: [
       { id: 'career-1', title: 'Career Goals', intents: [] },
-      { id: 'career-2', title: 'Side Projects', intents: [
-        { id: 'sp-1', text: 'Khanflow', isCompleted: false },
-        { id: 'sp-2', text: 'Build a side project', isCompleted: false },
-        { id: 'sp-3', text: 'Stock Trading', isCompleted: false },
-      ]},
+      {
+        id: 'career-2', title: 'Side Projects', intents: [
+          { id: 'sp-1', text: 'Khanflow', isCompleted: false },
+          { id: 'sp-2', text: 'Build a side project', isCompleted: false },
+          { id: 'sp-3', text: 'Stock Trading', isCompleted: false },
+        ]
+      },
       { id: 'career-3', title: 'Networking', intents: [{ id: 'nw-1', text: 'Send Cold Emails', isCompleted: false }] },
       { id: 'career-4', title: 'Professional Development', intents: [] },
     ],
@@ -103,7 +107,7 @@ const navItems = [
   { icon: Clock, label: 'Availability', href: '#' },
 ]
 
-export default function LifeOrganizationPage() {
+function LifeOrganizationPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<'areas' | 'suggestions'>('areas')
@@ -170,7 +174,7 @@ export default function LifeOrganizationPage() {
       const optionIndex = params.optionIndex !== undefined && params.optionIndex !== null
         ? params.optionIndex
         : 0;
-      
+
       return lifeOrganizationAPI.acceptSuggestion(params.suggestionId, {
         optionIndex,
         destinationList: params.destinationList,
@@ -279,17 +283,17 @@ export default function LifeOrganizationPage() {
     onSuccess: async (data) => {
       const count = data.data?.removedCount || 0
       toast.success(`Cleared ${count} life area${count !== 1 ? 's' : ''}. Choose a new template or start fresh.`)
-      
+
       // Invalidate and refetch queries to ensure fresh data
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['life-areas'] }),
         queryClient.invalidateQueries({ queryKey: ['life-org-onboarding-status'] }),
         queryClient.invalidateQueries({ queryKey: ['suggestions'] }),
       ])
-      
+
       // Refetch onboarding status to get updated value
       await queryClient.refetchQueries({ queryKey: ['life-org-onboarding-status'] })
-      
+
       // Show onboarding modal immediately after clearing
       setShowOnboarding(true)
     },
@@ -306,7 +310,7 @@ export default function LifeOrganizationPage() {
   const getTagColor = (name: string, index: number, icon?: string): 'default' | 'health' | 'career' | 'relationships' | 'learning' | 'hobbies' | 'financial' | 'travel' | 'personal' => {
     const lowerName = name.toLowerCase()
     const iconLower = icon?.toLowerCase()
-    
+
     // First, try specific keyword matching
     if (iconLower === 'health' || lowerName.includes('health') || lowerName.includes('fitness')) {
       return 'health'  // green
@@ -332,7 +336,7 @@ export default function LifeOrganizationPage() {
     if (lowerName.includes('personal') || lowerName.includes('home') || lowerName.includes('project')) {
       return 'personal'  // indigo
     }
-    
+
     // If no specific match, use round-robin to ensure unique colors
     const colorOptions: ('health' | 'career' | 'relationships' | 'learning' | 'hobbies' | 'financial' | 'travel' | 'personal')[] = [
       'health', 'career', 'relationships', 'learning', 'hobbies', 'financial', 'travel', 'personal'
@@ -540,11 +544,10 @@ export default function LifeOrganizationPage() {
                             {suggestion.reason}
                           </p>
                         </div>
-                        <span className={`text-xs px-2 py-1 rounded-full ${
-                          suggestion.priority === 'high' ? 'bg-destructive/20 text-destructive' :
-                          suggestion.priority === 'medium' ? 'bg-warning/20 text-warning' :
-                          'bg-muted text-muted-foreground'
-                        }`}>
+                        <span className={`text-xs px-2 py-1 rounded-full ${suggestion.priority === 'high' ? 'bg-destructive/20 text-destructive' :
+                            suggestion.priority === 'medium' ? 'bg-warning/20 text-warning' :
+                              'bg-muted text-muted-foreground'
+                          }`}>
                           {suggestion.priority}
                         </span>
                       </div>
@@ -559,7 +562,7 @@ export default function LifeOrganizationPage() {
                             const optionIndex = isNaN(defaultOptionIndex) || defaultOptionIndex < 0
                               ? 0
                               : defaultOptionIndex;
-                            
+
                             acceptSuggestionMutation.mutate({
                               suggestionId: suggestion.id,
                               optionIndex,
@@ -601,3 +604,5 @@ export default function LifeOrganizationPage() {
     </div>
   )
 }
+
+export default withAuth(LifeOrganizationPage)

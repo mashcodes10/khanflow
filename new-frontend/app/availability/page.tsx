@@ -1,5 +1,7 @@
 'use client'
 
+import { withAuth } from '@/components/auth/with-auth'
+
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -31,7 +33,7 @@ const defaultSchedule: WeeklySchedule = {
   saturday: { enabled: false, blocks: [] },
 }
 
-export default function AvailabilityPage() {
+function AvailabilityPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
 
@@ -44,7 +46,7 @@ export default function AvailabilityPage() {
       }
     }
   }, [router])
-  
+
   // Fetch availability from backend
   const { data: availabilityData, isLoading } = useQuery({
     queryKey: ['availability'],
@@ -98,7 +100,7 @@ export default function AvailabilityPage() {
     },
     onError: (error: any) => {
       // Show detailed validation errors if available
-      const errorMessage = error?.response?.data?.errors 
+      const errorMessage = error?.response?.data?.errors
         ? `Validation failed: ${error.response.data.errors.map((e: any) => `${e.field}: ${Object.values(e.message || {}).join(', ')}`).join('; ')}`
         : error?.response?.data?.message || error.message || 'Failed to save availability'
       toast.error(errorMessage)
@@ -122,13 +124,13 @@ export default function AvailabilityPage() {
     const days = dayOrder.map((dayKey) => {
       const config = schedule[dayKey as keyof WeeklySchedule]
       // Ensure times are in HH:mm format
-      const startTime = config.enabled && config.blocks.length > 0 
-        ? config.blocks[0].start 
+      const startTime = config.enabled && config.blocks.length > 0
+        ? config.blocks[0].start
         : '09:00'
-      const endTime = config.enabled && config.blocks.length > 0 
-        ? config.blocks[0].end 
+      const endTime = config.enabled && config.blocks.length > 0
+        ? config.blocks[0].end
         : '17:00'
-      
+
       return {
         day: dayKey.toUpperCase() as 'SUNDAY' | 'MONDAY' | 'TUESDAY' | 'WEDNESDAY' | 'THURSDAY' | 'FRIDAY' | 'SATURDAY',
         startTime: startTime.length === 5 ? startTime : `${startTime}:00`.slice(0, 5), // Ensure HH:mm format
@@ -232,3 +234,5 @@ export default function AvailabilityPage() {
     </div>
   )
 }
+
+export default withAuth(AvailabilityPage)

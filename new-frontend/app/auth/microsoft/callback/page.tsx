@@ -44,7 +44,7 @@ function MicrosoftCallbackContent() {
 
         toast.success('Signed in with Microsoft successfully')
         // Use window.location for a hard redirect to ensure auth state is cleared
-        window.location.href = '/'
+        window.location.href = '/dashboard'
       } catch (error: any) {
         console.error('Microsoft callback error:', error)
         const errorMessage = error?.response?.data?.message || error?.message || 'Failed to complete Microsoft sign in'

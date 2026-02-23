@@ -31,7 +31,7 @@ export default function CTASection() {
 
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link
-                  href="/dashboard"
+                  href="/auth/signup"
                   className="inline-flex items-center justify-center gap-2 bg-foreground text-background px-8 py-3.5 rounded-[6px] text-[15px] font-semibold tracking-normal transition-all hover:bg-foreground/90 shadow-sm active:scale-[0.98]"
                 >
                   Sync My Workspace

@@ -1,5 +1,7 @@
 'use client'
 
+import { withAuth } from '@/components/auth/with-auth'
+
 import { useState, useMemo, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -177,7 +179,7 @@ function groupByDate(meetings: TransformedMeeting[]) {
   return groups
 }
 
-export default function MeetingsPage() {
+function MeetingsPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState('upcoming')
@@ -268,7 +270,7 @@ export default function MeetingsPage() {
       // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase()
-        const matchesSearch = 
+        const matchesSearch =
           meeting.title.toLowerCase().includes(query) ||
           meeting.eventType?.toLowerCase().includes(query) ||
           meeting.attendeeEmail.toLowerCase().includes(query)
@@ -344,7 +346,7 @@ export default function MeetingsPage() {
                       {groupedMeetings[dateLabel].length} meeting{groupedMeetings[dateLabel].length !== 1 ? 's' : ''}
                     </span>
                   </div>
-                  
+
                   {/* Meetings in this date group */}
                   <div>
                     {groupedMeetings[dateLabel].map((meeting, index) => (
@@ -387,18 +389,18 @@ export default function MeetingsPage() {
                 <Users className="size-6 text-muted-foreground" strokeWidth={1.5} />
               </div>
               <h3 className="text-sm font-medium text-foreground mb-1">
-                {searchQuery || statusFilter !== 'all' 
+                {searchQuery || statusFilter !== 'all'
                   ? 'No matching meetings'
                   : `No ${activeTab} meetings`}
               </h3>
               <p className="text-xs text-muted-foreground max-w-xs">
                 {searchQuery || statusFilter !== 'all'
                   ? 'Try adjusting your search or filters.'
-                  : activeTab === 'upcoming' 
+                  : activeTab === 'upcoming'
                     ? 'Share your booking link to get started.'
                     : activeTab === 'cancelled'
-                    ? 'No meetings have been cancelled.'
-                    : 'No past meetings to show.'}
+                      ? 'No meetings have been cancelled.'
+                      : 'No past meetings to show.'}
               </p>
             </div>
           )}
@@ -407,3 +409,5 @@ export default function MeetingsPage() {
     </div>
   )
 }
+
+export default withAuth(MeetingsPage)

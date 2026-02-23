@@ -1,5 +1,7 @@
 'use client'
 
+import { withAuth } from '@/components/auth/with-auth'
+
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -51,7 +53,7 @@ const mockUser = {
   email: 'mashiur.khan@vanderbilt.edu',
 }
 
-export default function MicrosoftTodoPage() {
+function MicrosoftTodoPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [expandedLists, setExpandedLists] = useState<Record<string, boolean>>({})
@@ -162,7 +164,7 @@ export default function MicrosoftTodoPage() {
   const lists: TaskListWithTasks[] = taskLists.map((list: MicrosoftTodoTaskList) => {
     const listData = tasksData?.data?.find((item: any) => item.taskList?.id === list.id)
     const tasksForList = listData?.tasks || []
-    
+
     const incompleteTasks = tasksForList.filter((t: MicrosoftTodoTask) => t.status !== 'completed')
     const completedTasks = tasksForList.filter((t: MicrosoftTodoTask) => t.status === 'completed')
 
@@ -432,3 +434,5 @@ export default function MicrosoftTodoPage() {
     </div>
   )
 }
+
+export default withAuth(MicrosoftTodoPage)

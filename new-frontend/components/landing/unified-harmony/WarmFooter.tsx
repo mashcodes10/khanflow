@@ -7,19 +7,19 @@ export default function WarmFooter() {
         <div>&copy; 2023 Unified Inc. All rights reserved.</div>
         <div className="flex gap-6 mt-4 md:mt-0">
           <Link
-            href="/dashboard"
+            href="#"
             className="hover:text-[oklch(0.82_0.008_75)] transition-colors"
           >
             Privacy
           </Link>
           <Link
-            href="/dashboard"
+            href="#"
             className="hover:text-[oklch(0.82_0.008_75)] transition-colors"
           >
             Terms
           </Link>
           <Link
-            href="/dashboard"
+            href="#"
             className="hover:text-[oklch(0.82_0.008_75)] transition-colors"
           >
             Twitter
