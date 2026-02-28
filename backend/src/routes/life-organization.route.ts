@@ -30,6 +30,12 @@ import {
   importTaskController,
   reorderBoardsController,
   moveIntentController,
+  getBoardLinksController,
+  linkBoardController,
+  unlinkBoardController,
+  importBoardController,
+  exportBoardController,
+  importBoardDirectController,
 } from "../controllers/life-organization.controller";
 
 const router = Router();
@@ -75,12 +81,20 @@ router.post("/remove-examples", removeExampleIntentsController);
 router.post("/clear", clearLifeOrganizationController);
 router.get("/templates", getTemplatesController);
 
-// Import from external providers
+// Import from external providers (single task)
 router.post("/import-task", importTaskController);
 
 // Board and intent management
 router.post("/reorder-boards", reorderBoardsController);
 router.post("/move-intent", moveIntentController);
+
+// Board-level bidirectional sync
+router.get("/intent-boards/:id/links", getBoardLinksController);
+router.post("/intent-boards/:id/link", linkBoardController);
+router.delete("/intent-boards/:id/links/:linkId", unlinkBoardController);
+router.post("/intent-boards/:id/import", importBoardController);
+router.post("/intent-boards/:id/export", exportBoardController);
+router.post("/import-board", importBoardDirectController);
 
 export default router;
 

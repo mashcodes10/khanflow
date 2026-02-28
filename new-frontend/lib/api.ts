@@ -20,6 +20,7 @@ import {
   IntentBoard,
   Intent,
   Suggestion,
+  BoardExternalLink,
 } from "./types";
 import { API, PublicAPI, NextAPI } from "./axios-client";
 
@@ -719,5 +720,31 @@ export const lifeOrganizationAPI = {
   moveIntent: async (intentId: string, targetBoardId: string, newOrder: number) => {
     const response = await API.post("/life-organization/move-intent", { intentId, targetBoardId, newOrder });
     return response.data;
+  },
+
+  // Board-level bidirectional sync
+  getBoardLinks: async (boardId: string) => {
+    const response = await API.get(`/life-organization/intent-boards/${boardId}/links`);
+    return response.data as { data: BoardExternalLink[] };
+  },
+  linkBoard: async (boardId: string, data: { provider: string; externalListId: string; externalListName: string; syncDirection?: string }) => {
+    const response = await API.post(`/life-organization/intent-boards/${boardId}/link`, data);
+    return response.data;
+  },
+  unlinkBoard: async (boardId: string, linkId: string) => {
+    const response = await API.delete(`/life-organization/intent-boards/${boardId}/links/${linkId}`);
+    return response.data;
+  },
+  importBoard: async (boardId: string, data: { provider: string; externalListId: string }) => {
+    const response = await API.post(`/life-organization/intent-boards/${boardId}/import`, data);
+    return response.data as { data: { imported: number; skipped: number } };
+  },
+  exportBoard: async (boardId: string, data: { provider: string }) => {
+    const response = await API.post(`/life-organization/intent-boards/${boardId}/export`, data);
+    return response.data as { data: { exported: number; skipped: number } };
+  },
+  importBoardDirect: async (data: { provider: string; externalListId: string; lifeAreaId: string; boardId?: string; newBoardName?: string }) => {
+    const response = await API.post("/life-organization/import-board", data);
+    return response.data as { data: { imported: number; skipped: number; boardId: string } };
   },
 };

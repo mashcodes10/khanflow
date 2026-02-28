@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { tasksAPI, integrationsAPI, lifeOrganizationAPI } from '@/lib/api'
 import { toast } from 'sonner'
 import { ExportToLifeOSModal } from '@/components/life-org/export-to-lifeos-modal'
+import { ImportBoardModal } from '@/components/life-org/import-board-modal'
 
 interface Task {
   id: string
@@ -50,6 +51,7 @@ function TasksPage() {
   const [newTaskTitles, setNewTaskTitles] = useState<Record<string, string>>({})
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<{ task: Task; listId: string } | null>(null)
+  const [importModalList, setImportModalList] = useState<{ id: string; title: string; taskCount: number } | null>(null)
 
   // Check authentication
   useEffect(() => {
@@ -93,6 +95,20 @@ function TasksPage() {
   const { data: lifeAreasData } = useQuery({
     queryKey: ['life-areas'],
     queryFn: lifeOrganizationAPI.getLifeAreas,
+  })
+
+  // Import board (full list) to Life OS mutation
+  const importBoardMutation = useMutation({
+    mutationFn: lifeOrganizationAPI.importBoardDirect,
+    onSuccess: (res) => {
+      const { imported, skipped } = res.data
+      toast.success(`Copied ${imported} task${imported !== 1 ? 's' : ''} to Life OS${skipped > 0 ? ` (${skipped} already linked, skipped)` : ''}`)
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+      setImportModalList(null)
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to copy list to Life OS')
+    },
   })
 
   // Export to Life OS mutation
@@ -276,6 +292,19 @@ function TasksPage() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem disabled>Rename list</DropdownMenuItem>
                             <DropdownMenuItem disabled>Sort tasks</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() =>
+                                setImportModalList({
+                                  id: list.id,
+                                  title: list.title,
+                                  taskCount: list.tasks.length,
+                                })
+                              }
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Copy list to Life OS
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -386,6 +415,32 @@ function TasksPage() {
           </div>
         </div>
       </main>
+
+      {/* Import Board Modal — Copy full list to Life OS */}
+      {importModalList && (
+        <ImportBoardModal
+          open={!!importModalList}
+          onClose={() => setImportModalList(null)}
+          provider="google"
+          externalListId={importModalList.id}
+          externalListName={importModalList.title}
+          taskCount={importModalList.taskCount}
+          lifeAreas={(lifeAreasData?.data ?? []).map((area: any) => ({
+            id: area.id,
+            name: area.name,
+            intentBoards: (area.intentBoards ?? []).map((b: any) => ({ id: b.id, name: b.name })),
+          }))}
+          onImport={async (params) => {
+            await importBoardMutation.mutateAsync({
+              provider: 'google',
+              externalListId: params.externalListId,
+              lifeAreaId: params.lifeAreaId,
+              boardId: params.boardId,
+              newBoardName: params.newBoardName,
+            })
+          }}
+        />
+      )}
 
       {/* Export to Life OS Modal */}
       <ExportToLifeOSModal

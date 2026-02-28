@@ -26,11 +26,12 @@ import {
   Menu,
   RotateCcw,
 } from 'lucide-react'
-import { lifeOrganizationAPI } from '@/lib/api'
+import { lifeOrganizationAPI, integrationsAPI } from '@/lib/api'
 import type { LifeArea, Suggestion } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { OnboardingModal } from '@/components/life-org/onboarding-modal'
+import { ExportBoardModal } from '@/components/life-org/export-board-modal'
 
 // Sample data matching the original images (fallback)
 const initialLifeAreas = [
@@ -113,6 +114,11 @@ function LifeOrganizationPage() {
   const [activeTab, setActiveTab] = useState<'areas' | 'suggestions'>('areas')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [exportBoardModal, setExportBoardModal] = useState<{
+    boardId: string
+    boardName: string
+    links: Array<{ provider: string; externalListName: string }>
+  } | null>(null)
 
   // Check authentication on mount
   useEffect(() => {
@@ -136,6 +142,21 @@ function LifeOrganizationPage() {
     queryKey: ['life-areas'],
     queryFn: lifeOrganizationAPI.getLifeAreas,
   })
+
+  // Fetch integrations to know which providers are connected
+  const { data: integrationsData } = useQuery({
+    queryKey: ['integrations'],
+    queryFn: integrationsAPI.getAll,
+  })
+
+  const connectedProviders = {
+    google: integrationsData?.integrations?.some(
+      (i: any) => i.app_type === 'GOOGLE_TASKS' && i.isConnected
+    ) ?? false,
+    microsoft: integrationsData?.integrations?.some(
+      (i: any) => i.app_type === 'MICROSOFT_TODO' && i.isConnected
+    ) ?? false,
+  }
 
   // Check if onboarding should be shown
   useEffect(() => {
@@ -277,6 +298,19 @@ function LifeOrganizationPage() {
     },
   })
 
+  // Export board to provider
+  const exportBoardMutation = useMutation({
+    mutationFn: ({ boardId, provider }: { boardId: string; provider: string }) =>
+      lifeOrganizationAPI.exportBoard(boardId, { provider }),
+    onSuccess: (res) => {
+      const { exported, skipped } = res.data
+      toast.success(`Exported ${exported} intent${exported !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} skipped)` : ''}`)
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to export to provider')
+    },
+  })
+
   // Clear all life organization data mutation
   const clearLifeOrgMutation = useMutation({
     mutationFn: lifeOrganizationAPI.clearLifeOrganization,
@@ -359,6 +393,7 @@ function LifeOrganizationPage() {
         isCompleted: false,
         isExample: intent.isExample || false,
       })) || [],
+      links: board.boardExternalLinks ?? [],
     })) || [],
   }))
 
@@ -477,6 +512,7 @@ function LifeOrganizationPage() {
                       tagColor={area.tagColor}
                       boards={area.boards}
                       lifeAreaId={area.id}
+                      connectedProviders={connectedProviders}
                       onAddBoard={(lifeAreaId, boardName) => {
                         createIntentBoardMutation.mutate({
                           name: boardName,
@@ -495,6 +531,27 @@ function LifeOrganizationPage() {
                       }}
                       onMoveIntent={(intentId, targetBoardId, newOrder) => {
                         moveIntentMutation.mutate({ intentId, targetBoardId, newOrder })
+                      }}
+                      onImportFromProvider={(boardId, provider) => {
+                        // Direct users to the provider page to initiate import
+                        const destination = provider === 'google' ? '/tasks' : '/microsoft-todo'
+                        toast.info(`Go to ${provider === 'google' ? 'Google Tasks' : 'Microsoft Todo'} page and use "Copy list to Life OS" on a list.`, {
+                          action: { label: 'Go there', onClick: () => window.location.href = destination },
+                        })
+                      }}
+                      onExportToProvider={(boardId, links) => {
+                        const boardName = area.boards.find((b) => b.id === boardId)?.title ?? 'Board'
+                        setExportBoardModal({
+                          boardId,
+                          boardName,
+                          links: (links ?? []).map((l) => ({
+                            provider: l.provider,
+                            externalListName: l.externalListName,
+                          })),
+                        })
+                      }}
+                      onManageLinks={(boardId) => {
+                        toast.info('Manage links — coming soon')
                       }}
                     />
                   ))}
@@ -601,6 +658,33 @@ function LifeOrganizationPage() {
           )}
         </div>
       </main>
+
+      {/* Export Board Modal */}
+      {exportBoardModal && (
+        <ExportBoardModal
+          open={!!exportBoardModal}
+          onClose={() => setExportBoardModal(null)}
+          boardName={exportBoardModal.boardName}
+          boardId={exportBoardModal.boardId}
+          connectedProviders={[
+            ...(connectedProviders.google ? [{
+              provider: 'google' as const,
+              label: 'Google Tasks',
+              linkedListName: exportBoardModal.links.find((l) => l.provider === 'google')?.externalListName,
+            }] : []),
+            ...(connectedProviders.microsoft ? [{
+              provider: 'microsoft' as const,
+              label: 'Microsoft Todo',
+              linkedListName: exportBoardModal.links.find((l) => l.provider === 'microsoft')?.externalListName,
+            }] : []),
+          ]}
+          onExport={async (boardId, provider) => {
+            await exportBoardMutation.mutateAsync({ boardId, provider })
+          }}
+        />
+      )}
+
+      {/* Import Board from Provider: handled from Google Tasks / MS Todo pages */}
     </div>
   )
 }

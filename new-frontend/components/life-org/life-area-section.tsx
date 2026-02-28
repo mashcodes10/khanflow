@@ -13,8 +13,8 @@ import {
   useSensor,
   useSensors,
   DragEndEvent,
-  DragOverlay,
 } from '@dnd-kit/core'
+import type { BoardExternalLink } from '@/lib/types'
 
 interface Intent {
   id: string
@@ -26,6 +26,7 @@ interface Board {
   id: string
   title: string
   intents: Intent[]
+  links?: BoardExternalLink[]
 }
 
 interface LifeAreaSectionProps {
@@ -35,25 +36,33 @@ interface LifeAreaSectionProps {
   boards: Board[]
   lifeAreaId?: string
   className?: string
+  connectedProviders?: { google: boolean; microsoft: boolean }
   onAddBoard?: (lifeAreaId: string, boardName: string) => void
   onAddIntent?: (boardId: string, intent: { text: string; type: 'task' | 'reminder' | 'goal'; timeline?: string }) => void
   onToggleIntent?: (boardId: string, intentId: string) => void
   onDeleteIntent?: (intentId: string) => void
   onMoveIntent?: (intentId: string, targetBoardId: string, newOrder: number) => void
+  onImportFromProvider?: (boardId: string, provider: string) => void
+  onExportToProvider?: (boardId: string, links: BoardExternalLink[]) => void
+  onManageLinks?: (boardId: string) => void
 }
 
-export function LifeAreaSection({ 
-  title, 
-  tag, 
+export function LifeAreaSection({
+  title,
+  tag,
   tagColor = 'default',
   boards,
   lifeAreaId,
   className,
+  connectedProviders,
   onAddBoard,
   onAddIntent,
   onToggleIntent,
   onDeleteIntent,
   onMoveIntent,
+  onImportFromProvider,
+  onExportToProvider,
+  onManageLinks,
 }: LifeAreaSectionProps) {
   const isEmpty = boards.length === 0
 
@@ -129,9 +138,14 @@ export function LifeAreaSection({
                 boardId={board.id}
                 title={board.title}
                 intents={board.intents}
+                links={board.links}
+                connectedProviders={connectedProviders}
                 onAddIntent={(intent) => onAddIntent?.(board.id, intent)}
                 onToggleIntent={(intentId) => onToggleIntent?.(board.id, intentId)}
                 onDeleteIntent={onDeleteIntent}
+                onImportFromProvider={onImportFromProvider}
+                onExportToProvider={onExportToProvider}
+                onManageLinks={onManageLinks}
               />
             ))}
           </div>

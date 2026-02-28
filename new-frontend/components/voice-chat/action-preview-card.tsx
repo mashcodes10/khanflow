@@ -1,25 +1,17 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import {
   CheckSquare,
-  Calendar,
-  Bell,
-  Repeat,
-  Clock,
-  Tag,
-  CalendarDays,
-  CheckCircle2,
-  XCircle,
-  Edit3,
-  Zap,
-  Save,
-  X,
+  CalendarCheck,
+  ChevronDown,
+  Layers,
 } from 'lucide-react'
 import type { ParsedAction } from './types'
-import { DestinationSelector, Destination } from './destination-selector'
+import { Destination } from './destination-selector'
 import { useState, useRef, useEffect } from 'react'
+import { lifeOrganizationAPI } from '@/lib/api'
+import type { LifeArea, IntentBoard } from '@/lib/types'
 
 interface ActionPreviewCardProps {
   data: ParsedAction
@@ -29,99 +21,108 @@ interface ActionPreviewCardProps {
   disabled?: boolean
 }
 
-const typeConfig = {
-  task: {
-    icon: CheckSquare,
-    label: 'Task',
-    className: 'bg-accent/10 text-accent',
-  },
-  event: {
-    icon: Calendar,
-    label: 'Event',
-    className: 'bg-primary/10 text-primary',
-  },
-  reminder: {
-    icon: Bell,
-    label: 'Reminder',
-    className: 'bg-warning/20 text-warning',
-  },
-  recurring_task: {
-    icon: Repeat,
-    label: 'Recurring',
-    className: 'bg-primary/10 text-primary',
-  },
-}
-
-const priorityConfig: Record<string, { label: string; className: string }> = {
-  low: { label: 'Low', className: 'bg-muted text-muted-foreground' },
-  normal: { label: 'Normal', className: 'bg-accent/10 text-accent' },
-  medium: { label: 'Medium', className: 'bg-accent/10 text-accent' },
-  high: { label: 'High', className: 'bg-warning/20 text-warning' },
-  urgent: { label: 'Urgent', className: 'bg-destructive/10 text-destructive' },
-}
-
 const DURATION_OPTIONS = [
-  { label: '15 min', value: '15 min' },
-  { label: '30 min', value: '30 min' },
-  { label: '45 min', value: '45 min' },
-  { label: '1 hour', value: '60 min' },
-  { label: '1.5 hours', value: '90 min' },
-  { label: '2 hours', value: '120 min' },
+  { label: '30m', value: '30 min' },
+  { label: '1h', value: '60 min' },
 ]
 
 export function ActionPreviewCard({
   data,
   onConfirm,
   onCancel,
-  onEdit,
   disabled,
 }: ActionPreviewCardProps) {
-  const config = typeConfig[data.type] || typeConfig.task
-  const TypeIcon = config.icon
-  
-  const [selectedDestination, setSelectedDestination] = useState<Destination>(data.type === 'event' ? 'calendar' : 'tasks')
-  
-  // Editing state
+  // Type selection state
+  const [currentType, setCurrentType] = useState<'task' | 'event'>(
+    data.type === 'event' ? 'event' : 'task'
+  )
+  const [selectedDestination, setSelectedDestination] = useState<Destination>(
+    data.type === 'event' ? 'calendar' : 'tasks'
+  )
+  const [typeOpen, setTypeOpen] = useState(false)
+  const typeDropdownRef = useRef<HTMLDivElement>(null)
+
+  // Board selection state
+  const [boardOpen, setBoardOpen] = useState(false)
+  const boardDropdownRef = useRef<HTMLDivElement>(null)
+  const [selectedBoard, setSelectedBoard] = useState<IntentBoard | null>(null)
+  const [selectedLifeAreaId, setSelectedLifeAreaId] = useState<string | null>(null)
+  const [lifeAreas, setLifeAreas] = useState<LifeArea[]>([])
+
+  // Inline edit state
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(data.title)
   const [editDate, setEditDate] = useState(data.date || '')
   const [editTime, setEditTime] = useState(data.time || '')
   const [editDuration, setEditDuration] = useState(data.duration || '')
   const [editDescription, setEditDescription] = useState(data.description || '')
-  
   const titleInputRef = useRef<HTMLInputElement>(null)
-  
+
+  // Fetch life areas once on mount for the board picker
+  useEffect(() => {
+    lifeOrganizationAPI.getLifeAreas().then((res) => {
+      setLifeAreas(res.data ?? [])
+    }).catch(() => {
+      // silently fail — board picker just won't show options
+    })
+  }, [])
+
+  // Close dropdowns on outside click
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (typeDropdownRef.current && !typeDropdownRef.current.contains(e.target as Node)) {
+        setTypeOpen(false)
+      }
+      if (boardDropdownRef.current && !boardDropdownRef.current.contains(e.target as Node)) {
+        setBoardOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
   useEffect(() => {
     if (isEditing && titleInputRef.current) {
       titleInputRef.current.focus()
     }
   }, [isEditing])
 
-  // Convert display date to input date format (YYYY-MM-DD)
+  const handleTypeSwitch = (newType: 'task' | 'event') => {
+    setCurrentType(newType)
+    if (newType === 'event') {
+      setSelectedDestination('calendar')
+      setSelectedBoard(null)
+      setSelectedLifeAreaId(null)
+    } else {
+      // Destination depends on whether a board is selected
+      setSelectedDestination(selectedBoard ? 'intent' : 'tasks')
+    }
+    setTypeOpen(false)
+  }
+
+  const handleBoardSelect = (board: IntentBoard | null, lifeAreaId: string | null) => {
+    setSelectedBoard(board)
+    setSelectedLifeAreaId(lifeAreaId)
+    setSelectedDestination(board ? 'intent' : 'tasks')
+    setBoardOpen(false)
+  }
+
   const toInputDate = (displayDate: string): string => {
     if (!displayDate) return ''
-    // Try parsing the display format "Feb 8, 2026"
     const d = new Date(displayDate)
-    if (!isNaN(d.getTime())) {
-      return d.toISOString().split('T')[0]
-    }
+    if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]
     return displayDate
   }
 
-  // Convert input date to display format
   const toDisplayDate = (inputDate: string): string => {
     if (!inputDate) return ''
     const d = new Date(inputDate + 'T00:00:00')
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    }
+    if (!isNaN(d.getTime())) return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     return inputDate
   }
 
-  // Convert display time to 24h input format (HH:MM)
   const toInputTime = (displayTime: string): string => {
     if (!displayTime) return ''
-    // Handle "3:00 PM", "15:00:00", etc.
     const match = displayTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
     if (match) {
       let hours = parseInt(match[1])
@@ -134,7 +135,6 @@ export function ActionPreviewCard({
     return displayTime
   }
 
-  // Convert 24h input time to display format
   const toDisplayTime = (inputTime: string): string => {
     if (!inputTime) return ''
     const [h, m] = inputTime.split(':').map(Number)
@@ -142,7 +142,7 @@ export function ActionPreviewCard({
     const hours12 = h === 0 ? 12 : h > 12 ? h - 12 : h
     return `${hours12}:${(m || 0).toString().padStart(2, '0')} ${period}`
   }
-  
+
   const handleStartEditing = () => {
     setEditTitle(data.title)
     setEditDate(toInputDate(data.date || ''))
@@ -152,243 +152,282 @@ export function ActionPreviewCard({
     setIsEditing(true)
   }
 
-  const handleCancelEditing = () => {
-    setIsEditing(false)
-  }
-
-  const handleSaveEditing = () => {
-    setIsEditing(false)
-  }
-
-  const getEditedData = (): ParsedAction => {
-    return {
-      ...data,
-      title: editTitle,
-      date: toDisplayDate(editDate),
-      time: toDisplayTime(editTime),
-      duration: editDuration,
-      description: editDescription,
-    }
-  }
+  const getEditedData = (): ParsedAction => ({
+    ...data,
+    type: currentType === 'event' ? 'event' : data.type === 'recurring_task' ? 'recurring_task' : 'task',
+    title: editTitle,
+    date: toDisplayDate(editDate),
+    time: toDisplayTime(editTime),
+    duration: currentType === 'event' ? editDuration : undefined,
+    description: editDescription,
+    boardId: selectedBoard?.id,
+    lifeAreaId: selectedLifeAreaId ?? undefined,
+  })
 
   const handleConfirm = () => {
-    if (isEditing) {
-      onConfirm(selectedDestination, getEditedData())
-    } else {
-      onConfirm(selectedDestination)
-    }
+    onConfirm(selectedDestination, getEditedData())
   }
-  
+
+  const activeDuration = editDuration || data.duration || ''
+  const TypeIcon = currentType === 'event' ? CalendarCheck : CheckSquare
+
+  const hasBoards = lifeAreas.some((a) => a.intentBoards?.length > 0)
+
   return (
-    <div className="flex flex-col">
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-border-subtle flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div
-            className={cn(
-              'flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium',
-              config.className
-            )}
+    <div className="flex flex-col p-5 bg-card/60 backdrop-blur-sm border border-border/40 rounded-2xl w-full max-w-sm shadow-sm transition-colors mt-2">
+      {/* Header — icon + title + edit button */}
+      <div className="flex items-center gap-3 mb-4">
+        <div className="size-8 rounded-full bg-[hsl(var(--accent))]/10 flex items-center justify-center shrink-0">
+          <TypeIcon className="size-4 text-[hsl(var(--accent))]" strokeWidth={1.75} />
+        </div>
+        <div className="flex flex-col gap-0.5 min-w-0 flex-1">
+          {isEditing ? (
+            <input
+              ref={titleInputRef}
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className="bg-transparent border-b border-border/50 text-[14px] font-medium text-foreground focus:outline-none focus:border-[hsl(var(--accent))]/50 pb-0.5 w-full"
+              placeholder="Title..."
+            />
+          ) : (
+            <h3 className="font-medium text-[14px] text-foreground truncate">{data.title}</h3>
+          )}
+          <p className="text-[12px] text-muted-foreground">Review details</p>
+        </div>
+        {!isEditing && (
+          <button
+            type="button"
+            onClick={handleStartEditing}
+            className="px-2 py-1 rounded-md text-[11px] font-medium text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors shrink-0"
           >
-            <TypeIcon className="size-3" strokeWidth={2} />
-            {config.label}
-          </div>
-          {data.priority && priorityConfig[data.priority] && (
-            <div
-              className={cn(
-                'flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium',
-                priorityConfig[data.priority].className
-              )}
-            >
-              <Zap className="size-3" strokeWidth={2} />
-              {priorityConfig[data.priority].label}
+            Edit
+          </button>
+        )}
+      </div>
+
+      {/* ── Type dropdown ── */}
+      <div className="flex flex-col gap-2 mb-4">
+        <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Type</span>
+        <div className="relative" ref={typeDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setTypeOpen((v) => !v)}
+            className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-secondary/50 border border-border/30 text-[13px] text-foreground hover:border-border/60 transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <TypeIcon className="size-3.5 text-muted-foreground" strokeWidth={1.75} />
+              <span>{currentType === 'event' ? 'Calendar Event' : 'Task'}</span>
+            </div>
+            <ChevronDown className={cn('size-3.5 text-muted-foreground transition-transform', typeOpen && 'rotate-180')} />
+          </button>
+
+          {typeOpen && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border/40 rounded-lg shadow-lg z-50 overflow-hidden">
+              <button
+                type="button"
+                onClick={() => handleTypeSwitch('task')}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 py-2.5 text-[13px] hover:bg-secondary/60 transition-colors text-left',
+                  currentType === 'task' ? 'text-foreground bg-secondary/40' : 'text-muted-foreground'
+                )}
+              >
+                <CheckSquare className="size-3.5" strokeWidth={1.75} />
+                Task
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTypeSwitch('event')}
+                className={cn(
+                  'w-full flex items-center gap-2 px-3 py-2.5 text-[13px] hover:bg-secondary/60 transition-colors text-left',
+                  currentType === 'event' ? 'text-foreground bg-secondary/40' : 'text-muted-foreground'
+                )}
+              >
+                <CalendarCheck className="size-3.5" strokeWidth={1.75} />
+                Calendar Event
+              </button>
             </div>
           )}
         </div>
-        {isEditing && (
-          <span className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium">Editing</span>
-        )}
       </div>
 
-      {/* Body */}
-      <div className="px-4 py-3">
-        {isEditing ? (
-          /* ——— Editing Mode ——— */
-          <div className="flex flex-col gap-3">
-            {/* Title */}
-            <div>
-              <label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium mb-1 block">Title</label>
-              <input
-                ref={titleInputRef}
-                type="text"
-                value={editTitle}
-                onChange={(e) => setEditTitle(e.target.value)}
-                className="w-full bg-muted/30 border border-border-subtle rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/30"
-                placeholder="Event title..."
-              />
-            </div>
-
-            {/* Date & Time row */}
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium mb-1 block">Date</label>
-                <input
-                  type="date"
-                  value={editDate}
-                  onChange={(e) => setEditDate(e.target.value)}
-                  className="w-full bg-muted/30 border border-border-subtle rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/30 [color-scheme:dark]"
-                />
+      {/* ── Board selector (only when type = task) ── */}
+      {currentType === 'task' && hasBoards && (
+        <div className="flex flex-col gap-2 mb-4">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Life OS Board</span>
+          <div className="relative" ref={boardDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setBoardOpen((v) => !v)}
+              className="w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-secondary/50 border border-border/30 text-[13px] hover:border-border/60 transition-colors"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Layers className="size-3.5 text-muted-foreground shrink-0" strokeWidth={1.75} />
+                <span className={cn('truncate', selectedBoard ? 'text-foreground' : 'text-muted-foreground')}>
+                  {selectedBoard ? selectedBoard.name : 'None (standalone task)'}
+                </span>
               </div>
-              <div>
-                <label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium mb-1 block">Time</label>
-                <input
-                  type="time"
-                  value={editTime}
-                  onChange={(e) => setEditTime(e.target.value)}
-                  className="w-full bg-muted/30 border border-border-subtle rounded-lg px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/30 [color-scheme:dark]"
-                />
-              </div>
-            </div>
+              <ChevronDown className={cn('size-3.5 text-muted-foreground shrink-0 transition-transform', boardOpen && 'rotate-180')} />
+            </button>
 
-            {/* Duration */}
-            <div>
-              <label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium mb-1 block">Duration</label>
-              <div className="flex flex-wrap gap-1.5">
-                {DURATION_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => setEditDuration(opt.value)}
-                    className={cn(
-                      'px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-colors',
-                      editDuration === opt.value 
-                        ? 'bg-accent/10 border-accent/30 text-accent' 
-                        : 'bg-muted/30 border-border-subtle text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {boardOpen && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-card border border-border/40 rounded-lg shadow-lg z-50 overflow-hidden max-h-52 overflow-y-auto">
+                {/* None option */}
+                <button
+                  type="button"
+                  onClick={() => handleBoardSelect(null, null)}
+                  className={cn(
+                    'w-full flex items-center gap-2 px-3 py-2.5 text-[13px] hover:bg-secondary/60 transition-colors text-left',
+                    !selectedBoard ? 'text-foreground bg-secondary/40' : 'text-muted-foreground'
+                  )}
+                >
+                  None (standalone task)
+                </button>
+                <div className="h-px bg-border/30 mx-3" />
 
-            {/* Description */}
-            <div>
-              <label className="text-[10px] text-muted-foreground/60 uppercase tracking-wider font-medium mb-1 block">Description (optional)</label>
-              <input
-                type="text"
-                value={editDescription}
-                onChange={(e) => setEditDescription(e.target.value)}
-                className="w-full bg-muted/30 border border-border-subtle rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-accent/30 focus:border-accent/30"
-                placeholder="Add a description..."
-              />
-            </div>
+                {/* Life areas + boards */}
+                {lifeAreas.map((area) => {
+                  const boards = area.intentBoards ?? []
+                  if (boards.length === 0) return null
+                  return (
+                    <div key={area.id}>
+                      <div className="px-3 pt-2.5 pb-1 text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-widest">
+                        {area.name}
+                      </div>
+                      {boards.map((board) => (
+                        <button
+                          key={board.id}
+                          type="button"
+                          onClick={() => handleBoardSelect(board, area.id)}
+                          className={cn(
+                            'w-full flex items-center gap-2 px-4 py-2 text-[13px] hover:bg-secondary/60 transition-colors text-left',
+                            selectedBoard?.id === board.id ? 'text-foreground bg-secondary/40' : 'text-muted-foreground'
+                          )}
+                        >
+                          {board.name}
+                        </button>
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
-        ) : (
-          /* ——— Display Mode ——— */
-          <>
-            {data.title && (
-              <h4 className="text-sm font-semibold text-foreground mb-2">
-                {data.title}
-              </h4>
-            )}
-            {data.description && (
-              <p className="text-xs text-muted-foreground leading-relaxed mb-3">
-                {data.description}
-              </p>
-            )}
+        </div>
+      )}
 
-            {/* Metadata row */}
-            <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-              {data.date && (
-                <span className="flex items-center gap-1.5">
-                  <CalendarDays className="size-3" strokeWidth={1.75} />
-                  {data.date}
-                </span>
-              )}
-              {data.time && (
-                <span className="flex items-center gap-1.5">
-                  <Clock className="size-3" strokeWidth={1.75} />
-                  {data.time}
-                </span>
-              )}
-              {data.duration && (
-                <span className="flex items-center gap-1.5">
-                  <Clock className="size-3" strokeWidth={1.75} />
-                  {data.duration}
-                </span>
-              )}
-              {data.category && (
-                <span className="flex items-center gap-1.5">
-                  <Tag className="size-3" strokeWidth={1.75} />
-                  {data.category}
-                </span>
-              )}
-              {data.recurrence && (
-                <span className="flex items-center gap-1.5">
-                  <Repeat className="size-3" strokeWidth={1.75} />
-                  {data.recurrence}
-                </span>
-              )}
+      {/* Metadata fields */}
+      <div className="flex flex-col gap-3 mb-6">
+        {isEditing ? (
+          <>
+            <div className="flex items-center justify-between pb-3 border-b border-border/30 gap-4">
+              <span className="text-[13px] text-muted-foreground shrink-0">Date</span>
+              <input
+                type="date"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+                className="bg-transparent border-none text-[13px] text-foreground text-right focus:outline-none focus:ring-0 min-w-0 [color-scheme:dark]"
+              />
+            </div>
+            <div className="flex items-center justify-between pb-3 border-b border-border/30 gap-4">
+              <span className="text-[13px] text-muted-foreground shrink-0">Time</span>
+              <input
+                type="time"
+                value={editTime}
+                onChange={(e) => setEditTime(e.target.value)}
+                className="bg-transparent border-none text-[13px] text-foreground text-right focus:outline-none focus:ring-0 min-w-0 [color-scheme:dark]"
+              />
             </div>
           </>
+        ) : (data.date || data.time) ? (
+          <>
+            {data.date && (
+              <div className="flex items-center justify-between pb-3 border-b border-border/30">
+                <span className="text-[13px] text-muted-foreground">Date</span>
+                <span className="text-[13px] text-foreground font-medium truncate">{data.date}</span>
+              </div>
+            )}
+            {data.time && (
+              <div className="flex items-center justify-between pb-3 border-b border-border/30">
+                <span className="text-[13px] text-muted-foreground">Time</span>
+                <span className="text-[13px] text-foreground font-medium truncate">{data.time}</span>
+              </div>
+            )}
+          </>
+        ) : null}
+
+        {/* Duration — only for calendar events */}
+        {currentType === 'event' && (
+          <div className="flex items-center justify-between pb-3 border-b border-border/30">
+            <span className="text-[13px] text-muted-foreground">Duration</span>
+            <div className="flex gap-1.5 items-center">
+              {DURATION_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setEditDuration(opt.value)}
+                  disabled={disabled}
+                  className={cn(
+                    'px-2 py-1 rounded-md text-[11px] font-medium transition-colors border',
+                    activeDuration === opt.value
+                      ? 'bg-foreground/10 text-foreground border-border/50'
+                      : 'bg-transparent text-muted-foreground border-transparent hover:border-border/40'
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Destination Selector — always shown so user chooses where to save */}
-      <div className="px-4 py-3 border-t border-border-subtle">
-        <DestinationSelector
-          value={selectedDestination}
-          onChange={setSelectedDestination}
-        />
-      </div>
+      {isEditing && (
+        <div className="flex flex-col gap-1.5 mb-5">
+          <span className="text-[13px] text-muted-foreground">Description</span>
+          <input
+            type="text"
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            className="w-full bg-secondary/50 border border-border/50 rounded-lg px-3 py-2 text-[13px] text-foreground focus:outline-none focus:border-[hsl(var(--accent))]/50"
+            placeholder="Add details..."
+          />
+        </div>
+      )}
 
-      {/* Actions */}
-      <div className="px-3 py-2.5 border-t border-border-subtle flex items-center gap-2">
-        <Button
-          size="sm"
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        <button
+          type="button"
           onClick={handleConfirm}
           disabled={disabled}
-          className="flex-1 gap-1.5 rounded-xl bg-accent text-accent-foreground hover:bg-accent/90 h-9"
+          className={cn(
+            'flex-1 py-2 rounded-xl text-[13px] font-medium transition-all active:scale-[0.98]',
+            'bg-foreground text-background hover:opacity-90',
+            disabled && 'opacity-50 pointer-events-none'
+          )}
         >
-          <CheckCircle2 className="size-3.5" strokeWidth={2} />
-          Confirm
-        </Button>
+          {isEditing ? 'Save & Confirm' : 'Confirm'}
+        </button>
+
         {isEditing ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleCancelEditing}
-            disabled={disabled}
-            className="rounded-xl bg-transparent h-9 w-9 p-0"
-            title="Cancel editing"
+          <button
+            type="button"
+            onClick={() => setIsEditing(false)}
+            className="flex-1 py-2 rounded-xl bg-transparent border border-border/40 text-[13px] font-medium text-foreground hover:bg-secondary/40 transition-colors"
           >
-            <X className="size-3.5" strokeWidth={1.75} />
-            <span className="sr-only">Cancel edit</span>
-          </Button>
+            Cancel
+          </button>
         ) : (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleStartEditing}
+          <button
+            type="button"
+            onClick={onCancel}
             disabled={disabled}
-            className="rounded-xl bg-transparent h-9 w-9 p-0"
-            title="Edit details"
+            className="flex-1 py-2 rounded-xl bg-transparent border border-border/40 text-[13px] font-medium text-foreground hover:bg-secondary/40 transition-colors"
           >
-            <Edit3 className="size-3.5" strokeWidth={1.75} />
-            <span className="sr-only">Edit action</span>
-          </Button>
+            Discard
+          </button>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onCancel}
-          disabled={disabled}
-          className="rounded-xl text-muted-foreground hover:text-destructive h-9 w-9 p-0"
-        >
-          <XCircle className="size-3.5" strokeWidth={1.75} />
-          <span className="sr-only">Cancel</span>
-        </Button>
       </div>
     </div>
   )

@@ -240,6 +240,20 @@ export interface IntentBoard {
   lifeAreaId: string;
   order?: number;
   intents?: Intent[];
+  boardExternalLinks?: BoardExternalLink[];
+}
+
+export interface BoardExternalLink {
+  id: string;
+  userId: string;
+  boardId: string;
+  provider: 'google' | 'microsoft';
+  externalListId: string;
+  externalListName: string;
+  syncDirection: 'import_only' | 'export_only' | 'both';
+  lastSyncedAt?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Intent {

@@ -1,9 +1,8 @@
 'use client'
 
 import React from "react"
-
 import { cn } from '@/lib/utils'
-import { Mic, Bot, Loader2 } from 'lucide-react'
+import { Sparkles, Loader2 } from 'lucide-react'
 import type { Message } from './types'
 
 interface ChatBubbleProps {
@@ -16,57 +15,25 @@ export function ChatBubble({ message, children }: ChatBubbleProps) {
   const isThinking = message.content.kind === 'thinking'
 
   return (
-    <div
-      className={cn(
-        'flex gap-3 w-full',
-        isUser ? 'flex-row-reverse' : 'flex-row'
-      )}
-    >
-      {/* Avatar */}
-      <div
-        className={cn(
-          'size-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5',
-          isUser
-            ? 'bg-accent/15 text-accent'
-            : 'bg-muted text-muted-foreground'
-        )}
-      >
-        {isUser ? (
-          <Mic className="size-3.5" strokeWidth={2} />
-        ) : (
-          <Bot className="size-3.5" strokeWidth={2} />
-        )}
-      </div>
-
-      {/* Content */}
-      <div
-        className={cn(
-          'flex flex-col gap-1 max-w-[85%] min-w-0',
-          isUser ? 'items-end' : 'items-start'
-        )}
-      >
-        {/* Label */}
-        <span className="text-[11px] font-medium text-muted-foreground/60 px-1">
-          {isUser ? 'You' : 'Khanflow AI'}
-        </span>
-
+    <div className={cn('flex w-full', isUser ? 'justify-end' : 'justify-start')}>
+      <div className={cn('flex flex-col gap-1.5 max-w-[85%] min-w-0', isUser ? 'items-end' : 'items-start')}>
         {/* Bubble */}
         <div
           className={cn(
-            'rounded-2xl text-sm leading-relaxed',
+            'text-[14px] leading-relaxed',
             isThinking
-              ? 'bg-muted/50 px-4 py-3'
+              ? 'text-muted-foreground py-2'
               : isUser
-                ? 'bg-accent/10 border border-accent/15 text-foreground px-4 py-3'
-                : 'bg-card border border-border-subtle text-foreground',
-            // AI messages with complex content get no padding (components handle their own)
+                ? 'bg-secondary/40 text-foreground px-4 py-2.5 rounded-2xl rounded-tr-sm border border-border/30'
+                : 'text-foreground py-1',
+            // AI complex content — components handle own padding
             !isUser && message.content.kind !== 'text' && message.content.kind !== 'thinking' && message.content.kind !== 'error'
-              ? 'p-0 overflow-hidden'
-              : !isUser ? 'px-4 py-3' : ''
+              ? 'px-0 py-1 overflow-hidden'
+              : ''
           )}
         >
           {isThinking ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
+            <div className="flex items-center gap-2">
               <Loader2 className="size-3.5 animate-spin" strokeWidth={2} />
               <span className="text-xs">Thinking...</span>
             </div>
@@ -75,13 +42,14 @@ export function ChatBubble({ message, children }: ChatBubbleProps) {
           )}
         </div>
 
-        {/* Timestamp */}
-        <span className="text-[10px] text-muted-foreground/40 px-1 tabular-nums">
-          {message.timestamp.toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </span>
+        {/* Label below bubble */}
+        {isUser && (
+          <div className="flex items-center gap-1.5 px-2">
+            <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+              You
+            </span>
+          </div>
+        )}
       </div>
     </div>
   )

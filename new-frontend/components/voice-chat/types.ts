@@ -32,6 +32,8 @@ export interface ParsedAction {
   category?: string
   priority?: 'low' | 'medium' | 'high' | 'urgent'
   recurrence?: string
+  boardId?: string
+  lifeAreaId?: string
 }
 
 export interface ClarificationData {

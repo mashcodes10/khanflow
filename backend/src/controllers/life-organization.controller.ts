@@ -28,6 +28,15 @@ import {
 import { acceptSuggestionWithOptions } from "../services/suggestion-accept.service";
 import { syncAllProviders } from "../services/provider-sync.service";
 import {
+  linkBoardService,
+  unlinkBoardService,
+  getBoardLinksService,
+  importBoardService,
+  exportBoardService,
+  importBoardDirectService,
+} from "../services/board-sync.service";
+import { ProviderType } from "../database/entities/provider-task-link.entity";
+import {
   processOnboardingService,
   ONBOARDING_QUESTIONS,
 } from "../services/life-organization-onboarding.service";
@@ -824,6 +833,186 @@ export const moveIntentController = asyncHandler(
 
     return res.status(HTTPSTATUS.OK).json({
       message: "Intent moved successfully",
+    });
+  }
+);
+
+// ─── Board Sync Controllers ───────────────────────────────────────────────────
+
+/**
+ * GET /api/life-organization/intent-boards/:id/links
+ * Get all external links for a board
+ */
+export const getBoardLinksController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { id } = req.params;
+
+    const links = await getBoardLinksService(userId, id);
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Board links retrieved successfully",
+      data: links,
+    });
+  }
+);
+
+/**
+ * POST /api/life-organization/intent-boards/:id/link
+ * Link a board to an external task list
+ */
+export const linkBoardController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { id } = req.params;
+    const { provider, externalListId, externalListName, syncDirection } = req.body;
+
+    if (!provider || !externalListId || !externalListName) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "provider, externalListId, and externalListName are required",
+      });
+    }
+
+    if (!Object.values(ProviderType).includes(provider)) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: `provider must be one of: ${Object.values(ProviderType).join(", ")}`,
+      });
+    }
+
+    const link = await linkBoardService(
+      userId,
+      id,
+      provider as ProviderType,
+      externalListId,
+      externalListName,
+      syncDirection ?? "both"
+    );
+
+    return res.status(HTTPSTATUS.CREATED).json({
+      message: "Board linked successfully",
+      data: link,
+    });
+  }
+);
+
+/**
+ * DELETE /api/life-organization/intent-boards/:id/links/:linkId
+ * Unlink a board from an external task list
+ */
+export const unlinkBoardController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { id, linkId } = req.params;
+
+    await unlinkBoardService(userId, id, linkId);
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Board unlinked successfully",
+    });
+  }
+);
+
+/**
+ * POST /api/life-organization/intent-boards/:id/import
+ * Import tasks from an external provider into a board
+ */
+export const importBoardController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { id } = req.params;
+    const { provider, externalListId } = req.body;
+
+    if (!provider || !externalListId) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "provider and externalListId are required",
+      });
+    }
+
+    if (!Object.values(ProviderType).includes(provider)) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: `provider must be one of: ${Object.values(ProviderType).join(", ")}`,
+      });
+    }
+
+    const result = await importBoardService(userId, id, provider as ProviderType, externalListId);
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Board imported successfully",
+      data: result,
+    });
+  }
+);
+
+/**
+ * POST /api/life-organization/intent-boards/:id/export
+ * Export board intents to an external provider
+ */
+export const exportBoardController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { id } = req.params;
+    const { provider } = req.body;
+
+    if (!provider) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "provider is required",
+      });
+    }
+
+    if (!Object.values(ProviderType).includes(provider)) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: `provider must be one of: ${Object.values(ProviderType).join(", ")}`,
+      });
+    }
+
+    const result = await exportBoardService(userId, id, provider as ProviderType);
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Board exported successfully",
+      data: result,
+    });
+  }
+);
+
+/**
+ * POST /api/life-organization/import-board
+ * One-shot: import an external list into Life OS (creates link automatically)
+ */
+export const importBoardDirectController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { provider, externalListId, lifeAreaId, boardId, newBoardName } = req.body;
+
+    if (!provider || !externalListId || !lifeAreaId) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "provider, externalListId, and lifeAreaId are required",
+      });
+    }
+
+    if (!boardId && !newBoardName) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Either boardId or newBoardName must be provided",
+      });
+    }
+
+    if (!Object.values(ProviderType).includes(provider)) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: `provider must be one of: ${Object.values(ProviderType).join(", ")}`,
+      });
+    }
+
+    const result = await importBoardDirectService(
+      userId,
+      provider as ProviderType,
+      externalListId,
+      lifeAreaId,
+      boardId,
+      newBoardName
+    );
+
+    return res.status(HTTPSTATUS.CREATED).json({
+      message: "List imported into Life OS successfully",
+      data: result,
     });
   }
 );

@@ -10,6 +10,7 @@ import {
 } from "typeorm";
 import { LifeArea } from "./life-area.entity";
 import { Intent } from "./intent.entity";
+import { BoardExternalLink } from "./board-external-link.entity";
 
 @Entity({ name: "intent_boards" })
 export class IntentBoard {
@@ -38,6 +39,9 @@ export class IntentBoard {
     cascade: true,
   })
   intents: Intent[];
+
+  @OneToMany(() => BoardExternalLink, (link) => link.board)
+  boardExternalLinks: BoardExternalLink[];
 
   @CreateDateColumn()
   createdAt: Date;

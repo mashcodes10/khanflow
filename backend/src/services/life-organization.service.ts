@@ -12,7 +12,7 @@ export const getUserLifeAreasService = async (userId: string) => {
   
   const lifeAreas = await lifeAreaRepository.find({
     where: { userId },
-    relations: ["intentBoards", "intentBoards.intents"],
+    relations: ["intentBoards", "intentBoards.intents", "intentBoards.boardExternalLinks"],
     order: { order: "ASC", createdAt: "ASC" },
   });
 

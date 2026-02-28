@@ -728,6 +728,13 @@ export class EnhancedVoiceService {
             description: parsedAction.task.description,
           };
         }
+        // If the user explicitly selected a board in the frontend, route directly to it
+        if (action.boardId) {
+          parsedAction.matchedIntentBoardId = action.boardId;
+        }
+        if (action.lifeAreaId) {
+          parsedAction.matchedLifeAreaId = action.lifeAreaId;
+        }
       } else {
         // destination === 'tasks' - keep as task
         parsedAction.actionType = 'task';

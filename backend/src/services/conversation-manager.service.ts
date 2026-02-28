@@ -2,8 +2,10 @@ import { AppDataSource } from "../config/database.config";
 import { Conversation, ConversationStatus, ConversationStep } from "../database/entities/conversation.entity";
 import { ConversationMessage, MessageRole } from "../database/entities/conversation-message.entity";
 import { ParsedVoiceAction } from "./voice.service";
+import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { config } from "../config/app.config";
+import { VoiceService } from "./voice.service";
 
 const openai = new OpenAI({
   apiKey: config.OPENAI_API_KEY,
@@ -238,10 +240,10 @@ export class ConversationManager {
       const isTask = parsedAction.actionType === "task";
       if (isTask) {
         const relevantFields = parsedAction.confidence.missing_fields.filter(
-          f => !f.toLowerCase().includes("life area") && 
-               !f.toLowerCase().includes("intent board") &&
-               !f.toLowerCase().includes("lifearea") &&
-               !f.toLowerCase().includes("intentboard")
+          f => !f.toLowerCase().includes("life area") &&
+            !f.toLowerCase().includes("intent board") &&
+            !f.toLowerCase().includes("lifearea") &&
+            !f.toLowerCase().includes("intentboard")
         );
         return relevantFields.length > 0;
       }
@@ -264,7 +266,7 @@ export class ConversationManager {
     const isTask = actionType === "task";
 
     // For tasks, filter out intent-specific fields
-    let relevantFields = isTask 
+    let relevantFields = isTask
       ? missingFields.filter(f => !f.includes("life area") && !f.includes("intent board"))
       : missingFields;
 
@@ -395,9 +397,9 @@ If options don't make sense (like for a title or description), omit the "options
 
       const priorityA = getPriority(a);
       const priorityB = getPriority(b);
-      
+
       console.log(`Sorting fields: "${a}" (priority ${priorityA}) vs "${b}" (priority ${priorityB})`);
-      
+
       return priorityA - priorityB;
     });
   }
@@ -428,7 +430,7 @@ If options don't make sense (like for a title or description), omit the "options
 
     // Determine which field this clarifies
     const fieldName = context.pendingFields[0] || "unknown";
-    
+
     console.log(`Processing clarification for field: "${fieldName}", value: "${value}"`);
     console.log(`Current extractedData:`, context.extractedData);
     console.log(`Remaining pendingFields:`, context.pendingFields);
@@ -436,7 +438,7 @@ If options don't make sense (like for a title or description), omit the "options
     // Try to extract multiple fields from compound responses
     // e.g., "employment verification 3 p.m." could contain title + time
     const extractedFields = await this.parseCompoundResponse(value, context.pendingFields, context.extractedData);
-    
+
     console.log(`Extracted fields from compound response:`, extractedFields);
 
     // Update extracted data with all parsed fields
@@ -444,7 +446,7 @@ If options don't make sense (like for a title or description), omit the "options
       ...context.extractedData,
       ...extractedFields,
     };
-    
+
     console.log(`Updated extractedData:`, updatedData);
 
     // Remove all clarified fields from pending
@@ -453,7 +455,7 @@ If options don't make sense (like for a title or description), omit the "options
       const normalized = this.normalizeFieldName(field, context.extractedData);
       return !clarifiedFieldNames.includes(normalized);
     });
-    
+
     console.log(`Remaining pending fields after removing clarified:`, remainingPendingFields);
 
     // Update conversation
@@ -579,87 +581,52 @@ If options don't make sense (like for a title or description), omit the "options
     existingData: any
   ): Promise<Record<string, any>> {
     const result: Record<string, any> = {};
-    let remainingText = response.trim();
     const normalizedPending = pendingFields.map(f => this.normalizeFieldName(f, existingData));
 
-    // Try to extract time from the response
-    if (normalizedPending.includes("due_time")) {
-      // Match AM/PM format: "3:00 PM", "3pm", "3 p.m."
-      const timeAmPmRegex = /(\d{1,2}(?::\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.))/i;
-      // Match 24-hour format: "07:46", "14:30", "9:00"
-      const time24Regex = /\b(\d{1,2}:\d{2})\b/;
-      const timeAmPmMatch = remainingText.match(timeAmPmRegex);
-      const time24Match = !timeAmPmMatch ? remainingText.match(time24Regex) : null;
-      const timeMatch = timeAmPmMatch || time24Match;
-      if (timeMatch) {
-        result["due_time"] = this.parseTimeString(timeMatch[1]);
-        remainingText = remainingText.replace(timeMatch[0], "").trim();
+    const voiceService = new VoiceService();
+    const currentDateTime = existingData?.currentDateTime || new Date().toISOString();
+    const timezone = existingData?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+    const llmParsed = await voiceService.parseClarificationResponse(
+      response,
+      normalizedPending,
+      currentDateTime,
+      timezone
+    );
+
+    // Merge the AI parsed result
+    Object.assign(result, llmParsed);
+
+    // Normalize common title aliases Claude might return instead of "title"
+    if (!result.title) {
+      const alias = result.name ?? result.meeting_title ?? result.event_title ?? result.task_name ?? result.event_name;
+      if (alias) {
+        result.title = alias;
+        delete result.name;
+        delete result.meeting_title;
+        delete result.event_title;
+        delete result.task_name;
+        delete result.event_name;
       }
     }
 
-    // Try to extract duration from the response
-    if (normalizedPending.includes("duration_minutes")) {
-      const durationRegex = /(\d+\s*(?:hours?|hrs?|h|minutes?|mins?|m|half\s*(?:an?\s*)?hour))/i;
-      const durationMatch = remainingText.match(durationRegex);
-      if (durationMatch) {
-        result["duration_minutes"] = this.parseDurationString(durationMatch[1]);
-        remainingText = remainingText.replace(durationMatch[0], "").trim();
-      }
-    }
+    // Ensure "time" / "date" / "duration" aliases fall back to canonical field names
+    if (llmParsed.time && !llmParsed.due_time) result["due_time"] = llmParsed.time;
+    if (llmParsed.date && !llmParsed.due_date) result["due_date"] = llmParsed.date;
+    if (llmParsed.duration && !llmParsed.duration_minutes) result["duration_minutes"] = llmParsed.duration;
+    if (llmParsed.start_time && !llmParsed.due_time) result["due_time"] = llmParsed.start_time;
 
-    // Try to extract date from the response
-    if (normalizedPending.includes("due_date")) {
-      const dateRegex = /\b(tomorrow|today|next\s+(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday)|(?:\d{1,2}[\/\-]\d{1,2}(?:[\/\-]\d{2,4})?))\b/i;
-      const dateMatch = remainingText.match(dateRegex);
-      if (dateMatch) {
-        // Parse relative dates using existing data's timezone-aware current time
-        const dateStr = dateMatch[1].toLowerCase();
-        // Use the client's currentDateTime from existingData context if available
-        const clientDateTime = existingData?.currentDateTime;
-        const now = clientDateTime ? new Date(clientDateTime) : new Date();
-        let parsedDate: Date | null = null;
-        
-        if (dateStr === "tomorrow") {
-          parsedDate = new Date(now);
-          parsedDate.setDate(parsedDate.getDate() + 1);
-        } else if (dateStr === "today") {
-          parsedDate = now;
-        } else if (dateStr.startsWith("next ")) {
-          const dayName = dateStr.replace("next ", "");
-          parsedDate = this.getNextDayOfWeek(dayName);
-        }
-        
-        if (parsedDate) {
-          result["due_date"] = parsedDate.toISOString().split("T")[0];
-          remainingText = remainingText.replace(dateMatch[0], "").trim();
-        }
-      }
-    }
-
-    // Whatever text remains (after extracting time/duration/date) is likely the title
-    if (normalizedPending.includes("title") && remainingText.length > 0) {
-      // Clean up leftover prepositions/connectors
-      remainingText = remainingText.replace(/^(?:at|for|on|in|the)\s+/i, "").trim();
-      remainingText = remainingText.replace(/\s+(?:at|for|on|in)$/i, "").trim();
-      if (remainingText.length > 0) {
-        result["title"] = remainingText;
-      }
-    }
-
-    // If we only got ONE field and it's the first pending field, use the simple approach
-    // This handles the case where user just provides a simple answer ("30 minutes", "team standup")
-    if (Object.keys(result).length === 0) {
-      const firstField = normalizedPending[0];
-      if (firstField === "due_time") {
-        result["due_time"] = this.parseTimeString(response);
-      } else if (firstField === "duration_minutes") {
-        result["duration_minutes"] = this.parseDurationString(response);
-      } else if (firstField === "title") {
-        result["title"] = response;
-      } else if (firstField === "due_date") {
-        result[firstField] = response;
-      } else {
-        result[firstField] = response;
+    // Hard fallback: if Claude returned nothing at all and the primary pending field is "title",
+    // use the transcript directly as the title.  The user's spoken response to "What is the
+    // meeting called?" IS the title — there is nothing else it could be.
+    if (Object.keys(result).length === 0 && normalizedPending[0] === "title") {
+      const clean = response
+        .trim()
+        .replace(/^(umm?|uh|it'?s?|it should be called|call it|name it|titled?|called?|the title is)\s+/i, "")
+        .trim();
+      if (clean.length > 0 && clean.length < 200) {
+        result["title"] = clean;
+        console.log(`Hard-fallback: using raw transcript as title: "${clean}"`);
       }
     }
 
@@ -673,12 +640,12 @@ If options don't make sense (like for a title or description), omit the "options
     const days = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
     const targetDay = days.indexOf(dayName.toLowerCase());
     if (targetDay === -1) return new Date();
-    
+
     const now = new Date();
     const currentDay = now.getDay();
     let daysUntil = targetDay - currentDay;
     if (daysUntil <= 0) daysUntil += 7;
-    
+
     const result = new Date(now);
     result.setDate(result.getDate() + daysUntil);
     return result;
@@ -730,7 +697,7 @@ If options don't make sense (like for a title or description), omit the "options
    */
   private parseTimeString(timeStr: string): string {
     const str = timeStr.toLowerCase().trim();
-    
+
     // Already in HH:mm:ss format
     if (/^\d{1,2}:\d{2}(:\d{2})?$/.test(str)) {
       const parts = str.split(":");

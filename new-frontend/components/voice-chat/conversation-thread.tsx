@@ -2,13 +2,13 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { cn } from '@/lib/utils'
-import { Sparkles, RotateCcw, Trash2 } from 'lucide-react'
 import { ChatBubble } from './chat-bubble'
 import { ClarificationCard } from './clarification-card'
 import { ConflictCard } from './conflict-card'
 import { ActionPreviewCard } from './action-preview-card'
 import { SuccessCard } from './success-card'
 import { VoiceInputBar } from './voice-input-bar'
+import type { VoiceInputBarHandle } from './voice-input-bar'
 import { voiceAPI } from '@/lib/api'
 import { toast } from 'sonner'
 import type {
@@ -49,6 +49,7 @@ export function ConversationThread({ className }: ConversationThreadProps) {
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [currentConflictId, setCurrentConflictId] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const voiceInputRef = useRef<VoiceInputBarHandle>(null)
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -127,7 +128,7 @@ export function ConversationThread({ className }: ConversationThreadProps) {
         } else if (result.conflict) {
           // Show conflict resolver
           setCurrentConflictId(result.conflict.id || null)
-          
+
           // Format conflicting events
           const conflictingEvents = result.conflict.conflictingEvents?.map((event: any) => {
             const startDate = new Date(event.startTime)
@@ -140,25 +141,25 @@ export function ConversationThread({ className }: ConversationThreadProps) {
               isFlexible: event.isFlexible || false,
             }
           }) || []
-          
+
           // Format alternative time slots
           const alternatives = result.conflict.suggestions?.map((slot: any, idx: number) => {
             const startDate = new Date(slot.startTime)
             const endDate = new Date(slot.endTime)
-            const dateStr = startDate.toLocaleDateString('en-US', { 
-              weekday: 'short', 
-              month: 'short', 
-              day: 'numeric' 
+            const dateStr = startDate.toLocaleDateString('en-US', {
+              weekday: 'short',
+              month: 'short',
+              day: 'numeric'
             })
-            const startTimeStr = startDate.toLocaleTimeString('en-US', { 
-              hour: 'numeric', 
-              minute: '2-digit' 
+            const startTimeStr = startDate.toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit'
             })
-            const endTimeStr = endDate.toLocaleTimeString('en-US', { 
-              hour: 'numeric', 
-              minute: '2-digit' 
+            const endTimeStr = endDate.toLocaleTimeString('en-US', {
+              hour: 'numeric',
+              minute: '2-digit'
             })
-            
+
             return {
               id: slot.id || `slot-${idx}`,
               label: `${dateStr} at ${startTimeStr}`,
@@ -167,17 +168,17 @@ export function ConversationThread({ className }: ConversationThreadProps) {
               date: dateStr,
             }
           }) || []
-          
+
           const conflictMsg = createMessage('assistant', {
             kind: 'conflict',
             data: {
               description: result.conflict.message || 'This time slot conflicts with existing events.',
               requestedEvent: {
                 title: result.conflict.requestedEvent?.title || 'New event',
-                time: result.conflict.requestedEvent?.startTime ? 
-                  new Date(result.conflict.requestedEvent.startTime).toLocaleTimeString('en-US', { 
-                    hour: 'numeric', 
-                    minute: '2-digit' 
+                time: result.conflict.requestedEvent?.startTime ?
+                  new Date(result.conflict.requestedEvent.startTime).toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit'
                   }) : '',
               },
               conflictingEvents,
@@ -195,8 +196,8 @@ export function ConversationThread({ className }: ConversationThreadProps) {
             const successMsg = createMessage('assistant', {
               kind: 'success',
               data: {
-                message: isCalendarEvent 
-                  ? 'Successfully created calendar event!' 
+                message: isCalendarEvent
+                  ? 'Successfully created calendar event!'
                   : 'Successfully created task!',
                 action: {
                   type: isCalendarEvent ? 'event' : 'task',
@@ -211,35 +212,35 @@ export function ConversationThread({ className }: ConversationThreadProps) {
               toast.success('Task created successfully!')
             }
           } else {
-          // Show action preview
-          const task = preview?.task
-          const calendar = preview?.calendar
-          
-          const actionPreview: ParsedAction = {
-            type: calendar?.create_event ? 'event' : (action.actionType === 'intent' ? 'task' : 'task'),
-            title: task?.title || calendar?.event_title || '',
-            description: task?.description || '',
-            date: task?.due_date ? new Date(task.due_date).toLocaleDateString('en-US', { 
-              month: 'short', 
-              day: 'numeric',
-              year: 'numeric' 
-            }) : undefined,
-            time: task?.due_time || (calendar?.start_datetime ? new Date(calendar.start_datetime).toLocaleTimeString('en-US', { 
-              hour: 'numeric', 
-              minute: '2-digit' 
-            }) : undefined),
-            duration: calendar?.duration_minutes ? `${calendar.duration_minutes} min` : undefined,
-            category: task?.category,
-            priority: task?.priority as any,
-            recurrence: task?.recurrence,
-          }
+            // Show action preview
+            const task = preview?.task
+            const calendar = preview?.calendar
 
-          // Always show the preview card — user picks destination
-          const actionMsg = createMessage('assistant', {
-            kind: 'action_preview',
-            data: actionPreview,
-          })
-          addMessages(actionMsg)
+            const actionPreview: ParsedAction = {
+              type: calendar?.create_event ? 'event' : (action.actionType === 'intent' ? 'task' : 'task'),
+              title: task?.title || calendar?.event_title || '',
+              description: task?.description || '',
+              date: task?.due_date ? new Date(task.due_date).toLocaleDateString('en-US', {
+                month: 'short',
+                day: 'numeric',
+                year: 'numeric'
+              }) : undefined,
+              time: task?.due_time || (calendar?.start_datetime ? new Date(calendar.start_datetime).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit'
+              }) : undefined),
+              duration: calendar?.duration_minutes ? `${calendar.duration_minutes} min` : undefined,
+              category: task?.category,
+              priority: task?.priority as any,
+              recurrence: task?.recurrence,
+            }
+
+            // Always show the preview card — user picks destination
+            const actionMsg = createMessage('assistant', {
+              kind: 'action_preview',
+              data: actionPreview,
+            })
+            addMessages(actionMsg)
           } // close else for already-executed vs preview
         } else if (result.message) {
           // Show success or text message
@@ -274,16 +275,16 @@ export function ConversationThread({ className }: ConversationThreadProps) {
         }
       } catch (error: any) {
         console.error('API Error:', error)
-        
+
         // Remove thinking indicator
         setMessages((prev) => prev.filter((m) => m.id !== thinkingMsg.id))
-        
+
         const errorMsg = createMessage('assistant', {
           kind: 'error',
           text: error.message || 'Sorry, something went wrong. Please try again.',
         })
         addMessages(errorMsg)
-        
+
         toast.error(error.message || 'Failed to process your request')
       } finally {
         setIsProcessing(false)
@@ -352,24 +353,24 @@ export function ConversationThread({ className }: ConversationThreadProps) {
         } else if (result.action) {
           const action = result.action
           const preview = action.preview
-          
+
           if (preview) {
             // Preview mode — same as execute response
             const task = preview.task
             const calendar = preview.calendar
-            
+
             const actionPreview: ParsedAction = {
               type: calendar?.create_event ? 'event' : (action.actionType === 'intent' ? 'task' : 'task'),
               title: task?.title || calendar?.event_title || '',
               description: task?.description || '',
-              date: task?.due_date ? new Date(task.due_date).toLocaleDateString('en-US', { 
-                month: 'short', 
+              date: task?.due_date ? new Date(task.due_date).toLocaleDateString('en-US', {
+                month: 'short',
                 day: 'numeric',
-                year: 'numeric' 
+                year: 'numeric'
               }) : undefined,
-              time: task?.due_time || (calendar?.start_datetime ? new Date(calendar.start_datetime).toLocaleTimeString('en-US', { 
-                hour: 'numeric', 
-                minute: '2-digit' 
+              time: task?.due_time || (calendar?.start_datetime ? new Date(calendar.start_datetime).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit'
               }) : undefined),
               duration: calendar?.duration_minutes ? `${calendar.duration_minutes} min` : undefined,
               category: task?.category,
@@ -389,8 +390,8 @@ export function ConversationThread({ className }: ConversationThreadProps) {
             const successMsg = createMessage('assistant', {
               kind: 'success',
               data: {
-                message: isCalendarEvent 
-                  ? 'Successfully created calendar event!' 
+                message: isCalendarEvent
+                  ? 'Successfully created calendar event!'
                   : 'Action completed successfully!',
                 action: {
                   type: isCalendarEvent ? 'event' : 'task',
@@ -515,8 +516,8 @@ export function ConversationThread({ className }: ConversationThreadProps) {
           destination === 'calendar'
             ? 'calendar event'
             : destination === 'intent'
-            ? 'intent board'
-            : 'tasks'
+              ? 'intent board'
+              : 'tasks'
 
         const successMsg = createMessage('assistant', {
           kind: 'success',
@@ -617,95 +618,123 @@ export function ConversationThread({ className }: ConversationThreadProps) {
   }
 
   return (
-    <div className={cn('flex flex-col h-full', className)}>
-      {/* Messages area */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
-        {!hasMessages ? (
-          // Empty state
-          <div className="flex flex-col items-center justify-center h-full px-6 py-12">
-            <div className="size-16 rounded-2xl bg-muted/50 flex items-center justify-center mb-5">
-              <Sparkles
-                className="size-7 text-muted-foreground/50"
-                strokeWidth={1.5}
-              />
-            </div>
-            <h3 className="text-base font-semibold text-foreground mb-2 text-balance text-center">
-              Voice Assistant
-            </h3>
-            <p className="text-sm text-muted-foreground text-center max-w-sm leading-relaxed mb-8">
-              Speak or type to create tasks, schedule events, and manage your
-              calendar. I can handle conflicts and recurring tasks too.
-            </p>
-
-            {/* Quick action chips */}
-            <div className="flex flex-wrap justify-center gap-2 max-w-md">
-              {[
-                'Schedule a meeting tomorrow',
-                'Add a task for today',
-                'Remind me to call John',
-                'Block gym time every weekday',
-              ].map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  onClick={() => handleSendText(suggestion)}
-                  className={cn(
-                    'px-3 py-1.5 rounded-xl text-xs font-medium',
-                    'border border-border-subtle bg-card text-muted-foreground',
-                    'hover:bg-muted/50 hover:text-foreground hover:border-border',
-                    'transition-colors'
-                  )}
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
+    <div className={cn('flex h-full w-full', className)}>
+      {/* ─── Left: Seamless History list (Hidden when empty) ─── */}
+      {hasMessages && (
+        <div className="w-full md:w-[440px] lg:w-[500px] shrink-0 border-r border-border/40 flex flex-col bg-background/50 animate-in fade-in slide-in-from-left-4 duration-500">
+          <div className="px-6 py-5 shrink-0 flex items-center justify-between border-b border-border/30">
+            <p className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">Conversation</p>
           </div>
-        ) : (
-          // Message thread
-          <div className="flex flex-col gap-4 px-4 py-4">
+
+          <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
             {messages.map((message) => (
               <ChatBubble key={message.id} message={message}>
                 {renderMessageContent(message)}
               </ChatBubble>
             ))}
           </div>
-        )}
-      </div>
 
-      {/* Bottom bar */}
-      <div className="shrink-0 border-t border-border-subtle bg-background/80 backdrop-blur-sm">
-        {/* Action row above input */}
-        {hasMessages && (
-          <div className="flex items-center justify-between px-4 pt-2 pb-0">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleClearConversation}
-                className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-              >
-                <Trash2 className="size-3" strokeWidth={1.75} />
-                Clear
-              </button>
+          {/* Subtle text input at bottom */}
+          <div className="shrink-0 p-4">
+            <div className="bg-secondary/50 rounded-xl px-4 py-2 flex items-center gap-2 transition-colors">
+              <input
+                type="text"
+                placeholder="Type a message..."
+                className="bg-transparent border-none focus:ring-0 focus:outline-none text-[13px] flex-1 text-foreground placeholder:text-muted-foreground/50 min-w-0"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    const val = (e.target as HTMLInputElement).value.trim()
+                    if (val) {
+                      handleSendText(val);
+                      (e.target as HTMLInputElement).value = ''
+                    }
+                  }
+                }}
+              />
             </div>
-            <button
-              type="button"
-              onClick={handleClearConversation}
-              className="flex items-center gap-1.5 text-[11px] text-muted-foreground/50 hover:text-muted-foreground transition-colors"
-            >
-              <RotateCcw className="size-3" strokeWidth={1.75} />
-              New conversation
-            </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Input bar */}
-        <div className="p-3">
-          <VoiceInputBar
-            onSendVoice={handleSendVoice}
-            onSendText={handleSendText}
-            disabled={isProcessing}
-          />
+      {/* ─── Right: Active Minimalist Canvas ─── */}
+      <div className={cn(
+        'hidden md:flex flex-col items-center justify-center relative bg-background transition-all duration-500',
+        hasMessages ? 'flex-1' : 'w-full'
+      )}>
+        <div className="absolute top-6 left-6 flex items-center gap-2">
+          <div className="size-2 rounded-full bg-[hsl(var(--accent))] animate-pulse opacity-80" />
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">Active</span>
+        </div>
+
+        {/* Centered content block */}
+        <div className="w-full max-w-xl px-4 md:px-12 flex flex-col items-center">
+
+          {/* Greeting & Suggestions (Only visible when no messages) */}
+          {!hasMessages && (
+            <div className="flex flex-col items-center mb-10 text-center w-full animate-in fade-in slide-in-from-bottom-4 duration-700">
+              <h2 className="text-3xl md:text-4xl font-light text-foreground tracking-tight mb-3">
+                How can I help you?
+              </h2>
+              <p className="text-sm text-muted-foreground font-light mb-8">
+                Speak into the mic or click a suggestion below
+              </p>
+
+              <div className="flex flex-wrap justify-center gap-2 mb-10 max-w-md">
+                {[
+                  'Schedule a meeting tomorrow',
+                  'Remind me to call John',
+                  'Block gym time every weekday',
+                ].map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => handleSendText(suggestion)}
+                    className={cn(
+                      'px-4 py-2 rounded-xl text-[12px] font-medium transition-all duration-300',
+                      'bg-secondary/40 border border-border/40 text-muted-foreground',
+                      'hover:border-foreground/30 hover:text-foreground hover:bg-secondary/80 hover:shadow-sm'
+                    )}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Voice Bar (The Wave Dots) */}
+          <div className="flex justify-center items-center min-h-[200px] mb-4 [&_.wave-dots-container]:scale-[1.35]">
+            <VoiceInputBar
+              ref={voiceInputRef}
+              onSendVoice={handleSendVoice}
+              onSendText={handleSendText}
+              disabled={isProcessing}
+            />
+          </div>
+
+          {/* Text Input Block (Only visible when no messages, otherwise it's in the sidebar) */}
+          {!hasMessages && (
+            <div className="w-full max-w-md animate-in fade-in duration-700 delay-300 fill-mode-both mt-4">
+              <div className="bg-secondary/30 backdrop-blur-md rounded-2xl px-5 py-3.5 flex items-center gap-3 transition-all">
+                <input
+                  type="text"
+                  placeholder="Type a message..."
+                  className="bg-transparent border-none focus:ring-0 focus:outline-none text-[14px] flex-1 text-foreground placeholder:text-muted-foreground/50 min-w-0"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault()
+                      const val = (e.target as HTMLInputElement).value.trim()
+                      if (val) {
+                        handleSendText(val);
+                        (e.target as HTMLInputElement).value = ''
+                      }
+                    }
+                  }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
