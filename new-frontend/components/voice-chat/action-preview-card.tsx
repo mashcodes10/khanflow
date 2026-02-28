@@ -10,7 +10,7 @@ import {
 import type { ParsedAction } from './types'
 import { Destination } from './destination-selector'
 import { useState, useRef, useEffect } from 'react'
-import { lifeOrganizationAPI } from '@/lib/api'
+import { lifeOrganizationAPI, integrationsAPI } from '@/lib/api'
 import type { LifeArea, IntentBoard } from '@/lib/types'
 
 interface ActionPreviewCardProps {
@@ -49,6 +49,10 @@ export function ActionPreviewCard({
   const [selectedLifeAreaId, setSelectedLifeAreaId] = useState<string | null>(null)
   const [lifeAreas, setLifeAreas] = useState<LifeArea[]>([])
 
+  // Connected providers (for destination hint)
+  const [googleConnected, setGoogleConnected] = useState(false)
+  const [microsoftConnected, setMicrosoftConnected] = useState(false)
+
   // Inline edit state
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(data.title)
@@ -58,13 +62,21 @@ export function ActionPreviewCard({
   const [editDescription, setEditDescription] = useState(data.description || '')
   const titleInputRef = useRef<HTMLInputElement>(null)
 
-  // Fetch life areas once on mount for the board picker
+  // Fetch life areas + integrations once on mount
   useEffect(() => {
     lifeOrganizationAPI.getLifeAreas().then((res) => {
       setLifeAreas(res.data ?? [])
-    }).catch(() => {
-      // silently fail — board picker just won't show options
-    })
+    }).catch(() => {})
+
+    integrationsAPI.getAll().then((res) => {
+      const integrations = res.integrations ?? []
+      setGoogleConnected(
+        integrations.some((i) => i.provider === 'GOOGLE' && i.isConnected && i.category === 'CALENDAR')
+      )
+      setMicrosoftConnected(
+        integrations.some((i) => i.provider === 'MICROSOFT' && i.isConnected && i.category === 'CALENDAR')
+      )
+    }).catch(() => {})
   }, [])
 
   // Close dropdowns on outside click
@@ -170,8 +182,23 @@ export function ActionPreviewCard({
 
   const activeDuration = editDuration || data.duration || ''
   const TypeIcon = currentType === 'event' ? CalendarCheck : CheckSquare
-
   const hasBoards = lifeAreas.some((a) => a.intentBoards?.length > 0)
+
+  // Destination hint shown below selectors
+  const destinationHint: { label: string; sub?: string } | null = (() => {
+    if (currentType === 'event') {
+      if (googleConnected) return { label: 'Google Calendar' }
+      if (microsoftConnected) return { label: 'Outlook Calendar' }
+      return { label: 'No calendar connected', sub: 'Connect a calendar in Integrations' }
+    }
+    if (selectedBoard) {
+      return { label: `Life OS · ${selectedBoard.name}` }
+    }
+    // Standalone task
+    if (googleConnected) return { label: 'Google Tasks' }
+    if (microsoftConnected) return { label: 'Microsoft To Do' }
+    return { label: 'No task provider connected', sub: 'Connect Google or Microsoft in Integrations' }
+  })()
 
   return (
     <div className="flex flex-col p-5 bg-card/60 backdrop-blur-sm border border-border/40 rounded-2xl w-full max-w-sm shadow-sm transition-colors mt-2">
@@ -313,6 +340,17 @@ export function ActionPreviewCard({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Destination hint */}
+      {destinationHint && (
+        <div className="flex items-center gap-1.5 mb-4 px-3 py-2 rounded-lg bg-secondary/30 border border-border/20">
+          <span className="text-[11px] text-muted-foreground shrink-0">Saves to</span>
+          <span className="text-[11px] font-medium text-foreground truncate">{destinationHint.label}</span>
+          {destinationHint.sub && (
+            <span className="text-[10px] text-muted-foreground/60 truncate">· {destinationHint.sub}</span>
+          )}
         </div>
       )}
 
