@@ -58,6 +58,10 @@ export class EnhancedVoiceService {
         conversation = await this.conversationManager.createConversation(userId, transcript);
       }
 
+      // Extract context if we have one to prevent hallucination/re-asking for existing details
+      const context = await this.conversationManager.getContext(conversation.id);
+      const extractedData = context?.extractedData;
+
       // Parse voice action — use client-provided timezone/datetime, fallback to server
       const currentDateTime = request.currentDateTime || new Date().toISOString();
       const timezone = request.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -65,7 +69,8 @@ export class EnhancedVoiceService {
         transcript,
         currentDateTime,
         timezone,
-        userId
+        userId,
+        extractedData
       );
 
       // Add parsed data to conversation
@@ -75,9 +80,9 @@ export class EnhancedVoiceService {
       });
 
       // Check if requires clarification
-      // First: server-side guard for meetings — even if GPT says confident,
-      // enforce that meetings have a quality title and explicit duration.
-      if (parsedAction.task?.category === 'meetings') {
+      // First: server-side guard for calendar events — even if Claude says confident,
+      // enforce that calendar events have a quality title and explicit duration.
+      if (parsedAction.actionType === 'calendar_event') {
         const missingMeetingFields: string[] = [];
         const title = (parsedAction.task?.title || '').toLowerCase().trim();
         const genericTitles = ['meeting', 'event', 'call', 'appointment', 'task', 'voice event', ''];
@@ -87,13 +92,20 @@ export class EnhancedVoiceService {
         if (!parsedAction.task?.due_date) {
           missingMeetingFields.push('date');
         }
+        // Bug fix (D): sync time from calendar.start_datetime to task.due_time if it exists there
+        if (!parsedAction.task?.due_time && parsedAction.calendar?.start_datetime) {
+          const timePart = parsedAction.calendar.start_datetime.split('T')[1];
+          if (timePart && timePart !== '00:00:00' && timePart !== '00:00') {
+            parsedAction.task!.due_time = timePart.substring(0, 8);
+          }
+        }
         if (!parsedAction.task?.due_time) {
           missingMeetingFields.push('time');
         }
         // duration_minutes null/undefined/0 means not specified
         if (!parsedAction.calendar?.duration_minutes) {
           missingMeetingFields.push('duration');
-          // Also clear any GPT-defaulted value
+          // Also clear any Gemini-defaulted value
           if (parsedAction.calendar) {
             parsedAction.calendar.duration_minutes = undefined as any;
           }
@@ -108,7 +120,7 @@ export class EnhancedVoiceService {
 
       if (this.conversationManager.requiresClarification(parsedAction)) {
         const context = await this.conversationManager.getContext(conversation.id);
-        
+
         try {
           const clarification = await this.conversationManager.generateClarificationQuestion(
             parsedAction,
@@ -120,66 +132,84 @@ export class EnhancedVoiceService {
 
           // Update conversation state
           const isTask = parsedAction.actionType === "task";
-        let relevantPendingFields = isTask
-          ? (parsedAction.confidence.missing_fields || []).filter(
-              f => !f.toLowerCase().includes("life area") && 
-                   !f.toLowerCase().includes("intent board") &&
-                   !f.toLowerCase().includes("lifearea") &&
-                   !f.toLowerCase().includes("intentboard")
+          let relevantPendingFields = isTask
+            ? (parsedAction.confidence.missing_fields || []).filter(
+              f => !f.toLowerCase().includes("life area") &&
+                !f.toLowerCase().includes("intent board") &&
+                !f.toLowerCase().includes("lifearea") &&
+                !f.toLowerCase().includes("intentboard")
             )
-          : parsedAction.confidence.missing_fields || [];
+            : parsedAction.confidence.missing_fields || [];
 
-        // Extract data from parsed action
-        const extractedData: Record<string, any> = {
-          actionType: parsedAction.actionType,
-          intent: parsedAction.intent,
-          ...parsedAction.task,
-          ...parsedAction.intentData,
-          calendar: parsedAction.calendar,
-        };
+          // Extract data from parsed action
+          const extractedData: Record<string, any> = {
+            actionType: parsedAction.actionType,
+            intent: parsedAction.intent,
+            ...parsedAction.task,
+            ...parsedAction.intentData,
+            calendar: parsedAction.calendar,
+          };
 
-        // Filter out fields that already have values
-        relevantPendingFields = relevantPendingFields.filter(field => {
-          const normalizedField = field.toLowerCase();
-          if (normalizedField.includes("title")) {
-            return !extractedData.title;
-          }
-          if (normalizedField.includes("time") && !normalizedField.includes("date")) {
-            return !extractedData.due_time;
-          }
-          if (normalizedField.includes("date") && !normalizedField.includes("time")) {
-            return !extractedData.due_date;
-          }
-          if (normalizedField.includes("duration") || normalizedField.includes("length") || normalizedField.includes("how long")) {
-            // Only consider duration present if it was explicitly provided (not GPT default)
-            // We clear GPT defaults in the parse step, so any remaining value is real
-            return !extractedData.duration_minutes;
-          }
-          return true; // Keep other fields
-        });
+          // Filter out fields that already have values.
+          // IMPORTANT: for title, keep if the current value is a generic placeholder
+          // (matches the same logic in generateClarificationQuestion so pendingFields[0]
+          // always corresponds to the actual first question asked).
+          const GENERIC_TITLES = ['meeting', 'event', 'call', 'appointment', 'task', 'voice event', ''];
+          relevantPendingFields = relevantPendingFields.filter(field => {
+            const normalizedField = field.toLowerCase();
+            if (normalizedField.includes("title")) {
+              if (!extractedData.title) return true; // no title yet
+              const titleVal = (extractedData.title as string).toLowerCase().trim();
+              return GENERIC_TITLES.includes(titleVal); // keep if still generic
+            }
+            if (normalizedField.includes("time") && !normalizedField.includes("date")) {
+              return !extractedData.due_time;
+            }
+            if (normalizedField.includes("date") && !normalizedField.includes("time")) {
+              return !extractedData.due_date;
+            }
+            if (normalizedField.includes("duration") || normalizedField.includes("length") || normalizedField.includes("how long")) {
+              // Only consider duration present if it was explicitly provided (not a default)
+              return !extractedData.duration_minutes && !extractedData.calendar?.duration_minutes;
+            }
+            return true; // Keep other fields
+          });
 
-        await this.conversationManager.updateConversation(conversation.id, {
-          currentStep: "clarifying",
-          pendingFields: relevantPendingFields,
-          extractedData,
-        });
+          // Sort pendingFields by the same priority used in generateClarificationQuestion
+          // so pendingFields[0] always matches the field in the current clarification question.
+          const pendingFieldPriority = (f: string) => {
+            const l = f.toLowerCase();
+            if (l.includes('title') || l.includes('name')) return 1;
+            if (l.includes('time') && !l.includes('date')) return 2;
+            if (l.includes('date') && !l.includes('time')) return 3;
+            if (l.includes('duration') || l.includes('length') || l.includes('how long')) return 4;
+            if (l.includes('description') || l.includes('details')) return 5;
+            return 99;
+          };
+          relevantPendingFields.sort((a, b) => pendingFieldPriority(a) - pendingFieldPriority(b));
 
-        return {
-          success: false,
-          requiresClarification: true,
-          clarification,
-          conversationId: conversation.id,
-        };
-      } catch (error: any) {
-        // If no clarification needed (error thrown), continue with execution
-        console.log("No clarification needed, proceeding with execution");
-        // Fall through to execution
+          await this.conversationManager.updateConversation(conversation.id, {
+            currentStep: "clarifying",
+            pendingFields: relevantPendingFields,
+            extractedData,
+          });
+
+          return {
+            success: false,
+            requiresClarification: true,
+            clarification,
+            conversationId: conversation.id,
+          };
+        } catch (error: any) {
+          // If no clarification needed (error thrown), continue with execution
+          console.log("No clarification needed, proceeding with execution");
+          // Fall through to execution
+        }
       }
-    }
 
       // Check for recurring patterns
       const recurrencePattern = await this.recurringTaskManager.detectRecurrencePattern(transcript);
-      
+
       if (recurrencePattern) {
         // Handle recurring task creation
         return await this.handleRecurringTask(conversation.id, userId, parsedAction, recurrencePattern, options);
@@ -221,49 +251,9 @@ export class EnhancedVoiceService {
         }
       }
 
-      // Meetings with all required info — verify quality before proceeding
-      const meetingTitle = (parsedAction.task?.title || parsedAction.calendar?.event_title || '').trim();
-      const genericTitlesCheck = ['meeting', 'event', 'call', 'appointment', 'task', 'voice event', ''];
-      const hasQualityTitle = !genericTitlesCheck.includes(meetingTitle.toLowerCase());
-      const hasExplicitDuration = !!parsedAction.calendar?.duration_minutes;
-      const isMeetingDirect = parsedAction.task?.category === 'meetings' && 
-        parsedAction.calendar?.create_event && 
-        parsedAction.task?.due_date && 
-        parsedAction.task?.due_time &&
-        hasQualityTitle &&
-        hasExplicitDuration;
-
-      // When previewOnly is true (default), return a preview instead of auto-executing
-      // so the user sees what will be created and can confirm.
-      if (isMeetingDirect && !options?.previewOnly) {
-        try {
-          const executedAction = await this.voiceService.executeAction(userId, parsedAction, options);
-          await this.conversationManager.addMessage(
-            conversation.id,
-            "assistant",
-            this.generateSuccessMessage(executedAction)
-          );
-          await this.conversationManager.completeConversation(conversation.id);
-          return {
-            success: true,
-            action: executedAction,
-            requiresClarification: false,
-            conversationId: conversation.id,
-          };
-        } catch (execError: any) {
-          console.error('Error executing direct meeting action:', execError);
-          return {
-            success: false,
-            requiresClarification: false,
-            conversationId: conversation.id,
-            message: execError.message || 'Failed to create calendar event. Please check your calendar integration.',
-          };
-        }
-      }
-
-      // Meeting with all fields + previewOnly → return preview so user confirms first
-      if (isMeetingDirect && options?.previewOnly) {
-        // Store the parsed action so confirm endpoint can execute it later
+      // Always return a preview so the user confirms and picks a destination before anything is created
+      if (options?.previewOnly) {
+        // Store the parsed action so the confirm endpoint can execute it later
         await this.conversationManager.updateConversation(conversation.id, {
           currentStep: 'preview',
           context: {
@@ -277,25 +267,8 @@ export class EnhancedVoiceService {
             actionId: `preview-${Date.now()}`,
             timestamp: new Date().toISOString(),
             intent: parsedAction.intent,
-            actionType: 'task' as const,
-            preview: parsedAction,
-          },
-          requiresClarification: false,
-          conversationId: conversation.id,
-          isPreview: true,
-        };
-      }
-
-      // Check if preview-only mode (don't execute, just return parsed action)
-      if (options?.previewOnly) {
-        return {
-          success: true,
-          action: {
-            actionId: `preview-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-            intent: parsedAction.intent,
             actionType: parsedAction.actionType === "intent" ? "intent" : "task",
-            preview: parsedAction, // Include full parsed action for confirmation
+            preview: parsedAction,
           },
           requiresClarification: false,
           conversationId: conversation.id,
@@ -375,9 +348,9 @@ export class EnhancedVoiceService {
       // Build parsed action from accumulated data
       const parsedAction = this.buildParsedActionFromData(result.updatedData);
 
-      // For meetings, check if we still need date/time/duration before proceeding
+      // For calendar events, check if we still need date/time/duration before proceeding
       // Use result.updatedData directly (source of truth) to avoid stale parsedAction values
-      const isMeeting = parsedAction.task?.category === 'meetings';
+      const isMeeting = parsedAction.actionType === 'calendar_event';
       if (isMeeting) {
         // Check for genuinely user-provided duration (not defaults)
         const userProvidedDuration = result.updatedData.duration_minutes;
@@ -551,9 +524,8 @@ export class EnhancedVoiceService {
         }
       );
 
-      const successMessage = `Created recurring task "${taskTemplate.title}" with ${
-        (recurringTask.instanceIds || []).length
-      } occurrences.`;
+      const successMessage = `Created recurring task "${taskTemplate.title}" with ${(recurringTask.instanceIds || []).length
+        } occurrences.`;
 
       await this.conversationManager.addMessage(conversationId, "assistant", successMessage);
       await this.conversationManager.completeConversation(conversationId);
@@ -632,9 +604,9 @@ export class EnhancedVoiceService {
     const isTask = actionType === "task";
     const isIntent = actionType === "intent";
 
-    // Build or rebuild calendar event for meetings
+    // Build or rebuild calendar event for calendar events
     let calendar = data.calendar;
-    const isMeetingCategory = data.category === 'meetings';
+    const isMeetingCategory = data.category === 'meetings' || data.actionType === 'calendar_event';
     if (isTask && isMeetingCategory && data.due_date && data.due_time) {
       // For meetings with date+time, always ensure calendar event is set up
       const startDateTime = `${data.due_date}T${data.due_time}`;
@@ -654,7 +626,7 @@ export class EnhancedVoiceService {
     }
 
     return {
-      actionType: actionType as "task" | "intent",
+      actionType: actionType as "task" | "calendar_event" | "intent",
       intent: data.intent || (isIntent ? "create_intent" : "create_task"),
       task: isTask ? {
         title: data.title,
@@ -716,7 +688,7 @@ export class EnhancedVoiceService {
         let startDatetime: string;
         const dueDate = parsedAction.task?.due_date;
         const dueTime = parsedAction.task?.due_time;
-        
+
         if (dueDate && dueTime) {
           startDatetime = `${dueDate}T${dueTime}`;
         } else if (dueDate) {
@@ -727,7 +699,7 @@ export class EnhancedVoiceService {
         }
 
         // Parse duration from display format (e.g., "30 min" → 30)
-        const durationMinutes = parsedAction.calendar?.duration_minutes || 
+        const durationMinutes = parsedAction.calendar?.duration_minutes ||
           this.parseDurationDisplay(parsedAction.task?.description) || 60;
 
         // Ensure calendar event creation
@@ -796,7 +768,7 @@ export class EnhancedVoiceService {
    */
   private convertFrontendAction(frontendAction: any): ParsedVoiceAction {
     const isEvent = frontendAction.type === 'event'
-    
+
     // Parse display date "Feb 8, 2026" → "2026-02-08"
     let dueDate: string | undefined
     if (frontendAction.date) {

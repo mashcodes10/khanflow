@@ -234,49 +234,12 @@ export function ConversationThread({ className }: ConversationThreadProps) {
             recurrence: task?.recurrence,
           }
 
-          // Meetings: auto-confirm to calendar, skip the preview/destination selector
-          const isMeetingAction = actionPreview.category === 'meetings' || actionPreview.type === 'event'
-          if (isMeetingAction) {
-            try {
-              const confirmResult = await voiceAPI.confirmV2({
-                conversationId: result.conversationId || conversationId || '',
-                action: actionPreview,
-                destination: 'calendar',
-              })
-              if (confirmResult.success && confirmResult.action) {
-                const successMsg = createMessage('assistant', {
-                  kind: 'success',
-                  data: {
-                    message: 'Successfully created calendar event!',
-                    action: {
-                      type: 'event',
-                      title: confirmResult.action.createdEventTitle || actionPreview.title,
-                      date: actionPreview.date,
-                      time: actionPreview.time,
-                    },
-                  } as SuccessData,
-                })
-                addMessages(successMsg)
-                toast.success('Created calendar event successfully!')
-              } else {
-                toast.error(confirmResult.message || 'Failed to create event')
-              }
-            } catch (confirmError: any) {
-              console.error('Auto-confirm meeting error:', confirmError)
-              // Fallback: show the card if auto-confirm fails
-              const actionMsg = createMessage('assistant', {
-                kind: 'action_preview',
-                data: actionPreview,
-              })
-              addMessages(actionMsg)
-            }
-          } else {
-            const actionMsg = createMessage('assistant', {
-              kind: 'action_preview',
-              data: actionPreview,
-            })
-            addMessages(actionMsg)
-          }
+          // Always show the preview card — user picks destination
+          const actionMsg = createMessage('assistant', {
+            kind: 'action_preview',
+            data: actionPreview,
+          })
+          addMessages(actionMsg)
           } // close else for already-executed vs preview
         } else if (result.message) {
           // Show success or text message
@@ -414,48 +377,12 @@ export function ConversationThread({ className }: ConversationThreadProps) {
               recurrence: task?.recurrence,
             }
 
-            // Meetings: auto-confirm to calendar, skip the preview/destination selector
-            const isMeetingClarify = actionPreview.category === 'meetings' || actionPreview.type === 'event'
-            if (isMeetingClarify) {
-              try {
-                const confirmResult = await voiceAPI.confirmV2({
-                  conversationId: conversationId || '',
-                  action: actionPreview,
-                  destination: 'calendar',
-                })
-                if (confirmResult.success && confirmResult.action) {
-                  const successMsg = createMessage('assistant', {
-                    kind: 'success',
-                    data: {
-                      message: 'Successfully created calendar event!',
-                      action: {
-                        type: 'event',
-                        title: confirmResult.action.createdEventTitle || actionPreview.title,
-                        date: actionPreview.date,
-                        time: actionPreview.time,
-                      },
-                    } as SuccessData,
-                  })
-                  addMessages(successMsg)
-                  toast.success('Created calendar event successfully!')
-                } else {
-                  toast.error(confirmResult.message || 'Failed to create event')
-                }
-              } catch (confirmError: any) {
-                console.error('Auto-confirm meeting error:', confirmError)
-                const actionMsg = createMessage('assistant', {
-                  kind: 'action_preview',
-                  data: actionPreview,
-                })
-                addMessages(actionMsg)
-              }
-            } else {
-              const actionMsg = createMessage('assistant', {
-                kind: 'action_preview',
-                data: actionPreview,
-              })
-              addMessages(actionMsg)
-            }
+            // Always show the preview card — user picks destination
+            const actionMsg = createMessage('assistant', {
+              kind: 'action_preview',
+              data: actionPreview,
+            })
+            addMessages(actionMsg)
           } else {
             // Direct execution result (no preview — action already executed by backend)
             const isCalendarEvent = !!action.createdCalendarEventId

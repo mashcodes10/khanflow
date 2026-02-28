@@ -79,9 +79,7 @@ export function ActionPreviewCard({
   const config = typeConfig[data.type] || typeConfig.task
   const TypeIcon = config.icon
   
-  // Meetings always go to calendar — no destination selector needed
-  const isMeeting = data.category === 'meetings' || data.type === 'event'
-  const [selectedDestination, setSelectedDestination] = useState<Destination>(isMeeting ? 'calendar' : 'tasks')
+  const [selectedDestination, setSelectedDestination] = useState<Destination>(data.type === 'event' ? 'calendar' : 'tasks')
   
   // Editing state
   const [isEditing, setIsEditing] = useState(false)
@@ -175,9 +173,9 @@ export function ActionPreviewCard({
 
   const handleConfirm = () => {
     if (isEditing) {
-      onConfirm(isMeeting ? 'calendar' : selectedDestination, getEditedData())
+      onConfirm(selectedDestination, getEditedData())
     } else {
-      onConfirm(isMeeting ? 'calendar' : selectedDestination)
+      onConfirm(selectedDestination)
     }
   }
   
@@ -189,11 +187,11 @@ export function ActionPreviewCard({
           <div
             className={cn(
               'flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium',
-              isMeeting ? 'bg-primary/10 text-primary' : config.className
+              config.className
             )}
           >
-            {isMeeting ? <Calendar className="size-3" strokeWidth={2} /> : <TypeIcon className="size-3" strokeWidth={2} />}
-            {isMeeting ? 'Calendar Event' : config.label}
+            <TypeIcon className="size-3" strokeWidth={2} />
+            {config.label}
           </div>
           {data.priority && priorityConfig[data.priority] && (
             <div
@@ -320,7 +318,7 @@ export function ActionPreviewCard({
                   {data.duration}
                 </span>
               )}
-              {!isMeeting && data.category && (
+              {data.category && (
                 <span className="flex items-center gap-1.5">
                   <Tag className="size-3" strokeWidth={1.75} />
                   {data.category}
@@ -337,15 +335,13 @@ export function ActionPreviewCard({
         )}
       </div>
 
-      {/* Destination Selector — only for non-meeting items */}
-      {!isMeeting && (
-        <div className="px-4 py-3 border-t border-border-subtle">
-          <DestinationSelector 
-            value={selectedDestination}
-            onChange={setSelectedDestination}
-          />
-        </div>
-      )}
+      {/* Destination Selector — always shown so user chooses where to save */}
+      <div className="px-4 py-3 border-t border-border-subtle">
+        <DestinationSelector
+          value={selectedDestination}
+          onChange={setSelectedDestination}
+        />
+      </div>
 
       {/* Actions */}
       <div className="px-3 py-2.5 border-t border-border-subtle flex items-center gap-2">
@@ -356,7 +352,7 @@ export function ActionPreviewCard({
           className="flex-1 gap-1.5 rounded-xl bg-accent text-accent-foreground hover:bg-accent/90 h-9"
         >
           <CheckCircle2 className="size-3.5" strokeWidth={2} />
-          {isMeeting ? 'Create Event' : 'Confirm'}
+          Confirm
         </Button>
         {isEditing ? (
           <Button
