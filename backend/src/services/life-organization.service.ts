@@ -2,6 +2,7 @@ import { AppDataSource } from "../config/database.config";
 import { LifeArea } from "../database/entities/life-area.entity";
 import { IntentBoard } from "../database/entities/intent-board.entity";
 import { Intent } from "../database/entities/intent.entity";
+import { IntentExternalLink } from "../database/entities/intent-external-link.entity";
 import { BadRequestException, NotFoundException } from "../utils/app-error";
 
 /**
@@ -193,7 +194,15 @@ export const createIntentService = async (
 export const updateIntentService = async (
   userId: string,
   intentId: string,
-  data: { title?: string; description?: string; order?: number }
+  data: {
+    title?: string;
+    description?: string;
+    order?: number;
+    completedAt?: Date | null;
+    priority?: 'low' | 'medium' | 'high' | null;
+    dueDate?: Date | null;
+    weeklyFocusAt?: Date | null;
+  }
 ) => {
   const intentRepository = AppDataSource.getRepository(Intent);
 
@@ -209,6 +218,10 @@ export const updateIntentService = async (
   if (data.title !== undefined) intent.title = data.title;
   if (data.description !== undefined) intent.description = data.description;
   if (data.order !== undefined) intent.order = data.order;
+  if ("completedAt" in data) intent.completedAt = data.completedAt ?? undefined;
+  if ("priority" in data) intent.priority = data.priority ?? undefined;
+  if ("dueDate" in data) intent.dueDate = data.dueDate ?? undefined;
+  if ("weeklyFocusAt" in data) intent.weeklyFocusAt = data.weeklyFocusAt ?? undefined;
 
   return await intentRepository.save(intent);
 };
@@ -257,4 +270,91 @@ export const getIntentsByBoardService = async (userId: string, intentBoardId: st
   return intents;
 };
 
+/**
+ * Unlink an intent from all provider external links
+ */
+export const unlinkIntentFromProviderService = async (userId: string, intentId: string) => {
+  const intentRepository = AppDataSource.getRepository(Intent);
+  const intentExternalLinkRepository = AppDataSource.getRepository(IntentExternalLink);
 
+  const intent = await intentRepository.findOne({
+    where: { id: intentId },
+    relations: ["intentBoard", "intentBoard.lifeArea"],
+  });
+
+  if (!intent || intent.intentBoard.lifeArea.userId !== userId) {
+    throw new NotFoundException("Intent not found");
+  }
+
+  const links = await intentExternalLinkRepository.find({ where: { intentId, userId } });
+  if (links.length > 0) {
+    await intentExternalLinkRepository.remove(links);
+  }
+
+  return { success: true, removed: links.length };
+};
+
+/**
+ * Find or create the special Inbox life area + board for a user.
+ * Always returns the same boardId for subsequent calls.
+ */
+export const ensureInboxService = async (userId: string): Promise<{ boardId: string; lifeAreaId: string }> => {
+  const lifeAreaRepository = AppDataSource.getRepository(LifeArea);
+  const intentBoardRepository = AppDataSource.getRepository(IntentBoard);
+
+  // Find existing inbox life area (marked by icon = 'inbox')
+  let inboxArea = await lifeAreaRepository.findOne({
+    where: { userId, icon: "inbox" },
+  });
+
+  if (!inboxArea) {
+    inboxArea = lifeAreaRepository.create({
+      name: "Inbox",
+      icon: "inbox",
+      order: -1, // pin before all others
+      userId,
+    });
+    await lifeAreaRepository.save(inboxArea);
+  }
+
+  // Find or create the inbox board inside that life area
+  let inboxBoard = await intentBoardRepository.findOne({
+    where: { lifeAreaId: inboxArea.id },
+  });
+
+  if (!inboxBoard) {
+    inboxBoard = intentBoardRepository.create({
+      name: "Inbox",
+      lifeAreaId: inboxArea.id,
+      order: 0,
+    });
+    await intentBoardRepository.save(inboxBoard);
+  }
+
+  return { boardId: inboxBoard.id, lifeAreaId: inboxArea.id };
+};
+
+/**
+ * Duplicate an intent within the same board
+ */
+export const duplicateIntentService = async (userId: string, intentId: string) => {
+  const intentRepository = AppDataSource.getRepository(Intent);
+
+  const intent = await intentRepository.findOne({
+    where: { id: intentId },
+    relations: ["intentBoard", "intentBoard.lifeArea"],
+  });
+
+  if (!intent || intent.intentBoard.lifeArea.userId !== userId) {
+    throw new NotFoundException("Intent not found");
+  }
+
+  const duplicate = intentRepository.create({
+    title: intent.title,
+    description: intent.description,
+    intentBoardId: intent.intentBoardId,
+    order: intent.order + 1,
+  });
+
+  return await intentRepository.save(duplicate);
+};

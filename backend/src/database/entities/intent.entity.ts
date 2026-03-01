@@ -47,6 +47,18 @@ export class Intent {
   @Column({ type: "boolean", default: false })
   isExample: boolean; // Mark example intents created during onboarding
 
+  @Column({ type: "timestamp", nullable: true })
+  completedAt?: Date | null; // null = active, timestamp = completed
+
+  @Column({ type: "varchar", length: 10, nullable: true })
+  priority?: 'low' | 'medium' | 'high' | null;
+
+  @Column({ type: "timestamp", nullable: true })
+  dueDate?: Date | null;
+
+  @Column({ type: "timestamp", nullable: true })
+  weeklyFocusAt?: Date | null; // When set, intent is pinned to the weekly focus view
+
   @ManyToOne(() => IntentBoard, (intentBoard) => intentBoard.intents, {
     onDelete: "CASCADE",
   })

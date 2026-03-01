@@ -2,6 +2,7 @@ import { VoiceService, ParsedVoiceAction, ExecutedAction, VoiceExecutionOptions 
 import { ConversationManager, ClarificationRequest } from "./conversation-manager.service";
 import { ConflictDetectionService, ConflictInfo } from "./conflict-detection.service";
 import { RecurringTaskManager, RecurrencePattern, ConflictRequiresResolutionError } from "./recurring-task-manager.service";
+import { fromZonedTime } from "date-fns-tz";
 
 export interface EnhancedVoiceResponse {
   success: boolean;
@@ -217,7 +218,10 @@ export class EnhancedVoiceService {
 
       // Check for conflicts before executing
       if (parsedAction.calendar?.create_event && parsedAction.calendar.start_datetime) {
-        const startTime = new Date(parsedAction.calendar.start_datetime);
+        // Convert the naive datetime to UTC using the user's timezone so conflict detection
+        // looks at the correct UTC window (not the server's local timezone interpretation).
+        const tz = request.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const startTime = fromZonedTime(parsedAction.calendar.start_datetime, tz);
         const durationMinutes = parsedAction.calendar.duration_minutes || 60;
         const endTime = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
 
@@ -276,8 +280,9 @@ export class EnhancedVoiceService {
         };
       }
 
-      // Execute the action
-      const executedAction = await this.voiceService.executeAction(userId, parsedAction, options);
+      // Execute the action — thread timezone from request so datetimes use user's TZ
+      const execTz = request.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const executedAction = await this.voiceService.executeAction(userId, parsedAction, { ...options, timezone: execTz });
 
       // Add success message to conversation
       await this.conversationManager.addMessage(
@@ -676,10 +681,13 @@ export class EnhancedVoiceService {
       // Get the parsed action from the preview
       let parsedAction: ParsedVoiceAction = action.preview || action;
 
+      console.log(`🎯 confirmAction: destination=${destination}, action.type=${action.type}, action.actionType=${action.actionType}, calendarAppType=${options?.calendarAppType}`);
+
       // If the frontend sent edited display-format data (from ActionPreviewCard inline edit),
       // convert it back to the backend format
       if (action.type && !action.actionType) {
         parsedAction = this.convertFrontendAction(action);
+        console.log(`🔄 convertFrontendAction result: actionType=${parsedAction.actionType}, calendar.create_event=${parsedAction.calendar?.create_event}, calendar.start_datetime=${parsedAction.calendar?.start_datetime}`);
       }
 
       // Modify action based on destination
@@ -695,7 +703,10 @@ export class EnhancedVoiceService {
           // If no time specified, default to 9:00 AM
           startDatetime = `${dueDate}T09:00:00`;
         } else {
-          startDatetime = new Date().toISOString();
+          // Fallback: use current time as a naive datetime (no 'Z' suffix).
+          // Never use toISOString() here — it produces "...Z" which then crashes
+          // executeAction when it tries to append another 'Z' for UTC arithmetic.
+          startDatetime = new Date().toISOString().slice(0, 19); // "2026-03-01T08:12:22"
         }
 
         // Parse duration from display format (e.g., "30 min" → 30)
@@ -740,6 +751,20 @@ export class EnhancedVoiceService {
         parsedAction.actionType = 'task';
         if (parsedAction.calendar) {
           parsedAction.calendar.create_event = false; // Don't create calendar event
+        }
+      }
+
+      // Guard: reject calendar events scheduled in the past
+      if (destination === 'calendar' && parsedAction.calendar?.start_datetime) {
+        const tz = options?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const eventStart = fromZonedTime(parsedAction.calendar.start_datetime, tz);
+        if (eventStart < new Date()) {
+          return {
+            success: false,
+            requiresClarification: false,
+            conversationId,
+            message: `The event date (${parsedAction.calendar.start_datetime}) is in the past. Please start a new voice command with the correct date.`,
+          };
         }
       }
 
@@ -806,7 +831,7 @@ export class EnhancedVoiceService {
     const startDatetime = dueDate && dueTime ? `${dueDate}T${dueTime}` : undefined
 
     return {
-      actionType: 'task',
+      actionType: isEvent ? 'calendar_event' : 'task',
       intent: 'create_task',
       task: {
         title: frontendAction.title || '',

@@ -36,6 +36,9 @@ import {
   importBoardController,
   exportBoardController,
   importBoardDirectController,
+  unlinkIntentFromProviderController,
+  duplicateIntentController,
+  ensureInboxController,
 } from "../controllers/life-organization.controller";
 
 const router = Router();
@@ -58,6 +61,8 @@ router.delete("/intent-boards/:id", deleteIntentBoardController);
 router.post("/intents", createIntentController);
 router.put("/intents/:id", updateIntentController);
 router.delete("/intents/:id", deleteIntentController);
+router.post("/intents/:id/duplicate", duplicateIntentController);
+router.delete("/intents/:id/external-links", unlinkIntentFromProviderController);
 router.get("/intent-boards/:id/intents", getIntentsByBoardController);
 
 // Suggestions
@@ -83,6 +88,9 @@ router.get("/templates", getTemplatesController);
 
 // Import from external providers (single task)
 router.post("/import-task", importTaskController);
+
+// Inbox
+router.post("/ensure-inbox", ensureInboxController);
 
 // Board and intent management
 router.post("/reorder-boards", reorderBoardsController);

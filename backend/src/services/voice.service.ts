@@ -86,6 +86,12 @@ export interface VoiceExecutionOptions {
    * If omitted, the service will default to Google Calendar only (current behavior).
    */
   calendarAppType?: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR | IntegrationAppTypeEnum.OUTLOOK_CALENDAR;
+  /**
+   * User's IANA timezone (e.g. "Asia/Dhaka", "America/New_York").
+   * Used to interpret naive datetimes from voice parsing (e.g. "2026-03-02T14:00:00")
+   * as the correct local time rather than the server's timezone.
+   */
+  timezone?: string;
 }
 
 export class VoiceService {
@@ -113,7 +119,7 @@ export class VoiceService {
 
       const transcription = await openai.audio.transcriptions.create({
         file: file as any,
-        model: "whisper-1",
+        model: "gpt-4o-mini-transcribe",
         language: "en",
       });
 
@@ -650,6 +656,7 @@ SCHEMA:
     }
 
     // Execute calendar event creation
+    console.log(`🗓️ Calendar check: create_event=${parsedAction.calendar?.create_event}, start_datetime=${parsedAction.calendar?.start_datetime}, calendarAppType=${options?.calendarAppType}`);
     if (parsedAction.calendar?.create_event && parsedAction.calendar.start_datetime) {
       // Get calendar preferences to determine calendar routing
       const preferences = await getCalendarPreferencesService(userId);
@@ -713,90 +720,110 @@ SCHEMA:
         targetCalendarAppType === IntegrationAppTypeEnum.OUTLOOK_CALENDAR ||
         (options?.calendarAppType === IntegrationAppTypeEnum.OUTLOOK_CALENDAR);
 
+      console.log(`🗓️ Calendar routing: wantsGoogle=${wantsGoogleCalendar}, wantsOutlook=${wantsOutlookCalendar}, hasGoogleIntegration=${!!googleCalendarIntegration}, hasOutlookIntegration=${!!outlookCalendarIntegration}`);
+
       // Google Calendar
       if (wantsGoogleCalendar && googleCalendarIntegration) {
-        oauth2Client.setCredentials({
-          access_token: googleCalendarIntegration.access_token,
-          refresh_token: googleCalendarIntegration.refresh_token,
-        });
+        console.log(`📅 Creating Google Calendar event: "${parsedAction.calendar.event_title || parsedAction.task?.title}" at ${parsedAction.calendar.start_datetime}`);
+        try {
+          oauth2Client.setCredentials({
+            access_token: googleCalendarIntegration.access_token,
+            refresh_token: googleCalendarIntegration.refresh_token,
+          });
 
-        // Derive the best available title
-        const eventTitle = parsedAction.calendar.event_title
-          || parsedAction.task?.title
-          || 'Untitled Meeting';
+          // Derive the best available title
+          const eventTitle = parsedAction.calendar.event_title
+            || parsedAction.task?.title
+            || 'Untitled Meeting';
 
-        const calendar = google.calendar({ version: "v3", auth: oauth2Client });
-        const startDateTime = new Date(parsedAction.calendar.start_datetime);
-        const endDateTime = new Date(
-          startDateTime.getTime() + (parsedAction.calendar.duration_minutes || 30) * 60000
-        );
+          const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
-        const userTimezone = parsedAction.task?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-        const event = {
-          summary: eventTitle,
-          start: {
-            dateTime: startDateTime.toISOString(),
-            timeZone: userTimezone,
-          },
-          end: {
-            dateTime: endDateTime.toISOString(),
-            timeZone: userTimezone,
-          },
-        };
+          // Use user's timezone — fall back to server TZ as last resort.
+          // IMPORTANT: pass the naive datetime string directly with timeZone.
+          // Do NOT call .toISOString() — that converts using server's TZ, shifting the time.
+          const userTimezone = options?.timezone || parsedAction.task?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+          const startDatetimeStr = parsedAction.calendar.start_datetime; // e.g. "2026-03-02T14:00:00"
+          const durationMs = (parsedAction.calendar.duration_minutes || 60) * 60000;
+          // Calculate end time via UTC arithmetic on the naive string (timezone-agnostic).
+          // Guard: don't add 'Z' if string already has a timezone indicator (ends with Z or +HH:MM).
+          const alreadyHasTz = /Z$|[+-]\d{2}:\d{2}$/.test(startDatetimeStr);
+          const startForCalc = alreadyHasTz ? new Date(startDatetimeStr) : new Date(startDatetimeStr + 'Z');
+          const endDatetimeStr = new Date(startForCalc.getTime() + durationMs).toISOString().slice(0, 19);
 
-        const response = await calendar.events.insert({
-          calendarId: "primary",
-          requestBody: event,
-        });
+          const event = {
+            summary: eventTitle,
+            start: { dateTime: startDatetimeStr, timeZone: userTimezone },
+            end: { dateTime: endDatetimeStr, timeZone: userTimezone },
+          };
 
-        executedAction.createdCalendarEventId = response.data.id || undefined;
-        executedAction.createdEventTitle = response.data.summary || undefined;
+          const response = await calendar.events.insert({
+            calendarId: "primary",
+            requestBody: event,
+          });
+
+          executedAction.createdCalendarEventId = response.data.id || undefined;
+          executedAction.createdEventTitle = response.data.summary || undefined;
+          console.log(`✅ Google Calendar event created: ${executedAction.createdCalendarEventId} | ${startDatetimeStr} (${userTimezone})`);
+        } catch (gcalErr: any) {
+          console.error(`❌ Google Calendar creation failed:`, gcalErr?.message || gcalErr);
+          throw new Error(`Failed to create Google Calendar event: ${gcalErr?.message || 'Unknown error'}`);
+        }
       }
 
       // Outlook Calendar
       if (wantsOutlookCalendar && outlookCalendarIntegration) {
-        const accessToken = await validateMicrosoftToken(
-          outlookCalendarIntegration.access_token,
-          outlookCalendarIntegration.refresh_token ?? "",
-          outlookCalendarIntegration.expiry_date
-        );
+        console.log(`📅 Creating Outlook Calendar event: "${parsedAction.calendar.event_title || parsedAction.task?.title}" at ${parsedAction.calendar.start_datetime}`);
+        try {
+          const accessToken = await validateMicrosoftToken(
+            outlookCalendarIntegration.access_token,
+            outlookCalendarIntegration.refresh_token ?? "",
+            outlookCalendarIntegration.expiry_date
+          );
 
-        const startDateTime = new Date(parsedAction.calendar.start_datetime);
-        const endDateTime = new Date(
-          startDateTime.getTime() + (parsedAction.calendar.duration_minutes || 30) * 60000
-        );
+          // Same as Google: pass raw naive datetime + timezone, no .toISOString() conversion
+          const userTimezoneMs = options?.timezone || parsedAction.task?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+          const startDatetimeStr = parsedAction.calendar.start_datetime; // e.g. "2026-03-02T14:00:00"
+          const durationMs = (parsedAction.calendar.duration_minutes || 60) * 60000;
+          const msAlreadyHasTz = /Z$|[+-]\d{2}:\d{2}$/.test(startDatetimeStr);
+          const msStartForCalc = msAlreadyHasTz ? new Date(startDatetimeStr) : new Date(startDatetimeStr + 'Z');
+          const endDatetimeStr = new Date(msStartForCalc.getTime() + durationMs).toISOString().slice(0, 19);
 
-        const userTimezoneMs = parsedAction.task?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-        const msEventTitle = parsedAction.calendar.event_title
-          || parsedAction.task?.title
-          || 'Untitled Meeting';
-        const msEvent: any = {
-          subject: msEventTitle,
-          body: {
-            contentType: "HTML",
-            content: parsedAction.task?.description || "",
-          },
-          start: { dateTime: startDateTime.toISOString(), timeZone: userTimezoneMs },
-          end: { dateTime: endDateTime.toISOString(), timeZone: userTimezoneMs },
-        };
+          const msEventTitle = parsedAction.calendar.event_title
+            || parsedAction.task?.title
+            || 'Untitled Meeting';
+          const msEvent: any = {
+            subject: msEventTitle,
+            body: {
+              contentType: "HTML",
+              content: parsedAction.task?.description || "",
+            },
+            start: { dateTime: startDatetimeStr, timeZone: userTimezoneMs },
+            end: { dateTime: endDatetimeStr, timeZone: userTimezoneMs },
+          };
 
-        const msResp = await fetch("https://graph.microsoft.com/v1.0/me/events", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(msEvent),
-        });
+          const msResp = await fetch("https://graph.microsoft.com/v1.0/me/events", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(msEvent),
+          });
 
-        if (!msResp.ok) {
-          console.error("Failed to create Outlook calendar event:", await msResp.text());
-          throw new Error("Failed to create Outlook calendar event");
+          if (!msResp.ok) {
+            const errText = await msResp.text();
+            console.error(`❌ Outlook Calendar creation failed (${msResp.status}):`, errText);
+            throw new Error(`Failed to create Outlook calendar event: ${errText}`);
+          }
+
+          const msData: any = await msResp.json();
+          executedAction.createdCalendarEventId = msData.id || executedAction.createdCalendarEventId;
+          executedAction.createdEventTitle = msData.subject || executedAction.createdEventTitle;
+          console.log(`✅ Outlook Calendar event created: ${executedAction.createdCalendarEventId} | ${startDatetimeStr} (${userTimezoneMs})`);
+        } catch (msErr: any) {
+          console.error(`❌ Outlook Calendar creation failed:`, msErr?.message || msErr);
+          throw new Error(`Failed to create Outlook Calendar event: ${msErr?.message || 'Unknown error. Try reconnecting your Microsoft Calendar.'}`);
         }
-
-        const msData: any = await msResp.json();
-        executedAction.createdCalendarEventId = msData.id || executedAction.createdCalendarEventId;
-        executedAction.createdEventTitle = msData.subject || executedAction.createdEventTitle;
       }
     }
 

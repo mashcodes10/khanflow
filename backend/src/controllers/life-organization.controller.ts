@@ -18,6 +18,9 @@ import {
   updateIntentService,
   deleteIntentService,
   getIntentsByBoardService,
+  unlinkIntentFromProviderService,
+  duplicateIntentService,
+  ensureInboxService,
 } from "../services/life-organization.service";
 import {
   generateSuggestionsService,
@@ -242,12 +245,16 @@ export const updateIntentController = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = req.user?.id as string;
     const { id } = req.params;
-    const { title, description, order } = req.body;
+    const { title, description, order, completedAt, priority, dueDate, weeklyFocusAt } = req.body;
 
     const intent = await updateIntentService(userId, id, {
       title,
       description,
       order,
+      ...(completedAt !== undefined && { completedAt: completedAt ? new Date(completedAt) : null }),
+      ...(priority !== undefined && { priority: priority as 'low' | 'medium' | 'high' | null }),
+      ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
+      ...(weeklyFocusAt !== undefined && { weeklyFocusAt: weeklyFocusAt ? new Date(weeklyFocusAt) : null }),
     });
 
     return res.status(HTTPSTATUS.OK).json({
@@ -270,6 +277,57 @@ export const deleteIntentController = asyncHandler(
 
     return res.status(HTTPSTATUS.OK).json({
       message: "Intent deleted successfully",
+    });
+  }
+);
+
+/**
+ * DELETE /api/life-organization/intents/:id/external-links
+ * Unlink an intent from all provider external links
+ */
+export const unlinkIntentFromProviderController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { id } = req.params;
+
+    const result = await unlinkIntentFromProviderService(userId, id);
+
+    return res.status(HTTPSTATUS.OK).json({
+      message: `Unlinked intent from ${result.removed} provider link(s)`,
+      data: result,
+    });
+  }
+);
+
+/**
+ * POST /api/life-organization/intents/:id/duplicate
+ * Duplicate an intent within the same board
+ */
+export const duplicateIntentController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { id } = req.params;
+
+    const intent = await duplicateIntentService(userId, id);
+
+    return res.status(HTTPSTATUS.CREATED).json({
+      message: "Intent duplicated successfully",
+      data: intent,
+    });
+  }
+);
+
+/**
+ * POST /api/life-organization/ensure-inbox
+ * Find or create the Inbox life area + board for the user
+ */
+export const ensureInboxController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const result = await ensureInboxService(userId);
+    return res.status(HTTPSTATUS.OK).json({
+      message: "Inbox ready",
+      data: result,
     });
   }
 );
