@@ -5,27 +5,23 @@ import { SectionHeader } from './section-header'
 import { BoardCard } from './board-card'
 import { AddIntentPopover } from './add-intent-popover'
 import { Plus } from 'lucide-react'
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-  DragOverlay,
-} from '@dnd-kit/core'
+import type { BoardExternalLink } from '@/lib/types'
 
 interface Intent {
   id: string
   text: string
   isCompleted?: boolean
+  isLinked?: boolean
+  isPinned?: boolean
+  priority?: 'low' | 'medium' | 'high' | null
+  dueDate?: string | null
 }
 
 interface Board {
   id: string
   title: string
   intents: Intent[]
+  links?: BoardExternalLink[]
 }
 
 interface LifeAreaSectionProps {
@@ -35,63 +31,45 @@ interface LifeAreaSectionProps {
   boards: Board[]
   lifeAreaId?: string
   className?: string
+  connectedProviders?: { google: boolean; microsoft: boolean }
   onAddBoard?: (lifeAreaId: string, boardName: string) => void
   onAddIntent?: (boardId: string, intent: { text: string; type: 'task' | 'reminder' | 'goal'; timeline?: string }) => void
-  onToggleIntent?: (boardId: string, intentId: string) => void
+  onToggleIntent?: (intentId: string) => void
   onDeleteIntent?: (intentId: string) => void
-  onMoveIntent?: (intentId: string, targetBoardId: string, newOrder: number) => void
+  onDuplicateIntent?: (intentId: string, boardId: string, title: string) => void
+  onMoveIntent?: (intentId: string, currentBoardId: string) => void
+  onUnlinkIntent?: (intentId: string) => void
+  onIntentClick?: (intentId: string) => void
+  onPinToWeek?: (intentId: string) => void
+  highlightedBoardId?: string | null
+  onImportFromProvider?: (boardId: string, provider: string) => void
+  onExportToProvider?: (boardId: string, links: BoardExternalLink[]) => void
+  onManageLinks?: (boardId: string) => void
 }
 
-export function LifeAreaSection({ 
-  title, 
-  tag, 
+export function LifeAreaSection({
+  title,
+  tag,
   tagColor = 'default',
   boards,
   lifeAreaId,
   className,
+  connectedProviders,
   onAddBoard,
   onAddIntent,
   onToggleIntent,
   onDeleteIntent,
+  onDuplicateIntent,
   onMoveIntent,
+  onUnlinkIntent,
+  onIntentClick,
+  onPinToWeek,
+  highlightedBoardId,
+  onImportFromProvider,
+  onExportToProvider,
+  onManageLinks,
 }: LifeAreaSectionProps) {
   const isEmpty = boards.length === 0
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8, // Require 8px of movement before drag starts
-      },
-    }),
-    useSensor(KeyboardSensor)
-  )
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-
-    if (!over || active.id === over.id || !onMoveIntent) {
-      return
-    }
-
-    // Check if dropping over a board (board IDs) or over another intent
-    const targetBoardId = over.id as string
-    
-    // Find which board contains the target
-    let targetBoard = boards.find(b => b.id === targetBoardId)
-    
-    // If not found, it might be an intent ID, find the board containing it
-    if (!targetBoard) {
-      targetBoard = boards.find(b => b.intents.some(i => i.id === targetBoardId))
-    }
-    
-    if (!targetBoard) return
-
-    // Calculate new order based on where it's being dropped
-    const targetIntentIndex = targetBoard.intents.findIndex(i => i.id === over.id)
-    const newOrder = targetIntentIndex >= 0 ? targetIntentIndex : targetBoard.intents.length
-
-    onMoveIntent(active.id as string, targetBoard.id, newOrder)
-  }
 
   return (
     <section className={cn(
@@ -100,7 +78,7 @@ export function LifeAreaSection({
       className
     )}>
       <SectionHeader title={title} tag={tag} tagColor={tagColor} className="mb-4" />
-      
+
       {isEmpty ? (
         <div className="flex flex-col items-center justify-center py-8 text-center">
           <div className="mb-4 p-3 rounded-full bg-muted/50">
@@ -108,7 +86,7 @@ export function LifeAreaSection({
           </div>
           <p className="text-sm text-muted-foreground mb-3">No intent boards yet</p>
           {lifeAreaId && (
-            <AddIntentPopover 
+            <AddIntentPopover
               lifeAreaTitle={title}
               mode="intentBoard"
               onAddIntentBoard={(board) => onAddBoard?.(lifeAreaId, board.name)}
@@ -117,35 +95,40 @@ export function LifeAreaSection({
           )}
         </div>
       ) : (
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragEnd={handleDragEnd}
-        >
-          <div className="space-y-3">
-            {boards.map((board) => (
-              <BoardCard
-                key={board.id}
-                boardId={board.id}
-                title={board.title}
-                intents={board.intents}
-                onAddIntent={(intent) => onAddIntent?.(board.id, intent)}
-                onToggleIntent={(intentId) => onToggleIntent?.(board.id, intentId)}
-                onDeleteIntent={onDeleteIntent}
-              />
-            ))}
-          </div>
-          
+        <div className="space-y-3">
+          {boards.map((board) => (
+            <BoardCard
+              key={board.id}
+              boardId={board.id}
+              title={board.title}
+              intents={board.intents}
+              links={board.links}
+              connectedProviders={connectedProviders}
+              onAddIntent={(intent) => onAddIntent?.(board.id, intent)}
+              onToggleIntent={onToggleIntent}
+              onDeleteIntent={onDeleteIntent}
+              onDuplicateIntent={onDuplicateIntent}
+              onMoveIntent={onMoveIntent}
+              onUnlinkIntent={onUnlinkIntent}
+              onIntentClick={onIntentClick}
+              onPinToWeek={onPinToWeek}
+              isHighlighted={highlightedBoardId === board.id}
+              onImportFromProvider={onImportFromProvider}
+              onExportToProvider={onExportToProvider}
+              onManageLinks={onManageLinks}
+            />
+          ))}
+
           {lifeAreaId && (
-            <AddIntentPopover 
+            <AddIntentPopover
               lifeAreaTitle={title}
               mode="intentBoard"
               onAddIntentBoard={(board) => onAddBoard?.(lifeAreaId, board.name)}
-              variant="card" 
+              variant="card"
               className="mt-2"
             />
           )}
-        </DndContext>
+        </div>
       )}
     </section>
   )

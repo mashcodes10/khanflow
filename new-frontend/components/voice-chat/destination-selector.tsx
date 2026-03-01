@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Calendar, CheckSquare, Target } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export type Destination = "calendar" | "tasks" | "intent";
 
@@ -15,66 +16,59 @@ export function DestinationSelector({ value, onChange, className = "" }: Destina
   const destinations = [
     {
       id: "calendar" as Destination,
-      label: "Calendar Event",
+      label: "Calendar",
       icon: Calendar,
-      description: "Add as a calendar event",
-      color: "text-blue-600 dark:text-blue-400",
+      description: "Add as event",
     },
     {
       id: "tasks" as Destination,
       label: "Task",
       icon: CheckSquare,
-      description: "Add to your tasks list",
-      color: "text-green-600 dark:text-green-400",
+      description: "Add to tasks",
     },
     {
       id: "intent" as Destination,
-      label: "Intent Board",
+      label: "Intent",
       icon: Target,
-      description: "Add to life organization",
-      color: "text-purple-600 dark:text-purple-400",
+      description: "Life org",
     },
   ];
 
   return (
-    <div className={`space-y-2 ${className}`}>
-      <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
-        Where should this go?
-      </label>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+    <div className={cn("space-y-2", className)}>
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
+        Destination
+      </p>
+      <div className="grid grid-cols-3 gap-2">
         {destinations.map((dest) => {
           const Icon = dest.icon;
           const isSelected = value === dest.id;
-          
+
           return (
             <button
               key={dest.id}
               onClick={() => onChange(dest.id)}
-              className={`
-                flex flex-col items-center p-4 rounded-lg border-2 transition-all
-                ${
-                  isSelected
-                    ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20"
-                    : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
-                }
-              `}
+              className={cn(
+                'flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl transition-all text-center',
+                isSelected
+                  ? 'bg-[hsl(var(--accent))]/10 border border-[hsl(var(--accent))]/30'
+                  : 'bg-white/[0.03] border border-white/[0.08] hover:border-white/20'
+              )}
             >
               <Icon
-                className={`
-                  w-6 h-6 mb-2
-                  ${isSelected ? "text-blue-600 dark:text-blue-400" : dest.color}
-                `}
+                className={cn(
+                  'size-4',
+                  isSelected ? 'text-[hsl(var(--accent))]' : 'text-muted-foreground'
+                )}
+                strokeWidth={1.75}
               />
               <span
-                className={`
-                  text-sm font-medium mb-1
-                  ${isSelected ? "text-blue-700 dark:text-blue-300" : "text-gray-900 dark:text-gray-100"}
-                `}
+                className={cn(
+                  'text-[11px] font-medium',
+                  isSelected ? 'text-[hsl(var(--accent))]' : 'text-foreground'
+                )}
               >
                 {dest.label}
-              </span>
-              <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
-                {dest.description}
               </span>
             </button>
           );

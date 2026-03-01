@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { microsoftTodoAPI, integrationsAPI, lifeOrganizationAPI } from '@/lib/api'
 import { toast } from 'sonner'
 import { ExportToLifeOSModal } from '@/components/life-org/export-to-lifeos-modal'
+import { ImportBoardModal } from '@/components/life-org/import-board-modal'
 
 interface MicrosoftTodoTask {
   id: string
@@ -61,6 +62,7 @@ function MicrosoftTodoPage() {
   const [newTaskTitles, setNewTaskTitles] = useState<Record<string, string>>({})
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<{ task: MicrosoftTodoTask; listId: string } | null>(null)
+  const [importModalList, setImportModalList] = useState<{ id: string; displayName: string; taskCount: number } | null>(null)
 
   // Check authentication
   useEffect(() => {
@@ -103,6 +105,20 @@ function MicrosoftTodoPage() {
   const { data: lifeAreasData } = useQuery({
     queryKey: ['life-areas'],
     queryFn: lifeOrganizationAPI.getLifeAreas,
+  })
+
+  // Import board (full list) to Life OS mutation
+  const importBoardMutation = useMutation({
+    mutationFn: lifeOrganizationAPI.importBoardDirect,
+    onSuccess: (res) => {
+      const { imported, skipped } = res.data
+      toast.success(`Copied ${imported} task${imported !== 1 ? 's' : ''} to Life OS${skipped > 0 ? ` (${skipped} already linked, skipped)` : ''}`)
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+      setImportModalList(null)
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to copy list to Life OS')
+    },
   })
 
   // Export to Life OS mutation
@@ -287,6 +303,27 @@ function MicrosoftTodoPage() {
                           </Button>
                         )}
                       </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() =>
+                              setImportModalList({
+                                id: list.id,
+                                displayName: list.displayName,
+                                taskCount: list.tasks.length,
+                              })
+                            }
+                          >
+                            <Upload className="h-4 w-4 mr-2" />
+                            Copy list to Life OS
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
 
                     <div className="space-y-2">
@@ -409,6 +446,32 @@ function MicrosoftTodoPage() {
           </div>
         </div>
       </main>
+
+      {/* Import Board Modal — Copy full list to Life OS */}
+      {importModalList && (
+        <ImportBoardModal
+          open={!!importModalList}
+          onClose={() => setImportModalList(null)}
+          provider="microsoft"
+          externalListId={importModalList.id}
+          externalListName={importModalList.displayName}
+          taskCount={importModalList.taskCount}
+          lifeAreas={(lifeAreasData?.data ?? []).map((area: any) => ({
+            id: area.id,
+            name: area.name,
+            intentBoards: (area.intentBoards ?? []).map((b: any) => ({ id: b.id, name: b.name })),
+          }))}
+          onImport={async (params) => {
+            await importBoardMutation.mutateAsync({
+              provider: 'microsoft',
+              externalListId: params.externalListId,
+              lifeAreaId: params.lifeAreaId,
+              boardId: params.boardId,
+              newBoardName: params.newBoardName,
+            })
+          }}
+        />
+      )}
 
       {/* Export to Life OS Modal */}
       <ExportToLifeOSModal

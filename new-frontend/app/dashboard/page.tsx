@@ -7,10 +7,24 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { AppSidebar } from '@/components/shared/app-sidebar'
-import { SidebarItem } from '@/components/life-org/sidebar-item'
 import { PageHeader } from '@/components/life-org/page-header'
 import { LifeAreaSection } from '@/components/life-org/life-area-section'
 import { ThemeToggle } from '@/components/life-org/theme-toggle'
+import { MoveToBoardDialog } from '@/components/life-org/move-to-board-dialog'
+import { InboxSection } from '@/components/life-org/inbox-section'
+import { IntentDetailSheet, type IntentDetail } from '@/components/life-org/intent-detail-sheet'
+import { WeeklyFocusSection } from '@/components/life-org/weekly-focus-section'
+import { SearchDialog } from '@/components/life-org/search-dialog'
+import { BoardLinksDialog } from '@/components/life-org/board-links-dialog'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
 import {
   LayoutDashboard,
   CalendarRange,
@@ -22,15 +36,15 @@ import {
   Mic,
   Puzzle,
   Clock,
-  ChevronLeft,
-  Menu,
   RotateCcw,
+  Search,
 } from 'lucide-react'
-import { lifeOrganizationAPI } from '@/lib/api'
+import { lifeOrganizationAPI, integrationsAPI } from '@/lib/api'
 import type { LifeArea, Suggestion } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { OnboardingModal } from '@/components/life-org/onboarding-modal'
+import { ExportBoardModal } from '@/components/life-org/export-board-modal'
 
 // Sample data matching the original images (fallback)
 const initialLifeAreas = [
@@ -110,9 +124,18 @@ const navItems = [
 function LifeOrganizationPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
-  const [activeTab, setActiveTab] = useState<'areas' | 'suggestions'>('areas')
+  const [activeTab, setActiveTab] = useState<'areas' | 'focus' | 'suggestions'>('areas')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [movingIntent, setMovingIntent] = useState<{ intentId: string; currentBoardId: string } | null>(null)
+  const [exportBoardModal, setExportBoardModal] = useState<{
+    boardId: string
+    boardName: string
+    links: Array<{ provider: string; externalListName: string }>
+  } | null>(null)
+  const [selectedIntentId, setSelectedIntentId] = useState<string | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [managingLinks, setManagingLinks] = useState<{ boardId: string; boardName: string } | null>(null)
 
   // Check authentication on mount
   useEffect(() => {
@@ -123,6 +146,18 @@ function LifeOrganizationPage() {
       }
     }
   }, [router])
+
+  // Cmd+K / Ctrl+K shortcut to open search
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setSearchOpen((prev) => !prev)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
 
   // Fetch onboarding status
   const { data: onboardingStatusData } = useQuery({
@@ -137,23 +172,33 @@ function LifeOrganizationPage() {
     queryFn: lifeOrganizationAPI.getLifeAreas,
   })
 
+  // Fetch integrations to know which providers are connected
+  const { data: integrationsData } = useQuery({
+    queryKey: ['integrations'],
+    queryFn: integrationsAPI.getAll,
+  })
+
+  const connectedProviders = {
+    google: integrationsData?.integrations?.some(
+      (i: any) => i.app_type === 'GOOGLE_TASKS' && i.isConnected
+    ) ?? false,
+    microsoft: integrationsData?.integrations?.some(
+      (i: any) => i.app_type === 'MICROSOFT_TODO' && i.isConnected
+    ) ?? false,
+  }
+
   // Check if onboarding should be shown
   useEffect(() => {
-    // Show onboarding if:
-    // 1. Onboarding status is loaded and not completed, OR
-    // 2. User has no life areas (empty state)
+    // Only show onboarding when the backend explicitly says it's not completed.
+    // Do NOT re-show just because there are no life areas — "Start empty" is a
+    // valid choice where isCompleted=true but no life areas exist.
     const isOnboardingNotCompleted = onboardingStatusData?.data && !onboardingStatusData.data.isCompleted
-    const hasLifeAreas = lifeAreasData?.data && lifeAreasData.data.length > 0
     const isLoading = isLoadingAreas || !onboardingStatusData
 
     if (!isLoading) {
-      if (isOnboardingNotCompleted || (!hasLifeAreas && onboardingStatusData?.data)) {
-        setShowOnboarding(true)
-      } else {
-        setShowOnboarding(false)
-      }
+      setShowOnboarding(!!isOnboardingNotCompleted)
     }
-  }, [onboardingStatusData, lifeAreasData, isLoadingAreas])
+  }, [onboardingStatusData, isLoadingAreas])
 
   // Fetch suggestions from backend
   const { data: suggestionsData } = useQuery({
@@ -277,6 +322,84 @@ function LifeOrganizationPage() {
     },
   })
 
+  // Toggle intent completion
+  const toggleIntentMutation = useMutation({
+    mutationFn: ({ intentId, completedAt }: { intentId: string; completedAt: string | null }) =>
+      lifeOrganizationAPI.updateIntent(intentId, { completedAt }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update intent')
+    },
+  })
+
+  // Duplicate intent
+  const duplicateIntentMutation = useMutation({
+    mutationFn: (intentId: string) => lifeOrganizationAPI.duplicateIntent(intentId),
+    onSuccess: () => {
+      toast.success('Intent duplicated')
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to duplicate intent')
+    },
+  })
+
+  // Unlink intent from provider
+  const unlinkIntentMutation = useMutation({
+    mutationFn: (intentId: string) => lifeOrganizationAPI.unlinkIntentFromProvider(intentId),
+    onSuccess: () => {
+      toast.success('Intent unlinked from provider')
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to unlink intent')
+    },
+  })
+
+  // Update intent details (from IntentDetailSheet)
+  const updateIntentDetailMutation = useMutation({
+    mutationFn: ({ intentId, changes }: { intentId: string; changes: Parameters<typeof lifeOrganizationAPI.updateIntent>[1] }) =>
+      lifeOrganizationAPI.updateIntent(intentId, changes),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update intent')
+    },
+  })
+
+  // Inbox — ensure the inbox board exists once life areas are loaded
+  const hasLifeAreas = (lifeAreasData?.data?.length ?? 0) > 0
+  const { data: inboxData } = useQuery({
+    queryKey: ['inbox'],
+    queryFn: lifeOrganizationAPI.ensureInbox,
+    enabled: hasLifeAreas,
+    staleTime: Infinity, // boardId never changes per user
+  })
+  const inboxBoardId = inboxData?.data?.boardId ?? null
+  const inboxLifeAreaId = inboxData?.data?.lifeAreaId ?? null
+
+  // DnD sensors — used by the top-level DndContext for cross-area drag
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor)
+  )
+
+  // Export board to provider
+  const exportBoardMutation = useMutation({
+    mutationFn: ({ boardId, provider }: { boardId: string; provider: string }) =>
+      lifeOrganizationAPI.exportBoard(boardId, { provider }),
+    onSuccess: (res) => {
+      const { exported, skipped } = res.data
+      toast.success(`Exported ${exported} intent${exported !== 1 ? 's' : ''}${skipped > 0 ? ` (${skipped} skipped)` : ''}`)
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to export to provider')
+    },
+  })
+
   // Clear all life organization data mutation
   const clearLifeOrgMutation = useMutation({
     mutationFn: lifeOrganizationAPI.clearLifeOrganization,
@@ -344,23 +467,42 @@ function LifeOrganizationPage() {
     return colorOptions[index % colorOptions.length]
   }
 
-  // Transform backend life areas to frontend format
-  const transformedLifeAreas = lifeAreas.map((area: LifeArea, index: number) => ({
+  // Transform backend life areas to frontend format (excluding the inbox life area)
+  const transformedLifeAreas = lifeAreas.filter((area: LifeArea) => area.icon !== 'inbox').map((area: LifeArea, index: number) => ({
     id: area.id,
     title: area.name,
     tag: area.name.toLowerCase().split(' ')[0],
     tagColor: getTagColor(area.name, index, area.icon),
-    boards: area.intentBoards?.map((board) => ({
-      id: board.id,
-      title: board.name,
-      intents: board.intents?.map((intent) => ({
-        id: intent.id,
-        text: intent.title,
-        isCompleted: false,
-        isExample: intent.isExample || false,
-      })) || [],
-    })) || [],
+    boards: area.intentBoards?.map((board) => {
+      const boardIsLinked = (board.boardExternalLinks?.length ?? 0) > 0
+      return {
+        id: board.id,
+        title: board.name,
+        intents: board.intents?.map((intent) => ({
+          id: intent.id,
+          text: intent.title,
+          isCompleted: !!intent.completedAt,
+          isExample: intent.isExample || false,
+          isLinked: boardIsLinked,
+          isPinned: !!intent.weeklyFocusAt,
+          priority: intent.priority ?? null,
+          dueDate: intent.dueDate ?? null,
+          weeklyFocusAt: intent.weeklyFocusAt ?? null,
+          description: intent.description ?? null,
+        })) || [],
+        links: board.boardExternalLinks ?? [],
+      }
+    }) || [],
   }))
+
+  // Extract inbox intents (from the Inbox life area, identified by icon='inbox')
+  const inboxArea = lifeAreas.find((area: LifeArea) => area.icon === 'inbox')
+  const inboxBoard = inboxArea?.intentBoards?.[0]
+  const inboxIntents = inboxBoard?.intents?.map((intent) => ({
+    id: intent.id,
+    text: intent.title,
+    isCompleted: !!intent.completedAt,
+  })) ?? []
 
   // Check if there are any example intents
   const hasExampleIntents = transformedLifeAreas.some((area) =>
@@ -368,6 +510,110 @@ function LifeOrganizationPage() {
       board.intents.some((intent) => intent.isExample === true)
     )
   )
+
+  // Weekly focus groups — intents with weeklyFocusAt set, grouped by life area
+  const weeklyFocusGroups = transformedLifeAreas
+    .map((area) => ({
+      lifeAreaId: area.id,
+      lifeAreaName: area.title,
+      intents: area.boards.flatMap((board) =>
+        board.intents
+          .filter((i) => !!i.weeklyFocusAt)
+          .map((i) => ({
+            id: i.id,
+            text: i.text,
+            isCompleted: i.isCompleted,
+            priority: i.priority,
+            dueDate: i.dueDate,
+            boardName: board.title,
+          }))
+      ),
+    }))
+    .filter((g) => g.intents.length > 0)
+
+  const weeklyFocusCount = weeklyFocusGroups.reduce((acc, g) => acc + g.intents.length, 0)
+
+  // Cross-life-area drag and drop handler
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    const intentId = active.id as string
+    const overId = over.id as string
+
+    // Find the board containing the dragged intent
+    let sourceBoardId: string | null = null
+    for (const area of transformedLifeAreas) {
+      for (const board of area.boards) {
+        if (board.intents.some((i) => i.id === intentId)) {
+          sourceBoardId = board.id
+          break
+        }
+      }
+      if (sourceBoardId) break
+    }
+    if (!sourceBoardId) return
+
+    // Find the target board (over.id can be a boardId or an intentId)
+    let targetBoard: { id: string; intents: { id: string }[] } | null = null
+    for (const area of transformedLifeAreas) {
+      const byId = area.boards.find((b) => b.id === overId)
+      if (byId) { targetBoard = byId; break }
+      const byIntent = area.boards.find((b) => b.intents.some((i) => i.id === overId))
+      if (byIntent) { targetBoard = byIntent; break }
+    }
+    if (!targetBoard) return
+
+    const targetIntentIndex = targetBoard.intents.findIndex((i) => i.id === overId)
+    const newOrder = targetIntentIndex >= 0 ? targetIntentIndex : targetBoard.intents.length
+
+    moveIntentMutation.mutate({ intentId, targetBoardId: targetBoard.id, newOrder })
+  }
+
+  // Build the selected IntentDetail object for the detail sheet
+  const selectedIntentDetail: IntentDetail | null = (() => {
+    if (!selectedIntentId) return null
+    for (const area of lifeAreas as LifeArea[]) {
+      for (const board of area.intentBoards ?? []) {
+        const intent = board.intents?.find((i) => i.id === selectedIntentId)
+        if (intent) {
+          return {
+            id: intent.id,
+            text: intent.title,
+            description: intent.description ?? null,
+            priority: intent.priority ?? null,
+            dueDate: intent.dueDate ?? null,
+            weeklyFocusAt: intent.weeklyFocusAt ?? null,
+            completedAt: intent.completedAt ?? null,
+            boardName: board.name,
+            lifeAreaName: area.name,
+          }
+        }
+      }
+    }
+    return null
+  })()
+
+  // Searchable intents — flat list with life area + board names for the search dialog
+  const searchableIntents = transformedLifeAreas.flatMap((area) =>
+    area.boards.flatMap((board) =>
+      board.intents.map((intent) => ({
+        id: intent.id,
+        text: intent.text,
+        isCompleted: intent.isCompleted,
+        boardName: board.title,
+        lifeAreaName: area.title,
+        boardId: board.id,
+      }))
+    )
+  )
+
+  const handleGoToBoard = (boardId: string) => {
+    setActiveTab('areas')
+    setTimeout(() => {
+      document.getElementById(`board-${boardId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }, 100)
+  }
 
   const handleOnboardingComplete = () => {
     setShowOnboarding(false)
@@ -381,6 +627,7 @@ function LifeOrganizationPage() {
         open={showOnboarding}
         onClose={() => setShowOnboarding(false)}
         onComplete={handleOnboardingComplete}
+        connectedProviders={connectedProviders}
       />
       <AppSidebar activePage="life os" />
 
@@ -394,6 +641,17 @@ function LifeOrganizationPage() {
               description="Organize what matters to you – capture intentions, not just tasks"
             />
             <div className="flex items-center gap-3">
+              {/* Search button */}
+              <button
+                onClick={() => setSearchOpen(true)}
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-border bg-card text-sm text-muted-foreground hover:text-foreground hover:border-border-hover transition-all"
+              >
+                <Search className="size-3.5" strokeWidth={1.75} />
+                <span className="hidden sm:inline">Search</span>
+                <kbd className="hidden sm:inline-flex items-center rounded border border-border px-1 py-0.5 text-[10px] font-medium">
+                  ⌘K
+                </kbd>
+              </button>
               {activeTab === 'areas' && transformedLifeAreas.length > 0 && (
                 <>
                   {hasExampleIntents && (
@@ -440,6 +698,27 @@ function LifeOrganizationPage() {
               Life Areas
             </button>
             <button
+              onClick={() => setActiveTab('focus')}
+              className={cn(
+                'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all duration-150',
+                activeTab === 'focus'
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              This Week
+              {weeklyFocusCount > 0 && (
+                <span className={cn(
+                  'inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded text-xs font-medium',
+                  activeTab === 'focus'
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-muted text-muted-foreground'
+                )}>
+                  {weeklyFocusCount}
+                </span>
+              )}
+            </button>
+            <button
               onClick={() => setActiveTab('suggestions')}
               className={cn(
                 'flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-all duration-150',
@@ -460,6 +739,28 @@ function LifeOrganizationPage() {
             </button>
           </div>
 
+          {/* Inbox Section — shown when life areas exist */}
+          {activeTab === 'areas' && !isLoadingAreas && transformedLifeAreas.length > 0 && inboxBoardId && (
+            <InboxSection
+              intents={inboxIntents}
+              inboxBoardId={inboxBoardId}
+              onAddIntent={(text) => {
+                createIntentMutation.mutate({ title: text, intentBoardId: inboxBoardId })
+              }}
+              onMoveIntent={(intentId, currentBoardId) => {
+                setMovingIntent({ intentId, currentBoardId })
+              }}
+              onDeleteIntent={(intentId) => {
+                deleteIntentMutation.mutate(intentId)
+              }}
+              onToggleIntent={(intentId) => {
+                const intent = inboxIntents.find((i) => i.id === intentId)
+                const newCompletedAt = intent?.isCompleted ? null : new Date().toISOString()
+                toggleIntentMutation.mutate({ intentId, completedAt: newCompletedAt })
+              }}
+            />
+          )}
+
           {/* Life Areas Grid */}
           {activeTab === 'areas' && (
             <>
@@ -468,37 +769,87 @@ function LifeOrganizationPage() {
                   <div className="text-sm text-muted-foreground">Loading life areas...</div>
                 </div>
               ) : transformedLifeAreas.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {transformedLifeAreas.map((area) => (
-                    <LifeAreaSection
-                      key={area.id}
-                      title={area.title}
-                      tag={area.tag}
-                      tagColor={area.tagColor}
-                      boards={area.boards}
-                      lifeAreaId={area.id}
-                      onAddBoard={(lifeAreaId, boardName) => {
-                        createIntentBoardMutation.mutate({
-                          name: boardName,
-                          lifeAreaId: lifeAreaId,
-                        })
-                      }}
-                      onAddIntent={(boardId, intent) => {
-                        createIntentMutation.mutate({
-                          title: intent.text,
-                          description: intent.timeline ? `Timeline: ${intent.timeline}` : undefined,
-                          intentBoardId: boardId,
-                        })
-                      }}
-                      onDeleteIntent={(intentId) => {
-                        deleteIntentMutation.mutate(intentId)
-                      }}
-                      onMoveIntent={(intentId, targetBoardId, newOrder) => {
-                        moveIntentMutation.mutate({ intentId, targetBoardId, newOrder })
-                      }}
-                    />
-                  ))}
-                </div>
+                <DndContext
+                  sensors={dndSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleDragEnd}
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {transformedLifeAreas.map((area) => (
+                      <LifeAreaSection
+                        key={area.id}
+                        title={area.title}
+                        tag={area.tag}
+                        tagColor={area.tagColor}
+                        boards={area.boards}
+                        lifeAreaId={area.id}
+                        connectedProviders={connectedProviders}
+                        onAddBoard={(lifeAreaId, boardName) => {
+                          createIntentBoardMutation.mutate({ name: boardName, lifeAreaId })
+                        }}
+                        onAddIntent={(boardId, intent) => {
+                          createIntentMutation.mutate({
+                            title: intent.text,
+                            description: intent.timeline ? `Timeline: ${intent.timeline}` : undefined,
+                            intentBoardId: boardId,
+                          })
+                        }}
+                        onToggleIntent={(intentId) => {
+                          const allIntents = transformedLifeAreas.flatMap((a) =>
+                            a.boards.flatMap((b) => b.intents)
+                          )
+                          const intent = allIntents.find((i) => i.id === intentId)
+                          const newCompletedAt = intent?.isCompleted ? null : new Date().toISOString()
+                          toggleIntentMutation.mutate({ intentId, completedAt: newCompletedAt })
+                        }}
+                        onDeleteIntent={(intentId) => {
+                          deleteIntentMutation.mutate(intentId)
+                        }}
+                        onDuplicateIntent={(intentId) => {
+                          duplicateIntentMutation.mutate(intentId)
+                        }}
+                        onMoveIntent={(intentId, currentBoardId) => {
+                          setMovingIntent({ intentId, currentBoardId })
+                        }}
+                        onUnlinkIntent={(intentId) => {
+                          unlinkIntentMutation.mutate(intentId)
+                        }}
+                        onIntentClick={(intentId) => {
+                          setSelectedIntentId(intentId)
+                        }}
+                        onPinToWeek={(intentId) => {
+                          const allIntents = transformedLifeAreas.flatMap((a) =>
+                            a.boards.flatMap((b) => b.intents)
+                          )
+                          const intent = allIntents.find((i) => i.id === intentId)
+                          const newWeeklyFocusAt = intent?.weeklyFocusAt ? null : new Date().toISOString()
+                          updateIntentDetailMutation.mutate({ intentId, changes: { weeklyFocusAt: newWeeklyFocusAt } })
+                        }}
+                        onImportFromProvider={(boardId, provider) => {
+                          const destination = provider === 'google' ? '/tasks' : '/microsoft-todo'
+                          toast.info(`Go to ${provider === 'google' ? 'Google Tasks' : 'Microsoft Todo'} and use "Copy list to Life OS".`, {
+                            action: { label: 'Go there', onClick: () => window.location.href = destination },
+                          })
+                        }}
+                        onExportToProvider={(boardId, links) => {
+                          const boardName = area.boards.find((b) => b.id === boardId)?.title ?? 'Board'
+                          setExportBoardModal({
+                            boardId,
+                            boardName,
+                            links: (links ?? []).map((l) => ({
+                              provider: l.provider,
+                              externalListName: l.externalListName,
+                            })),
+                          })
+                        }}
+                        onManageLinks={(boardId) => {
+                          const boardName = area.boards.find((b) => b.id === boardId)?.title ?? 'Board'
+                          setManagingLinks({ boardId, boardName })
+                        }}
+                      />
+                    ))}
+                  </div>
+                </DndContext>
               ) : (
                 <div className="rounded-2xl border border-border bg-surface p-8 text-center">
                   <div className="max-w-md mx-auto">
@@ -523,6 +874,23 @@ function LifeOrganizationPage() {
                 </div>
               )}
             </>
+          )}
+
+          {/* This Week Tab Content */}
+          {activeTab === 'focus' && (
+            <WeeklyFocusSection
+              groups={weeklyFocusGroups}
+              onToggleIntent={(intentId) => {
+                const allIntents = transformedLifeAreas.flatMap((a) => a.boards.flatMap((b) => b.intents))
+                const intent = allIntents.find((i) => i.id === intentId)
+                const newCompletedAt = intent?.isCompleted ? null : new Date().toISOString()
+                toggleIntentMutation.mutate({ intentId, completedAt: newCompletedAt })
+              }}
+              onIntentClick={(intentId) => setSelectedIntentId(intentId)}
+              onUnpin={(intentId) => {
+                updateIntentDetailMutation.mutate({ intentId, changes: { weeklyFocusAt: null } })
+              }}
+            />
           )}
 
           {/* Suggestions Tab Content */}
@@ -601,6 +969,96 @@ function LifeOrganizationPage() {
           )}
         </div>
       </main>
+
+      {/* Export Board Modal */}
+      {exportBoardModal && (
+        <ExportBoardModal
+          open={!!exportBoardModal}
+          onClose={() => setExportBoardModal(null)}
+          boardName={exportBoardModal.boardName}
+          boardId={exportBoardModal.boardId}
+          connectedProviders={[
+            ...(connectedProviders.google ? [{
+              provider: 'google' as const,
+              label: 'Google Tasks',
+              linkedListName: exportBoardModal.links.find((l) => l.provider === 'google')?.externalListName,
+            }] : []),
+            ...(connectedProviders.microsoft ? [{
+              provider: 'microsoft' as const,
+              label: 'Microsoft Todo',
+              linkedListName: exportBoardModal.links.find((l) => l.provider === 'microsoft')?.externalListName,
+            }] : []),
+          ]}
+          onExport={async (boardId, provider) => {
+            await exportBoardMutation.mutateAsync({ boardId, provider })
+          }}
+        />
+      )}
+
+      {/* Move to Board Dialog */}
+      {movingIntent && (
+        <MoveToBoardDialog
+          open={!!movingIntent}
+          onClose={() => setMovingIntent(null)}
+          currentBoardId={movingIntent.currentBoardId}
+          allLifeAreas={transformedLifeAreas}
+          onSelectBoard={(targetBoardId) => {
+            const allIntents = transformedLifeAreas.flatMap((a) => a.boards.flatMap((b) => b.intents))
+            const targetBoard = transformedLifeAreas.flatMap((a) => a.boards).find((b) => b.id === targetBoardId)
+            const newOrder = targetBoard?.intents.length ?? 0
+            moveIntentMutation.mutate({
+              intentId: movingIntent.intentId,
+              targetBoardId,
+              newOrder,
+            })
+            toast.success('Intent moved')
+          }}
+        />
+      )}
+
+      {/* Board Links Management Dialog */}
+      {managingLinks && (
+        <BoardLinksDialog
+          open={!!managingLinks}
+          onClose={() => setManagingLinks(null)}
+          boardId={managingLinks.boardId}
+          boardName={managingLinks.boardName}
+        />
+      )}
+
+      {/* Import Board from Provider: handled from Google Tasks / MS Todo pages */}
+
+      {/* Search dialog (Cmd+K) */}
+      <SearchDialog
+        open={searchOpen}
+        onClose={() => setSearchOpen(false)}
+        intents={searchableIntents}
+        onSelectIntent={(intentId) => setSelectedIntentId(intentId)}
+        onGoToBoard={handleGoToBoard}
+      />
+
+      {/* Intent Detail Sheet */}
+      <IntentDetailSheet
+        intent={selectedIntentDetail}
+        open={!!selectedIntentId}
+        onClose={() => setSelectedIntentId(null)}
+        onSave={(intentId, changes) => {
+          updateIntentDetailMutation.mutate({ intentId, changes })
+        }}
+        onDelete={(intentId) => {
+          deleteIntentMutation.mutate(intentId)
+        }}
+        onMove={(intentId) => {
+          const allIntents = transformedLifeAreas.flatMap((a) => a.boards.flatMap((b) => b.intents))
+          const intent = transformedLifeAreas
+            .flatMap((a) => a.boards)
+            .flatMap((b) => b.intents.map((i) => ({ ...i, boardId: b.id })))
+            .find((i) => i.id === intentId)
+          if (intent) {
+            setMovingIntent({ intentId, currentBoardId: intent.boardId })
+          }
+        }}
+      />
     </div>
   )
 }

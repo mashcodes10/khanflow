@@ -469,7 +469,7 @@ export function EnhancedRecorderPanel({ className }: RecorderPanelProps) {
                 onStopRecording={handleStopRecording}
                 onError={handleRecordingError}
                 onStreamReady={setAudioStream}
-                maxDurationMs={60000}
+                maxDurationMs={30000}
                 minDurationMs={1000}
               />
               {audioStream && (

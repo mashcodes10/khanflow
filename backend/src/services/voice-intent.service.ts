@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { config } from "../config/app.config";
 import { AppDataSource } from "../config/database.config";
 import { LifeArea } from "../database/entities/life-area.entity";
@@ -6,8 +6,8 @@ import { IntentBoard } from "../database/entities/intent-board.entity";
 import { Intent } from "../database/entities/intent.entity";
 import { createIntentService } from "./life-organization.service";
 
-const openai = new OpenAI({
-  apiKey: config.OPENAI_API_KEY,
+const anthropic = new Anthropic({
+  apiKey: config.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || "dummy-key",
 });
 
 export interface ClarificationOption {
@@ -130,20 +130,17 @@ Return JSON in this exact format:
 }`;
 
     try {
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
+      const intentResponse = await anthropic.messages.create({
+        model: "claude-3-haiku-20240307",
+        max_tokens: 1024,
+        temperature: 0.3,
+        system: systemPrompt,
         messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: `Parse this voice command: "${transcript}"`,
-          },
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.3, // Lower temperature for more consistent parsing
+          { role: "user", content: `Parse this voice command: "${transcript}"\nMust output only JSON.` }
+        ]
       });
 
-      const content = response.choices[0]?.message?.content;
+      const content = (intentResponse.content[0] as any).text;
       if (!content) {
         return {
           intent: "clarification_required",
@@ -163,8 +160,8 @@ Return JSON in this exact format:
           parsed.intentData,
           lifeAreas,
           parsed.confidence.missing_fields?.includes("intent title") ? "intentTitle" :
-          parsed.confidence.missing_fields?.includes("life area") ? "lifeArea" :
-          parsed.confidence.missing_fields?.includes("intent board") ? "intentBoard" : "lifeArea"
+            parsed.confidence.missing_fields?.includes("life area") ? "lifeArea" :
+              parsed.confidence.missing_fields?.includes("intent board") ? "intentBoard" : "lifeArea"
         );
         parsed.clarificationOptions = options;
         return parsed;
@@ -182,7 +179,7 @@ Return JSON in this exact format:
         if (!resolved.lifeAreaId) {
           const bestLifeArea = await this.findBestMatchingLifeArea(transcript, parsed.intentData, lifeAreas);
           resolved.lifeAreaId = bestLifeArea?.id || lifeAreas[0]?.id;
-          
+
           if (!resolved.lifeAreaId) {
             return {
               intent: "clarification_required",
@@ -204,7 +201,7 @@ Return JSON in this exact format:
               parsed.intentData,
               selectedLifeArea.intentBoards
             );
-            
+
             if (bestBoard) {
               resolved.intentBoardId = bestBoard.id;
             } else {
@@ -254,14 +251,14 @@ ${lifeAreas.map((a, i) => `${i + 1}. ${a.name}${a.description ? ` - ${a.descript
 
 Return ONLY the number (1-${lifeAreas.length}) of the best match.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.1,
+      const response = await anthropic.messages.create({
+        model: "claude-3-haiku-20240307",
         max_tokens: 10,
+        temperature: 0.1,
+        messages: [{ role: "user", content: prompt }]
       });
 
-      const match = response.choices[0]?.message?.content?.trim();
+      const match = (response.content[0] as any).text.trim();
       const index = parseInt(match || "1") - 1;
       return lifeAreas[index] || lifeAreas[0];
     } catch (error) {
@@ -292,16 +289,16 @@ ${boards.map((b, i) => `${i + 1}. ${b.name}${b.description ? ` - ${b.description
 
 Return ONLY the number (1-${boards.length}) of the best match, or 0 if none are a good fit.`;
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.1,
+      const response = await anthropic.messages.create({
+        model: "claude-3-haiku-20240307",
         max_tokens: 10,
+        temperature: 0.1,
+        messages: [{ role: "user", content: prompt }]
       });
 
-      const match = response.choices[0]?.message?.content?.trim();
+      const match = (response.content[0] as any).text.trim();
       const index = parseInt(match || "0") - 1;
-      
+
       // If 0 or invalid, return null (will trigger "Other" board creation)
       if (index < 0 || index >= boards.length) return null;
       return boards[index];
@@ -316,7 +313,7 @@ Return ONLY the number (1-${boards.length}) of the best match, or 0 if none are 
    */
   private async getOrCreateOtherBoard(lifeAreaId: string, userId: string): Promise<IntentBoard> {
     const intentBoardRepo = AppDataSource.getRepository(IntentBoard);
-    
+
     // Check if "Other" board exists
     let otherBoard = await intentBoardRepo.findOne({
       where: {
@@ -420,7 +417,7 @@ Format each option as: "Intent Title - Life Area Name"`;
         // Show available intent boards for the selected life area
         const selectedArea = lifeAreas.find((a) => a.id === selectedLifeAreaId);
         if (!selectedArea) return [];
-        
+
         const boardNames = selectedArea.intentBoards.map((b) => b.name).join(", ");
         context = `Life area: ${selectedArea.name}\nAvailable boards: ${boardNames}`;
         optionsPrompt = `Based on the user's command "${transcript}" and the intent "${intentData?.title || "this item"}", 
@@ -428,25 +425,21 @@ which of these intent boards makes the most sense? Generate 3-5 options that com
 Format each option as: "Intent Title - Board Name"`;
       }
 
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: `You are a helpful assistant that generates clarification options for users. 
+      const fullPrompt = `You are a helpful assistant that generates clarification options for users. 
 ${context}
-Generate options that are relevant, specific, and helpful. Return a JSON array of options.`,
-          },
-          {
-            role: "user",
-            content: `${optionsPrompt}\n\nReturn a JSON array with 3-5 options, each with a "label" field containing the option text.`,
-          },
-        ],
-        response_format: { type: "json_object" },
+Generate options that are relevant, specific, and helpful. Return a JSON array of options.`;
+
+      const response = await anthropic.messages.create({
+        model: "claude-3-haiku-20240307",
+        max_tokens: 1024,
         temperature: 0.7,
+        system: fullPrompt,
+        messages: [
+          { role: "user", content: `${optionsPrompt}\n\nReturn a JSON array with 3-5 options, each with a "label" field containing the option text.\nMust output only JSON.` }
+        ]
       });
 
-      const content = response.choices[0]?.message?.content;
+      const content = (response.content[0] as any).text;
       if (!content) return [];
 
       const parsed = JSON.parse(content);
@@ -465,7 +458,7 @@ Generate options that are relevant, specific, and helpful. Return a JSON array o
       // Map AI-generated options to ClarificationOption format
       return options.slice(0, 5).map((opt: any, index: number) => {
         const label = opt.label || opt.text || String(opt);
-        
+
         if (missingField === "intentTitle") {
           return {
             id: `option-${index}`,
@@ -477,7 +470,7 @@ Generate options that are relevant, specific, and helpful. Return a JSON array o
           const parts = label.split(" - ");
           const intentTitle = parts[0]?.trim() || intentData?.title || "";
           const lifeAreaName = parts[1]?.trim() || parts[0]?.trim() || "";
-          
+
           // Find matching life area
           const matchedArea = lifeAreas.find(
             (area) =>

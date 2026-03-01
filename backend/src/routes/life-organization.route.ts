@@ -30,6 +30,15 @@ import {
   importTaskController,
   reorderBoardsController,
   moveIntentController,
+  getBoardLinksController,
+  linkBoardController,
+  unlinkBoardController,
+  importBoardController,
+  exportBoardController,
+  importBoardDirectController,
+  unlinkIntentFromProviderController,
+  duplicateIntentController,
+  ensureInboxController,
 } from "../controllers/life-organization.controller";
 
 const router = Router();
@@ -52,6 +61,8 @@ router.delete("/intent-boards/:id", deleteIntentBoardController);
 router.post("/intents", createIntentController);
 router.put("/intents/:id", updateIntentController);
 router.delete("/intents/:id", deleteIntentController);
+router.post("/intents/:id/duplicate", duplicateIntentController);
+router.delete("/intents/:id/external-links", unlinkIntentFromProviderController);
 router.get("/intent-boards/:id/intents", getIntentsByBoardController);
 
 // Suggestions
@@ -75,12 +86,23 @@ router.post("/remove-examples", removeExampleIntentsController);
 router.post("/clear", clearLifeOrganizationController);
 router.get("/templates", getTemplatesController);
 
-// Import from external providers
+// Import from external providers (single task)
 router.post("/import-task", importTaskController);
+
+// Inbox
+router.post("/ensure-inbox", ensureInboxController);
 
 // Board and intent management
 router.post("/reorder-boards", reorderBoardsController);
 router.post("/move-intent", moveIntentController);
+
+// Board-level bidirectional sync
+router.get("/intent-boards/:id/links", getBoardLinksController);
+router.post("/intent-boards/:id/link", linkBoardController);
+router.delete("/intent-boards/:id/links/:linkId", unlinkBoardController);
+router.post("/intent-boards/:id/import", importBoardController);
+router.post("/intent-boards/:id/export", exportBoardController);
+router.post("/import-board", importBoardDirectController);
 
 export default router;
 

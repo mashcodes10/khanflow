@@ -130,13 +130,16 @@ export const clarifyController = asyncHandler(async (req: Request, res: Response
  */
 export const confirmActionController = asyncHandler(async (req: Request, res: Response) => {
   const userId = req.user?.id as string;
-  const { 
-    conversationId, 
+  const {
+    conversationId,
     action, // The parsed action from preview
     destination, // 'calendar' | 'tasks' | 'intent'
-    taskAppType, 
-    calendarAppType 
+    taskAppType,
+    calendarAppType,
+    timezone,
   } = req.body;
+
+  console.log(`📥 confirmAction received: destination=${destination}, calendarAppType=${calendarAppType}, timezone=${timezone}`);
 
   if (!conversationId || !action || !destination) {
     return res.status(HTTPSTATUS.BAD_REQUEST).json({
@@ -153,6 +156,7 @@ export const confirmActionController = asyncHandler(async (req: Request, res: Re
     options: {
       taskAppType,
       calendarAppType,
+      timezone,
     },
   });
 

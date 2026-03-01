@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { config } from "../config/app.config";
+import Anthropic from "@anthropic-ai/sdk";
 import { google } from "googleapis";
 import { AppDataSource } from "../config/database.config";
 import { Integration } from "../database/entities/integration.entity";
@@ -14,8 +15,12 @@ const openai = new OpenAI({
   apiKey: config.OPENAI_API_KEY,
 });
 
+const anthropic = new Anthropic({
+  apiKey: config.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || "dummy-key",
+});
+
 export interface ParsedVoiceAction {
-  actionType: "task" | "intent" | "clarification_required"; // New field to distinguish task vs intent
+  actionType: "task" | "calendar_event" | "intent" | "clarification_required"; // New field to distinguish task vs intent
   intent: "create_task" | "update_task" | "delete_task" | "query_tasks" | "create_intent" | "clarification_required";
   task?: {
     title: string;
@@ -81,6 +86,12 @@ export interface VoiceExecutionOptions {
    * If omitted, the service will default to Google Calendar only (current behavior).
    */
   calendarAppType?: IntegrationAppTypeEnum.GOOGLE_MEET_AND_CALENDAR | IntegrationAppTypeEnum.OUTLOOK_CALENDAR;
+  /**
+   * User's IANA timezone (e.g. "Asia/Dhaka", "America/New_York").
+   * Used to interpret naive datetimes from voice parsing (e.g. "2026-03-02T14:00:00")
+   * as the correct local time rather than the server's timezone.
+   */
+  timezone?: string;
 }
 
 export class VoiceService {
@@ -99,16 +110,16 @@ export class VoiceService {
         filename: string,
         options?: { type?: string }
       ) => File;
-      
+
       const file = new FileConstructor([audioBuffer], filename, {
-        type: filename.endsWith('.webm') ? 'audio/webm' : 
-              filename.endsWith('.mp3') ? 'audio/mpeg' : 
-              filename.endsWith('.wav') ? 'audio/wav' : 'audio/webm'
+        type: filename.endsWith('.webm') ? 'audio/webm' :
+          filename.endsWith('.mp3') ? 'audio/mpeg' :
+            filename.endsWith('.wav') ? 'audio/wav' : 'audio/webm'
       });
-      
+
       const transcription = await openai.audio.transcriptions.create({
         file: file as any,
-        model: "whisper-1",
+        model: "gpt-4o-mini-transcribe",
         language: "en",
       });
 
@@ -127,58 +138,66 @@ export class VoiceService {
     transcript: string,
     currentDateTime: string,
     timezone: string,
-    userId?: string
+    userId?: string,
+    extractedData?: Record<string, any>
   ): Promise<ParsedVoiceAction> {
     try {
       // First, determine if this is a task or an intent
       // Tasks: have deadlines, due dates, scheduled times, urgent items, specific dates
       // Intents: unscheduled, "someday", "maybe", "would like to", no deadlines, vague future plans
-      
-      const classificationPrompt = `You are a voice assistant that classifies user commands into either:
-1. TASK - Something with a deadline, due date, scheduled time, or urgent action needed
-2. INTENT - Something unscheduled, "someday", "maybe", "would like to", no specific deadline, vague future plans
 
-Examples of TASKS (has specific date/time or deadline):
-- "Call John tomorrow at 3pm"
-- "Submit report by Friday"
-- "Buy groceries today"
-- "Meeting with client next Monday"
-- "Pay rent on the 1st"
-- "Employment verification tomorrow at 3am"
-- "Book a meeting next week"
+      const classificationPrompt = `You are a voice assistant that classifies user commands into one of three buckets:
+1. CALENDAR_EVENT - User explicitly wants a scheduled event on the calendar (schedule, book, set up a meeting, call with someone at a specific time).
+   Examples:
+   - "Schedule a team standup tomorrow at 3pm for 30 minutes"
+   - "Book a meeting with John next Monday at 2pm"
+   - "Set up a call with the client on Friday at 10am"
+   - "Calendar block for gym every Tuesday at 7am"
 
-Examples of INTENTS (no date/time, aspirational, maybe/someday):
-- "I'd like to learn Spanish someday"
-- "Maybe I should call mom"
-- "I want to plan a trip to Japan"
-- "Someday I want to start a blog"
-- "I should catch up with old friends"
+2. TASK - Something to complete or track (submit, buy, pay, remind, complete). Date/time are optional.
+   Examples:
+   - "Submit the quarterly report by Friday"
+   - "Buy groceries today"
+   - "Remind me to call the doctor"
+   - "Pay rent on the 1st"
+   - "Employment verification tomorrow at 3am"
 
-RULE: If command includes ANY date, time, or deadline indicator → "task"
-If vague, aspirational, or uses maybe/someday → "intent"
+3. INTENT - Aspirational, unscheduled plans. No specific deadline.
+   Examples:
+   - "I'd like to learn Spanish someday"
+   - "Maybe I should call mom"
+   - "I want to plan a trip to Japan"
+   - "Someday I want to start a blog"
+   - "I should catch up with old friends"
+
+RULES:
+- If user explicitly uses scheduling language (schedule, book, set up a meeting/call/appointment) → "calendar_event"
+- If user says something to DO or COMPLETE with or without a deadline → "task"
+- If vague, aspirational, or uses maybe/someday → "intent"
 
 Analyze this command: "${transcript}"
 
-Return ONLY "task" or "intent" (no other text).`;
+Return ONLY "calendar_event", "task", or "intent" (no other text).`;
 
-      const classificationResponse = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: classificationPrompt },
-          { role: "user", content: `Classify: "${transcript}"` },
-        ],
-        temperature: 0.1,
+      const classificationResponse = await anthropic.messages.create({
+        model: "claude-3-haiku-20240307",
         max_tokens: 10,
+        temperature: 0.1,
+        system: classificationPrompt,
+        messages: [
+          { role: "user", content: `Classify: "${transcript}"` }
+        ]
       });
 
-      const classification = classificationResponse.choices[0]?.message?.content?.trim().toLowerCase();
+      const classification = (classificationResponse.content[0] as any).text.trim().toLowerCase();
       const isIntent = classification === "intent";
+      const isCalendarEvent = classification === "calendar_event";
 
       // If it's an intent, use the intent parsing service
       if (isIntent && userId) {
         try {
           const parsedIntent = await this.voiceIntentService.parseIntentCommand(transcript, userId);
-          
+
           if (parsedIntent.intent === "create_intent" && parsedIntent.matchedLifeAreaId && parsedIntent.matchedIntentBoardId) {
             return {
               actionType: "intent",
@@ -203,110 +222,145 @@ Return ONLY "task" or "intent" (no other text).`;
         }
       }
 
-      // Otherwise, parse as a task (existing logic)
-      const systemPrompt = `You are a voice assistant parser that converts natural language into structured JSON for task and calendar management.
+      // Build schema prompt based on classification bucket
+      let systemPrompt: string;
 
-STRICT RULES:
-1. NEVER guess missing dates or times. If ambiguous -> clarification_required
-2. If time exists without date -> clarification_required  
-3. If date exists without time:
-   a. If the request is clearly a MEETING, EVENT, APPOINTMENT, or CALL (category would be "meetings") -> set is_confident to false, add "time" to missing_fields. Meetings REQUIRE a specific time.
-   b. If the request is a general task (errands, deadlines, work, personal) -> create task only, no calendar event. Tasks don't always need a specific time.
-4. For MEETINGS category specifically, ALL of these are REQUIRED:
-   a. A specific, descriptive title (NOT just "meeting", "event", "call", "appointment" by themselves). If the title is generic/vague, add "title" to missing_fields.
-   b. A date. If missing, add "date" to missing_fields.
-   c. A time. If missing, add "time" to missing_fields.
-   d. A duration. If the user didn't specify duration, add "duration" to missing_fields. Do NOT default to 30 min for meetings — ask the user.
-   If ANY of these are missing, set is_confident to false and list ALL missing ones in missing_fields.
-5. For NON-meeting tasks, title is ACTUALLY missing only if truly empty. "Employment Verification", "Team Standup" etc. are VALID titles.
-6. Convert relative dates ("tomorrow", "next Monday", "in 2 hours") using current datetime: ${currentDateTime} in timezone: ${timezone}
-7. Must return valid JSON matching the exact schema
-8. ALWAYS categorize tasks into one of: "meetings", "deadlines", "work", "personal", "errands"
+      if (isCalendarEvent) {
+        // CALENDAR_EVENT bucket — strict: all 4 fields required (title, date, time, duration)
+        systemPrompt = `You are a voice assistant parser that converts natural language into structured JSON for calendar event creation.
 
-TASK CATEGORIZATION RULES:
-- meetings: synchronous events involving people (calls, meetings, interviews, appointments, video calls, phone calls)
-- deadlines: tasks with a hard due date/time (submissions, payments, applications, deadlines, due dates)
-- work: professional asynchronous tasks (work projects, professional tasks, business tasks)
-- personal: self, health, learning, family (personal goals, health, fitness, learning, family tasks)
-- errands: physical or logistical tasks (shopping, picking up, going to, buying, returning)
+STRICT RULES FOR CALENDAR EVENTS:
+1. actionType MUST be "calendar_event"
+2. ALL FOUR fields are REQUIRED: a specific title, date, time, and duration
+3. Title must be descriptive (NOT just "meeting", "event", "call", "appointment"). If generic/vague, add "title" to missing_fields.
+4. If date is missing, add "date" to missing_fields.
+5. If time is missing, add "time" to missing_fields.
+6. If duration was NOT specified by the user, add "duration" to missing_fields. Do NOT default to 30 or 60 min — ask the user.
+7. Convert relative dates ("tomorrow", "next Monday") using current datetime: ${currentDateTime} in timezone: ${timezone}
+8. CRITICAL: Even when is_confident is false, ALWAYS populate every field that the user DID provide in the transcript.
+9. If ANY of the 4 fields are missing, set is_confident to false and list them ALL in missing_fields.
 
-CATEGORIZATION DECISION TREE (ALWAYS assign a category):
-1. If the task involves a scheduled call or in-person meeting -> "meetings"
-2. If the primary importance is a due date -> "deadlines"
-3. If work-related and not a meeting or deadline -> "work"
-4. If personal and not work-related -> "personal"
-5. If it involves physical movement or logistics -> "errands"
-6. If unclear, default to "work" for professional tasks or "personal" for non-professional
-7. Never invent categories - must be one of the 5 above
-8. Category is REQUIRED - always include it in the response
+${extractedData && Object.keys(extractedData).length > 0 ? `PREVIOUSLY EXTRACTED CONTEXT:
+The user has already provided some information in previous turns. Do NOT ask for these fields if they exist here:
+${JSON.stringify(extractedData, null, 2)}
+MERGE this context with the user's current transcript.` : ''}
+
+SCHEMA:
+{
+  "actionType": "calendar_event",
+  "intent": "create_task",
+  "task": {
+    "title": string (required — descriptive, not just "meeting" or "event"),
+    "description": string (optional),
+    "due_date": string ISO date "YYYY-MM-DD",
+    "due_time": string ISO time "HH:mm:ss",
+    "timezone": string (default: "${timezone}"),
+    "priority": "high" | "normal" | "low" (optional),
+    "category": "meetings"
+  },
+  "calendar": {
+    "create_event": true,
+    "event_title": string,
+    "start_datetime": string ISO datetime "YYYY-MM-DDTHH:mm:ss",
+    "duration_minutes": number | null (null if user did not specify)
+  },
+  "confidence": {
+    "is_confident": boolean (false if any of the 4 required fields are missing),
+    "missing_fields": string[],
+    "clarification_question": null
+  }
+}
+
+EXAMPLE — missing duration:
+Transcript: "Schedule a standup with the team tomorrow at 9am"
+Output:
+{
+  "actionType": "calendar_event",
+  "intent": "create_task",
+  "task": { "title": "Standup with Team", "due_date": "${currentDateTime.split('T')[0]}", "due_time": "09:00:00", "timezone": "${timezone}", "category": "meetings" },
+  "calendar": { "create_event": true, "event_title": "Standup with Team", "start_datetime": "${currentDateTime.split('T')[0]}T09:00:00", "duration_minutes": null },
+  "confidence": { "is_confident": false, "missing_fields": ["duration"], "clarification_question": null }
+}`;
+      } else {
+        // TASK bucket — relaxed: only title required, NO calendar sub-object
+        systemPrompt = `You are a voice assistant parser that converts natural language into structured JSON for task creation.
+
+RULES FOR TASKS:
+1. actionType MUST be "task"
+2. Only TITLE is required. Date and time are optional.
+3. Do NOT include a "calendar" sub-object — tasks go to the task list, not the calendar.
+4. Convert relative dates ("tomorrow", "next Monday", "in 2 hours") using current datetime: ${currentDateTime} in timezone: ${timezone}
+5. ALWAYS assign a category from: "deadlines", "work", "personal", "errands"
+6. is_confident is true as long as a non-empty title is present.
+
+${extractedData && Object.keys(extractedData).length > 0 ? `PREVIOUSLY EXTRACTED CONTEXT:
+The user has already provided some information in previous turns. Do NOT ask for these fields if they exist here:
+${JSON.stringify(extractedData, null, 2)}
+MERGE this context with the user's current transcript.` : ''}
+
+CATEGORY RULES:
+- deadlines: hard due date/time (submissions, payments, applications, bills due)
+- work: professional asynchronous tasks (projects, emails, reviews)
+- personal: self, health, learning, family (fitness, doctor, groceries, family)
+- errands: physical or logistical tasks (shopping, picking up, buying, returning)
 
 SCHEMA:
 {
   "actionType": "task",
-  "intent": "create_task" | "update_task" | "delete_task" | "query_tasks" | "clarification_required",
+  "intent": "create_task",
   "task": {
-    "title": string (required for create_task),
+    "title": string (REQUIRED),
     "description": string (optional),
     "due_date": string ISO date "YYYY-MM-DD" (optional),
     "due_time": string ISO time "HH:mm:ss" (optional),
-    "timezone": string (optional, default to provided timezone),
+    "timezone": string (optional, default: "${timezone}"),
     "priority": "high" | "normal" | "low" (optional),
     "recurrence": string (optional),
-    "category": "meetings" | "deadlines" | "work" | "personal" | "errands" (REQUIRED for create_task)
-  },
-  "calendar": {
-    "create_event": boolean,
-    "event_title": string (optional),
-    "start_datetime": string ISO datetime "YYYY-MM-DDTHH:mm:ss" (required if create_event),
-    "duration_minutes": number | null (MUST be null if the user did not specify a duration — do NOT guess or default)
+    "category": "deadlines" | "work" | "personal" | "errands" (REQUIRED)
   },
   "confidence": {
-    "is_confident": boolean,
-    "missing_fields": string[] (if not confident),
-    "clarification_question": string (if clarification_required)
+    "is_confident": true,
+    "missing_fields": [],
+    "clarification_question": null
   }
 }`;
-
-      const response = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Parse this transcript: "${transcript}"` },
-        ],
-        response_format: { type: "json_object" },
-        temperature: 0.1,
-      });
-
-      const content = response.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error("No response from OpenAI");
       }
 
+      const parserResponse = await anthropic.messages.create({
+        model: "claude-3-haiku-20240307",
+        max_tokens: 1024,
+        temperature: 0.1,
+        system: systemPrompt,
+        messages: [
+          { role: "user", content: `Parse this transcript: "${transcript}"\nMust output only JSON.` }
+        ]
+      });
+
+      const rawContent = (parserResponse.content[0] as any).text;
+      if (!rawContent) {
+        throw new Error("No response from Anthropic");
+      }
+
+      // Sometimes Anthropic outputs markdown code blocks, strip them out
+      const content = rawContent.replace(/```json/g, "").replace(/```/g, "").trim();
+
       const parsed = JSON.parse(content) as ParsedVoiceAction;
-      // Ensure actionType is set for tasks
-      if (!parsed.actionType) {
+      // Enforce actionType from the classifier — Claude's output may differ
+      if (isCalendarEvent) {
+        parsed.actionType = "calendar_event";
+      } else if (!parsed.actionType) {
         parsed.actionType = "task";
       }
 
-      // Enforce: if duration is missing from user input, GPT should NOT default it.
-      // Detect when GPT returned a round number but didn't flag it as missing —
-      // if the transcript doesn't mention any duration-related words, strip it.
-      const hasDurationInTranscript = /\b(\d+\s*(min|minute|hour|hr|h)s?|half\s*an?\s*hour|quarter)\b/i.test(transcript);
-      if (!hasDurationInTranscript && parsed.calendar?.duration_minutes) {
-        // GPT guessed a duration the user never said — clear it and flag as missing
-        parsed.calendar.duration_minutes = undefined as any;
-        if (!parsed.confidence.missing_fields) parsed.confidence.missing_fields = [];
-        if (!parsed.confidence.missing_fields.some((f: string) => f.toLowerCase().includes('duration'))) {
-          parsed.confidence.missing_fields.push('duration');
-        }
-        parsed.confidence.is_confident = false;
-      }
-
-      // If duration is listed as missing, strip any GPT-defaulted duration_minutes
+      // We must avoid stripping duration if the user provided it implicitly (e.g. "for 30", or past context merging).
+      // However, we want to prevent Claude hallucinating 30/60m when the user truly didn't mention it.
+      // Instead of an aggressive regex, we will trust Claude's parsed output if it didn't flag duration as missing,
+      // because we already firmly instructed Claude in the prompt.
       const missingFields = parsed.confidence?.missing_fields || [];
-      const durationMissing = missingFields.some((f: string) => 
+      const durationMissing = missingFields.some((f: string) =>
         f.toLowerCase().includes('duration') || f.toLowerCase().includes('length') || f.toLowerCase().includes('how long')
       );
+
       if (durationMissing && parsed.calendar) {
         parsed.calendar.duration_minutes = undefined as any;
       }
@@ -332,7 +386,7 @@ SCHEMA:
 
     const actionId = `${userId}-${Date.now()}`;
     // Ensure actionType is valid (clarification_required shouldn't reach here, but handle it)
-    const validActionType: "task" | "intent" = 
+    const validActionType: "task" | "intent" =
       parsedAction.actionType === "intent" ? "intent" : "task";
     const executedAction: ExecutedAction = {
       actionId,
@@ -419,23 +473,24 @@ SCHEMA:
     );
 
     // Execute task creation
-    // Meetings with calendar events skip task creation — they only go to the calendar
-    const isMeetingWithCalendar = parsedAction.task?.category === 'meetings' && 
-      parsedAction.calendar?.create_event && parsedAction.calendar?.start_datetime;
-    
-    if (parsedAction.intent === "create_task" && parsedAction.task && !isMeetingWithCalendar) {
+    // Calendar events skip task creation — they only go to the calendar
+    const isCalendarEvent = (parsedAction.actionType === 'calendar_event' ||
+      parsedAction.task?.category === 'meetings') &&
+      parsedAction.calendar?.create_event && !!parsedAction.calendar?.start_datetime;
+
+    if (parsedAction.intent === "create_task" && parsedAction.task && !isCalendarEvent) {
       // Determine category - check for personal keywords first
       let category = parsedAction.task.category || "work";
       const title = (parsedAction.task.title || "").toLowerCase();
       const description = (parsedAction.task.description || "").toLowerCase();
       const combinedText = `${title} ${description}`;
-      
+
       // Check for personal keywords - override category if found
       const personalKeywords = ["personal", "family", "friend", "friends", "mom", "dad", "wife", "husband", "partner", "personal meeting", "personal call"];
       const hasPersonalKeyword = personalKeywords.some(keyword => combinedText.includes(keyword));
-      
+
       let isAmbiguous = false;
-      
+
       // If it's a "meetings" category but has personal keywords, treat as personal
       if (category === "meetings" && hasPersonalKeyword) {
         category = "personal";
@@ -449,7 +504,7 @@ SCHEMA:
           isAmbiguous = true;
         }
       }
-      
+
       const categoryTitles: Record<string, string> = {
         meetings: "Meetings",
         deadlines: "Deadlines",
@@ -457,19 +512,19 @@ SCHEMA:
         personal: "Personal",
         errands: "Errands"
       };
-      
+
       const categoryTitle = isAmbiguous ? "Default" : (categoryTitles[category] || "Work");
 
       // Get calendar preferences to determine task routing
       const preferences = await getCalendarPreferencesService(userId);
-      
+
       // Determine which calendar this task category should use
       // Work-related categories (work, meetings, deadlines) -> work calendar
       // Personal-related categories (personal, errands) -> personal calendar
       // If ambiguous -> default calendar
       const isWorkCategory = !isAmbiguous && (category === "work" || (category === "meetings" && !hasPersonalKeyword) || category === "deadlines");
       const isPersonalCategory = !isAmbiguous && (category === "personal" || category === "errands");
-      
+
       let targetCalendarAppType: IntegrationAppTypeEnum | null = null;
       if (preferences) {
         if (isAmbiguous || !category) {
@@ -521,9 +576,9 @@ SCHEMA:
         });
 
         const tasksService = new GoogleTasksService(oauth2Client);
-        
+
         console.log(`Creating Google Task in category: ${categoryTitle}`);
-        
+
         const taskList = await tasksService.findOrCreateTaskList(categoryTitle);
         console.log(`Google Task list found/created: ${taskList.id} - ${taskList.title}`);
 
@@ -542,7 +597,7 @@ SCHEMA:
 
         const createdTask = await tasksService.createTask(taskList.id, taskData);
         console.log(`Google Task created successfully: ${createdTask.id}`);
-        
+
         executedAction.createdTaskId = createdTask.id;
         executedAction.createdTaskListId = taskList.id;
       }
@@ -561,9 +616,9 @@ SCHEMA:
         }
 
         const todoService = new MicrosoftTodoService(accessToken);
-        
+
         console.log(`Creating Microsoft Todo task in category: ${categoryTitle}`);
-        
+
         const taskList = await todoService.findOrCreateTaskList(categoryTitle);
         console.log(`Microsoft Todo list found/created: ${taskList.id} - ${taskList.displayName}`);
 
@@ -581,13 +636,13 @@ SCHEMA:
             contentType: 'text'
           } : undefined,
           dueDateTime,
-          importance: parsedAction.task.priority === 'high' ? 'high' : 
-                     parsedAction.task.priority === 'low' ? 'low' : 'normal',
+          importance: parsedAction.task.priority === 'high' ? 'high' :
+            parsedAction.task.priority === 'low' ? 'low' : 'normal',
           categories: [category],
         });
-        
+
         console.log(`Microsoft Todo task created successfully: ${createdTask.id}`);
-        
+
         // Store Microsoft Todo task info (can extend ExecutedAction to support multiple providers)
         if (!executedAction.createdTaskId) {
           executedAction.createdTaskId = createdTask.id;
@@ -601,22 +656,23 @@ SCHEMA:
     }
 
     // Execute calendar event creation
+    console.log(`🗓️ Calendar check: create_event=${parsedAction.calendar?.create_event}, start_datetime=${parsedAction.calendar?.start_datetime}, calendarAppType=${options?.calendarAppType}`);
     if (parsedAction.calendar?.create_event && parsedAction.calendar.start_datetime) {
       // Get calendar preferences to determine calendar routing
       const preferences = await getCalendarPreferencesService(userId);
-      
+
       // Determine which calendar this event should use
       let category: "meetings" | "deadlines" | "work" | "personal" | "errands" | undefined = parsedAction.task?.category;
       const eventTitle = (parsedAction.calendar.event_title || parsedAction.task?.title || "").toLowerCase();
       const description = (parsedAction.task?.description || "").toLowerCase();
       const combinedText = `${eventTitle} ${description}`;
-      
+
       // Check for personal keywords - override category if found
       const personalKeywords = ["personal", "family", "friend", "friends", "mom", "dad", "wife", "husband", "partner", "personal meeting", "personal call"];
       const hasPersonalKeyword = personalKeywords.some(keyword => combinedText.includes(keyword));
-      
+
       let isAmbiguous = false;
-      
+
       // If it's a "meetings" category but has personal keywords, treat as personal
       if (category === "meetings" && hasPersonalKeyword) {
         category = "personal";
@@ -630,10 +686,10 @@ SCHEMA:
           isAmbiguous = true;
         }
       }
-      
+
       const isWorkCategory = !isAmbiguous && category && (category === "work" || (category === "meetings" && !hasPersonalKeyword) || category === "deadlines");
       const isPersonalCategory = !isAmbiguous && category && (category === "personal" || category === "errands");
-      
+
       let targetCalendarAppType: IntegrationAppTypeEnum | null = null;
       if (preferences) {
         if (isAmbiguous || !category) {
@@ -664,90 +720,110 @@ SCHEMA:
         targetCalendarAppType === IntegrationAppTypeEnum.OUTLOOK_CALENDAR ||
         (options?.calendarAppType === IntegrationAppTypeEnum.OUTLOOK_CALENDAR);
 
+      console.log(`🗓️ Calendar routing: wantsGoogle=${wantsGoogleCalendar}, wantsOutlook=${wantsOutlookCalendar}, hasGoogleIntegration=${!!googleCalendarIntegration}, hasOutlookIntegration=${!!outlookCalendarIntegration}`);
+
       // Google Calendar
       if (wantsGoogleCalendar && googleCalendarIntegration) {
-        oauth2Client.setCredentials({
-          access_token: googleCalendarIntegration.access_token,
-          refresh_token: googleCalendarIntegration.refresh_token,
-        });
+        console.log(`📅 Creating Google Calendar event: "${parsedAction.calendar.event_title || parsedAction.task?.title}" at ${parsedAction.calendar.start_datetime}`);
+        try {
+          oauth2Client.setCredentials({
+            access_token: googleCalendarIntegration.access_token,
+            refresh_token: googleCalendarIntegration.refresh_token,
+          });
 
-        // Derive the best available title
-        const eventTitle = parsedAction.calendar.event_title 
-          || parsedAction.task?.title 
-          || 'Untitled Meeting';
+          // Derive the best available title
+          const eventTitle = parsedAction.calendar.event_title
+            || parsedAction.task?.title
+            || 'Untitled Meeting';
 
-        const calendar = google.calendar({ version: "v3", auth: oauth2Client });
-        const startDateTime = new Date(parsedAction.calendar.start_datetime);
-        const endDateTime = new Date(
-          startDateTime.getTime() + (parsedAction.calendar.duration_minutes || 30) * 60000
-        );
+          const calendar = google.calendar({ version: "v3", auth: oauth2Client });
 
-        const userTimezone = parsedAction.task?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-        const event = {
-          summary: eventTitle,
-          start: {
-            dateTime: startDateTime.toISOString(),
-            timeZone: userTimezone,
-          },
-          end: {
-            dateTime: endDateTime.toISOString(),
-            timeZone: userTimezone,
-          },
-        };
+          // Use user's timezone — fall back to server TZ as last resort.
+          // IMPORTANT: pass the naive datetime string directly with timeZone.
+          // Do NOT call .toISOString() — that converts using server's TZ, shifting the time.
+          const userTimezone = options?.timezone || parsedAction.task?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+          const startDatetimeStr = parsedAction.calendar.start_datetime; // e.g. "2026-03-02T14:00:00"
+          const durationMs = (parsedAction.calendar.duration_minutes || 60) * 60000;
+          // Calculate end time via UTC arithmetic on the naive string (timezone-agnostic).
+          // Guard: don't add 'Z' if string already has a timezone indicator (ends with Z or +HH:MM).
+          const alreadyHasTz = /Z$|[+-]\d{2}:\d{2}$/.test(startDatetimeStr);
+          const startForCalc = alreadyHasTz ? new Date(startDatetimeStr) : new Date(startDatetimeStr + 'Z');
+          const endDatetimeStr = new Date(startForCalc.getTime() + durationMs).toISOString().slice(0, 19);
 
-        const response = await calendar.events.insert({
-          calendarId: "primary",
-          requestBody: event,
-        });
+          const event = {
+            summary: eventTitle,
+            start: { dateTime: startDatetimeStr, timeZone: userTimezone },
+            end: { dateTime: endDatetimeStr, timeZone: userTimezone },
+          };
 
-        executedAction.createdCalendarEventId = response.data.id || undefined;
-        executedAction.createdEventTitle = response.data.summary || undefined;
+          const response = await calendar.events.insert({
+            calendarId: "primary",
+            requestBody: event,
+          });
+
+          executedAction.createdCalendarEventId = response.data.id || undefined;
+          executedAction.createdEventTitle = response.data.summary || undefined;
+          console.log(`✅ Google Calendar event created: ${executedAction.createdCalendarEventId} | ${startDatetimeStr} (${userTimezone})`);
+        } catch (gcalErr: any) {
+          console.error(`❌ Google Calendar creation failed:`, gcalErr?.message || gcalErr);
+          throw new Error(`Failed to create Google Calendar event: ${gcalErr?.message || 'Unknown error'}`);
+        }
       }
 
       // Outlook Calendar
       if (wantsOutlookCalendar && outlookCalendarIntegration) {
-        const accessToken = await validateMicrosoftToken(
-          outlookCalendarIntegration.access_token,
-          outlookCalendarIntegration.refresh_token ?? "",
-          outlookCalendarIntegration.expiry_date
-        );
+        console.log(`📅 Creating Outlook Calendar event: "${parsedAction.calendar.event_title || parsedAction.task?.title}" at ${parsedAction.calendar.start_datetime}`);
+        try {
+          const accessToken = await validateMicrosoftToken(
+            outlookCalendarIntegration.access_token,
+            outlookCalendarIntegration.refresh_token ?? "",
+            outlookCalendarIntegration.expiry_date
+          );
 
-        const startDateTime = new Date(parsedAction.calendar.start_datetime);
-        const endDateTime = new Date(
-          startDateTime.getTime() + (parsedAction.calendar.duration_minutes || 30) * 60000
-        );
+          // Same as Google: pass raw naive datetime + timezone, no .toISOString() conversion
+          const userTimezoneMs = options?.timezone || parsedAction.task?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+          const startDatetimeStr = parsedAction.calendar.start_datetime; // e.g. "2026-03-02T14:00:00"
+          const durationMs = (parsedAction.calendar.duration_minutes || 60) * 60000;
+          const msAlreadyHasTz = /Z$|[+-]\d{2}:\d{2}$/.test(startDatetimeStr);
+          const msStartForCalc = msAlreadyHasTz ? new Date(startDatetimeStr) : new Date(startDatetimeStr + 'Z');
+          const endDatetimeStr = new Date(msStartForCalc.getTime() + durationMs).toISOString().slice(0, 19);
 
-        const userTimezoneMs = parsedAction.task?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-        const msEventTitle = parsedAction.calendar.event_title 
-          || parsedAction.task?.title 
-          || 'Untitled Meeting';
-        const msEvent: any = {
-          subject: msEventTitle,
-          body: {
-            contentType: "HTML",
-            content: parsedAction.task?.description || "",
-          },
-          start: { dateTime: startDateTime.toISOString(), timeZone: userTimezoneMs },
-          end: { dateTime: endDateTime.toISOString(), timeZone: userTimezoneMs },
-        };
+          const msEventTitle = parsedAction.calendar.event_title
+            || parsedAction.task?.title
+            || 'Untitled Meeting';
+          const msEvent: any = {
+            subject: msEventTitle,
+            body: {
+              contentType: "HTML",
+              content: parsedAction.task?.description || "",
+            },
+            start: { dateTime: startDatetimeStr, timeZone: userTimezoneMs },
+            end: { dateTime: endDatetimeStr, timeZone: userTimezoneMs },
+          };
 
-        const msResp = await fetch("https://graph.microsoft.com/v1.0/me/events", {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(msEvent),
-        });
+          const msResp = await fetch("https://graph.microsoft.com/v1.0/me/events", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(msEvent),
+          });
 
-        if (!msResp.ok) {
-          console.error("Failed to create Outlook calendar event:", await msResp.text());
-          throw new Error("Failed to create Outlook calendar event");
+          if (!msResp.ok) {
+            const errText = await msResp.text();
+            console.error(`❌ Outlook Calendar creation failed (${msResp.status}):`, errText);
+            throw new Error(`Failed to create Outlook calendar event: ${errText}`);
+          }
+
+          const msData: any = await msResp.json();
+          executedAction.createdCalendarEventId = msData.id || executedAction.createdCalendarEventId;
+          executedAction.createdEventTitle = msData.subject || executedAction.createdEventTitle;
+          console.log(`✅ Outlook Calendar event created: ${executedAction.createdCalendarEventId} | ${startDatetimeStr} (${userTimezoneMs})`);
+        } catch (msErr: any) {
+          console.error(`❌ Outlook Calendar creation failed:`, msErr?.message || msErr);
+          throw new Error(`Failed to create Outlook Calendar event: ${msErr?.message || 'Unknown error. Try reconnecting your Microsoft Calendar.'}`);
         }
-
-        const msData: any = await msResp.json();
-        executedAction.createdCalendarEventId = msData.id || executedAction.createdCalendarEventId;
-        executedAction.createdEventTitle = msData.subject || executedAction.createdEventTitle;
       }
     }
 
@@ -758,6 +834,57 @@ SCHEMA:
     this.actionHistory.get(userId)!.push(executedAction);
 
     return executedAction;
+  }
+
+  /**
+   * Intelligently extract specific fields (like duration, date, time) from a conversational clarification response
+   * e.g. "I meant for 30 minutes tomorrow at 2" -> { duration_minutes: 30, due_date: "2023-10-10", due_time: "14:00:00" }
+   */
+  async parseClarificationResponse(
+    transcript: string,
+    pendingFields: string[],
+    currentDateTime: string,
+    timezone: string
+  ): Promise<Record<string, any>> {
+    // The first pending field is the one the system just asked about — be explicit so Claude
+    // knows exactly what the user is answering, even for very short responses like "Team Standup".
+    const primaryField = pendingFields[0];
+    const otherFields = pendingFields.slice(1);
+
+    const systemPrompt = `You are a specialized parser that extracts specific fields from a user's conversational response.
+The system JUST asked the user about: "${primaryField}"
+${otherFields.length > 0 ? `Other pending fields (extract only if clearly present in the response): [${otherFields.join(", ")}]` : ""}
+Current datetime: ${currentDateTime} (timezone: ${timezone})
+
+RULES:
+1. The user's response is answering the question about "${primaryField}". Extract that value first.
+2. Also extract any other pending fields if they were clearly mentioned.
+3. If "due_date" is pending and the user said "tomorrow", "next Tuesday", etc., calculate the exact ISO YYYY-MM-DD date using the current datetime above.
+4. If "due_time" is pending, format as 24-hour ISO time "HH:mm:ss". (e.g. "3pm" -> "15:00:00").
+5. If "duration_minutes" is pending, format as integer total minutes (e.g. "an hour and a half" -> 90).
+6. If "title" is pending, the entire user response IS the title (they said it out loud). Extract it cleanly — remove only obvious filler words like "umm", "it should be called", "call it", "name it" but keep the actual content.
+7. Return ONLY a strict JSON object using the exact field names. Omit fields you couldn't determine. Example: {"title": "Team Standup"}
+`;
+
+    try {
+      console.log("==> Sending clarification to Claude. Missing fields:", pendingFields, "Transcript:", transcript);
+      const anthropicResponse = await anthropic.messages.create({
+        model: "claude-3-haiku-20240307",
+        max_tokens: 256,
+        temperature: 0.1,
+        system: systemPrompt,
+        messages: [{ role: "user", content: transcript }]
+      });
+
+      const rawContent = (anthropicResponse.content[0] as any).text;
+      const content = rawContent.replace(/```json/g, "").replace(/```/g, "").trim();
+      const result = JSON.parse(content);
+      console.log("==> Claude parsed clarification as:", result);
+      return result;
+    } catch (err) {
+      console.error("Error asking Claude to parse clarification:", err);
+      return {};
+    }
   }
 
   /**
