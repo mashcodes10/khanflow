@@ -15,7 +15,7 @@ import type { LifeArea, IntentBoard } from '@/lib/types'
 
 interface ActionPreviewCardProps {
   data: ParsedAction
-  onConfirm: (destination: Destination, editedData?: ParsedAction) => void
+  onConfirm: (destination: Destination, editedData?: ParsedAction, calendarAppType?: string) => void
   onCancel: () => void
   onEdit?: () => void
   disabled?: boolean
@@ -52,12 +52,38 @@ export function ActionPreviewCard({
   // Connected providers (for destination hint)
   const [googleConnected, setGoogleConnected] = useState(false)
   const [microsoftConnected, setMicrosoftConnected] = useState(false)
+  const [calendarProvider, setCalendarProvider] = useState<'google' | 'microsoft'>('google')
 
-  // Inline edit state
+  // Inline edit state — stored in input format: ISO date ("2026-03-02"), 24h time ("14:00")
   const [isEditing, setIsEditing] = useState(false)
   const [editTitle, setEditTitle] = useState(data.title)
-  const [editDate, setEditDate] = useState(data.date || '')
-  const [editTime, setEditTime] = useState(data.time || '')
+  // Parse display date "Mar 2, 2026" → ISO "2026-03-02" for <input type="date">
+  // Use regex instead of new Date() to avoid UTC timezone shifting the day in UTC+ zones
+  const [editDate, setEditDate] = useState(() => {
+    if (!data.date) return ''
+    if (/^\d{4}-\d{2}-\d{2}$/.test(data.date)) return data.date // already ISO
+    const MONTHS: Record<string, string> = {
+      Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+      Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12',
+    }
+    const m = data.date.match(/^(\w{3})\s+(\d{1,2}),\s*(\d{4})$/)
+    if (m && MONTHS[m[1]]) return `${m[3]}-${MONTHS[m[1]]}-${m[2].padStart(2, '0')}`
+    return data.date
+  })
+  // Parse display time "2:00 PM" → 24h "14:00" for <input type="time">
+  const [editTime, setEditTime] = useState(() => {
+    const t = data.time || ''
+    const match = t.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
+    if (match) {
+      let h = parseInt(match[1])
+      const m = match[2]
+      const period = match[3]
+      if (period?.toUpperCase() === 'PM' && h < 12) h += 12
+      if (period?.toUpperCase() === 'AM' && h === 12) h = 0
+      return `${h.toString().padStart(2, '0')}:${m}`
+    }
+    return t
+  })
   const [editDuration, setEditDuration] = useState(data.duration || '')
   const [editDescription, setEditDescription] = useState(data.description || '')
   const titleInputRef = useRef<HTMLInputElement>(null)
@@ -70,12 +96,12 @@ export function ActionPreviewCard({
 
     integrationsAPI.getAll().then((res) => {
       const integrations = res.integrations ?? []
-      setGoogleConnected(
-        integrations.some((i) => i.provider === 'GOOGLE' && i.isConnected && i.category === 'CALENDAR')
-      )
-      setMicrosoftConnected(
-        integrations.some((i) => i.provider === 'MICROSOFT' && i.isConnected && i.category === 'CALENDAR')
-      )
+      const hasGoogle = integrations.some((i) => i.app_type === 'GOOGLE_MEET_AND_CALENDAR' && i.isConnected)
+      const hasMicrosoft = integrations.some((i) => i.app_type === 'OUTLOOK_CALENDAR' && i.isConnected)
+      setGoogleConnected(hasGoogle)
+      setMicrosoftConnected(hasMicrosoft)
+      // Default provider: Google if connected, else Microsoft
+      setCalendarProvider(hasGoogle ? 'google' : 'microsoft')
     }).catch(() => {})
   }, [])
 
@@ -156,9 +182,8 @@ export function ActionPreviewCard({
   }
 
   const handleStartEditing = () => {
+    // editDate/editTime are already in input format (ISO date, 24h time)
     setEditTitle(data.title)
-    setEditDate(toInputDate(data.date || ''))
-    setEditTime(toInputTime(data.time || ''))
     setEditDuration(data.duration || '')
     setEditDescription(data.description || '')
     setIsEditing(true)
@@ -177,7 +202,10 @@ export function ActionPreviewCard({
   })
 
   const handleConfirm = () => {
-    onConfirm(selectedDestination, getEditedData())
+    const calendarAppType = currentType === 'event'
+      ? (calendarProvider === 'google' ? 'GOOGLE_MEET_AND_CALENDAR' : 'OUTLOOK_CALENDAR')
+      : undefined
+    onConfirm(selectedDestination, getEditedData(), calendarAppType)
   }
 
   const activeDuration = editDuration || data.duration || ''
@@ -187,9 +215,10 @@ export function ActionPreviewCard({
   // Destination hint shown below selectors
   const destinationHint: { label: string; sub?: string } | null = (() => {
     if (currentType === 'event') {
-      if (googleConnected) return { label: 'Google Calendar' }
-      if (microsoftConnected) return { label: 'Outlook Calendar' }
-      return { label: 'No calendar connected', sub: 'Connect a calendar in Integrations' }
+      if (!googleConnected && !microsoftConnected) {
+        return { label: 'No calendar connected', sub: 'Connect a calendar in Integrations' }
+      }
+      return { label: calendarProvider === 'google' ? 'Google Calendar' : 'Outlook Calendar' }
     }
     if (selectedBoard) {
       return { label: `Life OS · ${selectedBoard.name}` }
@@ -277,6 +306,39 @@ export function ActionPreviewCard({
           )}
         </div>
       </div>
+
+      {/* ── Calendar provider selector (only when type = event and both connected) ── */}
+      {currentType === 'event' && googleConnected && microsoftConnected && (
+        <div className="flex flex-col gap-2 mb-4">
+          <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Calendar</span>
+          <div className="flex gap-1.5">
+            <button
+              type="button"
+              onClick={() => setCalendarProvider('google')}
+              className={cn(
+                'flex-1 py-2 px-3 rounded-lg text-[12px] font-medium border transition-colors',
+                calendarProvider === 'google'
+                  ? 'bg-foreground/10 text-foreground border-border/60'
+                  : 'bg-transparent text-muted-foreground border-border/30 hover:border-border/50'
+              )}
+            >
+              Google Calendar
+            </button>
+            <button
+              type="button"
+              onClick={() => setCalendarProvider('microsoft')}
+              className={cn(
+                'flex-1 py-2 px-3 rounded-lg text-[12px] font-medium border transition-colors',
+                calendarProvider === 'microsoft'
+                  ? 'bg-foreground/10 text-foreground border-border/60'
+                  : 'bg-transparent text-muted-foreground border-border/30 hover:border-border/50'
+              )}
+            >
+              Outlook
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── Board selector (only when type = task) ── */}
       {currentType === 'task' && hasBoards && (

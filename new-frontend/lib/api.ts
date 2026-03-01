@@ -353,13 +353,20 @@ export const voiceAPI = {
     conversationId: string;
     action: any;
     destination: 'calendar' | 'tasks' | 'intent';
+    calendarAppType?: string;
+    taskAppType?: string;
+    timezone?: string;
   }): Promise<{
     success: boolean;
     action?: any;
     requiresClarification: boolean;
     message?: string;
   }> => {
-    const response = await API.post("/voice/v2/confirm", data);
+    const payload = {
+      ...data,
+      timezone: data.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+    const response = await API.post("/voice/v2/confirm", payload);
     return response.data;
   },
   getConversationV2: async (conversationId: string): Promise<{
@@ -522,12 +529,32 @@ export const lifeOrganizationAPI = {
     const response = await API.post("/life-organization/intents", data);
     return response.data;
   },
-  updateIntent: async (id: string, data: { title?: string; description?: string; order?: number }) => {
+  updateIntent: async (id: string, data: {
+    title?: string;
+    description?: string | null;
+    order?: number;
+    completedAt?: string | null;
+    priority?: 'low' | 'medium' | 'high' | null;
+    dueDate?: string | null;
+    weeklyFocusAt?: string | null;
+  }) => {
     const response = await API.put(`/life-organization/intents/${id}`, data);
     return response.data;
   },
   deleteIntent: async (id: string) => {
     const response = await API.delete(`/life-organization/intents/${id}`);
+    return response.data;
+  },
+  duplicateIntent: async (id: string) => {
+    const response = await API.post(`/life-organization/intents/${id}/duplicate`);
+    return response.data;
+  },
+  unlinkIntentFromProvider: async (id: string) => {
+    const response = await API.delete(`/life-organization/intents/${id}/external-links`);
+    return response.data;
+  },
+  ensureInbox: async (): Promise<{ data: { boardId: string; lifeAreaId: string } }> => {
+    const response = await API.post("/life-organization/ensure-inbox");
     return response.data;
   },
   getIntentsByBoard: async (intentBoardId: string): Promise<{ data: Intent[] }> => {

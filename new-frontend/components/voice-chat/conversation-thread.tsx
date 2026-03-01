@@ -95,10 +95,14 @@ export function ConversationThread({ className }: ConversationThreadProps) {
             response: text,
           })
         } else {
-          // New command — call the backend execute API
+          // New command — always start a fresh conversation so stale context
+          // (old dates, old extractedData) from a previous command never bleeds in.
+          setConversationId(null)
           result = await voiceAPI.executeV2({
             transcript: text,
-            conversationId: conversationId || undefined,
+            conversationId: undefined,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+            currentDateTime: new Date().toISOString(),
           })
         }
 
@@ -216,16 +220,22 @@ export function ConversationThread({ className }: ConversationThreadProps) {
             const task = preview?.task
             const calendar = preview?.calendar
 
+            // Parse ISO date "2026-03-02" as LOCAL midnight (not UTC) to avoid timezone shift.
+            // new Date("2026-03-02") = UTC midnight = previous day in UTC- timezones.
+            // new Date("2026-03-02T00:00:00") = local midnight = correct date everywhere.
+            const parseDateLocal = (iso?: string) =>
+              iso ? new Date(iso.length === 10 ? iso + 'T00:00:00' : iso) : undefined
+
             const actionPreview: ParsedAction = {
               type: calendar?.create_event ? 'event' : (action.actionType === 'intent' ? 'task' : 'task'),
               title: task?.title || calendar?.event_title || '',
               description: task?.description || '',
-              date: task?.due_date ? new Date(task.due_date).toLocaleDateString('en-US', {
+              date: task?.due_date ? parseDateLocal(task.due_date)!.toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric'
               }) : undefined,
-              time: task?.due_time || (calendar?.start_datetime ? new Date(calendar.start_datetime).toLocaleTimeString('en-US', {
+              time: task?.due_time || (calendar?.start_datetime ? parseDateLocal(calendar.start_datetime)!.toLocaleTimeString('en-US', {
                 hour: 'numeric',
                 minute: '2-digit'
               }) : undefined),
@@ -359,16 +369,19 @@ export function ConversationThread({ className }: ConversationThreadProps) {
             const task = preview.task
             const calendar = preview.calendar
 
+            const parseDateLocal2 = (iso?: string) =>
+              iso ? new Date(iso.length === 10 ? iso + 'T00:00:00' : iso) : undefined
+
             const actionPreview: ParsedAction = {
               type: calendar?.create_event ? 'event' : (action.actionType === 'intent' ? 'task' : 'task'),
               title: task?.title || calendar?.event_title || '',
               description: task?.description || '',
-              date: task?.due_date ? new Date(task.due_date).toLocaleDateString('en-US', {
+              date: task?.due_date ? parseDateLocal2(task.due_date)!.toLocaleDateString('en-US', {
                 month: 'short',
                 day: 'numeric',
                 year: 'numeric'
               }) : undefined,
-              time: task?.due_time || (calendar?.start_datetime ? new Date(calendar.start_datetime).toLocaleTimeString('en-US', {
+              time: task?.due_time || (calendar?.start_datetime ? parseDateLocal2(calendar.start_datetime)!.toLocaleTimeString('en-US', {
                 hour: 'numeric',
                 minute: '2-digit'
               }) : undefined),
@@ -490,12 +503,12 @@ export function ConversationThread({ className }: ConversationThreadProps) {
     [currentConflictId, addMessages]
   )
 
-  const handleConfirmAction = useCallback(async (destination: 'calendar' | 'tasks' | 'intent', editedData?: ParsedAction) => {
+  const handleConfirmAction = useCallback(async (destination: 'calendar' | 'tasks' | 'intent', editedData?: ParsedAction, calendarAppType?: string) => {
     try {
       setIsProcessing(true)
 
-      // Find the latest action preview message
-      const actionMessage = messages.find((m) => m.content?.kind === 'action_preview')
+      // Find the most recent action preview message
+      const actionMessage = [...messages].reverse().find((m) => m.content?.kind === 'action_preview')
       if (!actionMessage || actionMessage.content.kind !== 'action_preview') {
         toast.error('No action to confirm')
         return
@@ -508,10 +521,17 @@ export function ConversationThread({ className }: ConversationThreadProps) {
         conversationId: conversationId || '',
         action: actionData,
         destination,
+        calendarAppType,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       })
 
       if (result.success && result.action) {
-        // Create success message
+        // Verify calendar events were actually created
+        if (destination === 'calendar' && !result.action.createdCalendarEventId) {
+          toast.error('Calendar event could not be created. Please check your calendar connection.')
+          return
+        }
+
         const destinationLabel =
           destination === 'calendar'
             ? 'calendar event'

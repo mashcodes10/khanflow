@@ -266,6 +266,10 @@ export interface Intent {
   acceptCount?: number;
   ignoreCount?: number;
   isExample?: boolean;
+  completedAt?: string | null;
+  priority?: 'low' | 'medium' | 'high' | null;
+  dueDate?: string | null;
+  weeklyFocusAt?: string | null;
 }
 
 export interface Suggestion {

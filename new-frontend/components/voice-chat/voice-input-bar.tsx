@@ -77,11 +77,14 @@ export const VoiceInputBar = forwardRef<VoiceInputBarHandle, VoiceInputBarProps>
   const [liveTranscript, setLiveTranscript] = useState('')
   const [finalTranscript, setFinalTranscript] = useState('')
 
+  const MAX_RECORDING_SECONDS = 30
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioContextRef = useRef<AudioContext | null>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const textInputRef = useRef<HTMLInputElement>(null)
   const startTimeRef = useRef<number>(0)
   const speechRecognitionRef = useRef<any>(null)
@@ -90,6 +93,7 @@ export const VoiceInputBar = forwardRef<VoiceInputBarHandle, VoiceInputBarProps>
 
   const cleanupRecording = useCallback(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    if (autoStopTimerRef.current) { clearTimeout(autoStopTimerRef.current); autoStopTimerRef.current = null }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop()
     if (streamRef.current) { streamRef.current.getTracks().forEach((t: MediaStreamTrack) => t.stop()); streamRef.current = null }
     if (audioContextRef.current) { audioContextRef.current.close(); audioContextRef.current = null }
@@ -161,6 +165,15 @@ export const VoiceInputBar = forwardRef<VoiceInputBarHandle, VoiceInputBarProps>
       startTimeRef.current = Date.now()
       setRecordingState('listening'); setDuration(0); setLiveTranscript(''); setFinalTranscript('')
       timerRef.current = setInterval(() => setDuration(d => d + 1), 1000)
+
+      // Auto-stop after 30 seconds
+      autoStopTimerRef.current = setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+          mediaRecorderRef.current.stop()
+          if (streamRef.current) streamRef.current.getTracks().forEach((t: MediaStreamTrack) => t.stop())
+          if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+        }
+      }, MAX_RECORDING_SECONDS * 1000)
     } catch (err: any) {
       toast.error('Failed to access microphone.')
       setRecordingState('idle')
@@ -174,6 +187,7 @@ export const VoiceInputBar = forwardRef<VoiceInputBarHandle, VoiceInputBarProps>
 
   const stopRecording = useCallback(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
+    if (autoStopTimerRef.current) { clearTimeout(autoStopTimerRef.current); autoStopTimerRef.current = null }
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') mediaRecorderRef.current.stop()
     if (streamRef.current) streamRef.current.getTracks().forEach((t: MediaStreamTrack) => t.stop())
     if (audioContextRef.current) { audioContextRef.current.close(); audioContextRef.current = null }
@@ -209,7 +223,12 @@ export const VoiceInputBar = forwardRef<VoiceInputBarHandle, VoiceInputBarProps>
                 Recording
               </span>
             </div>
-            <span className="text-[14px] text-foreground font-medium tabular-nums shadow-sm">{formatTime(duration)}</span>
+            <span className={cn(
+              'text-[14px] font-medium tabular-nums shadow-sm',
+              (MAX_RECORDING_SECONDS - duration) <= 5 ? 'text-red-500' : 'text-foreground'
+            )}>
+              {Math.max(0, MAX_RECORDING_SECONDS - duration)}s
+            </span>
           </div>
         )}
 
@@ -247,6 +266,8 @@ export const VoiceInputBar = forwardRef<VoiceInputBarHandle, VoiceInputBarProps>
             <button
               type="button"
               onClick={() => {
+                // Nullify onstop before stopping so the transcription API is never called
+                if (mediaRecorderRef.current) mediaRecorderRef.current.onstop = null
                 cleanupRecording()
                 setRecordingState('idle'); setDuration(0); setLiveTranscript(''); setFinalTranscript('')
               }}

@@ -40,7 +40,7 @@ export function RecordButton({
   // Tiny blobs are still valid and will be validated further upstream.
   const MIN_BLOB_SIZE = 1 // Only treat completely empty blobs as invalid
   const MIN_RECORDING_DURATION_MS = 1000 // Minimum 1 second recording
-  const MAX_RECORDING_DURATION_MS = 5000 // Maximum 5 seconds - auto-stop
+  const MAX_RECORDING_DURATION_MS = 30000 // Maximum 30 seconds - auto-stop
 
   // Get preferred MIME type - prioritize simple, widely supported formats
   const getPreferredMimeType = useCallback((): string | undefined => {
@@ -495,12 +495,12 @@ export function RecordButton({
 
       // Auto-stop after 5 seconds
       autoStopTimerRef.current = setTimeout(() => {
-        console.log('⏱️ Auto-stopping recording after 5 seconds')
+        console.log('⏱️ Auto-stopping recording after 30 seconds')
         stopRecording()
       }, MAX_RECORDING_DURATION_MS)
 
-      // Recording will continue until user manually stops it or 5 seconds elapses
-      console.log('Recording started successfully, will auto-stop in 5 seconds or when user stops')
+      // Recording will continue until user manually stops it or 30 seconds elapses
+      console.log('Recording started successfully, will auto-stop in 30 seconds or when user stops')
 
     } catch (error) {
       console.error('Error accessing microphone:', error)
@@ -664,12 +664,13 @@ export function RecordButton({
 
   // Button is disabled ONLY during processing states (uploading, transcribing, extracting, completed)
   // Always allow interaction during IDLE, ERROR, or when recording
-  const isDisabled = !isRecordingRef.current && 
-                      state !== VoiceState.IDLE && 
+  const isDisabled = !isRecordingRef.current &&
+                      state !== VoiceState.IDLE &&
                       state !== VoiceState.ERROR &&
                       state !== VoiceState.RECORDING
-  const recordingSeconds = Math.floor(recordingTime / 1000)
-  const recordingMs = recordingTime % 1000
+  const remainingMs = Math.max(0, MAX_RECORDING_DURATION_MS - recordingTime)
+  const remainingSeconds = Math.ceil(remainingMs / 1000)
+  const progressPercent = Math.min(100, (recordingTime / MAX_RECORDING_DURATION_MS) * 100)
 
   return (
     <div className={cn('w-full flex flex-col items-center space-y-4', className)}>
@@ -693,14 +694,26 @@ export function RecordButton({
         )}
       </Button>
 
-      {/* Recording Timer (shown only when recording) */}
+      {/* Countdown (shown only when recording) */}
       {isRecording && (
-        <div className="text-center space-y-1">
-          <div className="text-2xl font-mono font-medium tabular-nums text-foreground">
-            {recordingSeconds}.{Math.floor(recordingMs / 100)}s
+        <div className="text-center space-y-2">
+          <div className={cn(
+            'text-2xl font-mono font-medium tabular-nums',
+            remainingSeconds <= 5 ? 'text-destructive' : 'text-foreground'
+          )}>
+            {remainingSeconds}s
           </div>
           <div className="text-xs text-muted-foreground">
-            Recording • Tap to stop • Auto-stops at 5s
+            Recording • Tap to stop
+          </div>
+          <div className="w-32 h-1 bg-muted rounded-full overflow-hidden">
+            <div
+              className={cn(
+                'h-full rounded-full transition-all duration-100',
+                remainingSeconds <= 5 ? 'bg-destructive' : 'bg-primary'
+              )}
+              style={{ width: `${progressPercent}%` }}
+            />
           </div>
         </div>
       )}
