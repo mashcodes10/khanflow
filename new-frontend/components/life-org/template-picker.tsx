@@ -74,39 +74,39 @@ export function TemplatePicker({ onSelect, onBack, isLoading }: TemplatePickerPr
           Back to templates
         </Button>
 
-        <div className="rounded-lg border border-border bg-card p-4">
+        <div className="rounded-xl border border-border bg-transparent p-5">
           <div className="mb-4">
-            <h3 className="font-semibold text-lg mb-1">{selectedTemplateData.name}</h3>
-            <p className="text-sm text-muted-foreground">{selectedTemplateData.description}</p>
+            <h3 className="font-semibold text-sm mb-1 tracking-tight text-foreground">{selectedTemplateData.name}</h3>
+            <p className="text-[13px] text-muted-foreground">{selectedTemplateData.description}</p>
           </div>
 
-          <div className="space-y-2 text-sm">
+          <div className="space-y-3 text-[13px] text-muted-foreground/90">
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Life Areas</span>
-              <span className="font-medium">{selectedTemplateData.lifeAreaCount}</span>
+              <span>Life Areas</span>
+              <span className="font-medium text-foreground">{selectedTemplateData.lifeAreaCount}</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Intent Boards</span>
-              <span className="font-medium">{selectedTemplateData.intentBoardCount}</span>
+              <span>Intent Boards</span>
+              <span className="font-medium text-foreground">{selectedTemplateData.intentBoardCount}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex gap-2 pt-2">
+        <div className="flex gap-3 pt-2">
           <Button
             variant="outline"
             onClick={() => {
               setShowPreview(false)
               setSelectedTemplate(null)
             }}
-            className="flex-1"
+            className="flex-1 rounded-full h-10 border-border bg-transparent hover:bg-muted/30 text-sm font-medium transition-colors"
             disabled={isLoading}
           >
             Cancel
           </Button>
           <Button
             onClick={handleConfirm}
-            className="flex-1"
+            className="flex-1 rounded-full h-10 bg-foreground text-background hover:bg-foreground/90 text-sm font-medium transition-colors shadow-none"
             disabled={isLoading}
           >
             {isLoading ? 'Applying...' : 'Apply Template'}
@@ -128,34 +128,36 @@ export function TemplatePicker({ onSelect, onBack, isLoading }: TemplatePickerPr
         Back
       </Button>
 
-      <div className="grid gap-3 max-h-[400px] overflow-y-auto pr-2">
+      <div className="grid gap-3 max-h-[400px] overflow-y-auto pr-2 pb-2">
         {filteredTemplates.map((template) => (
           <button
             key={template.id}
             onClick={() => handleSelect(template.id)}
             disabled={isLoading}
             className={cn(
-              'rounded-lg border border-border bg-card p-4 text-left',
-              'hover:bg-accent transition-colors',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              selectedTemplate === template.id && 'ring-2 ring-primary'
+              "text-left px-5 py-4 transition-all duration-200 border bg-transparent rounded-xl",
+              "disabled:opacity-50 disabled:cursor-not-allowed",
+              selectedTemplate === template.id
+                ? "border-foreground ring-1 ring-foreground bg-muted/10"
+                : "border-border hover:border-foreground/30 hover:bg-muted/10"
             )}
           >
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1">
-                <div className="font-semibold text-foreground mb-1">{template.name}</div>
-                <div className="text-sm text-muted-foreground mb-3">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h3 className="font-semibold text-sm mb-1 tracking-tight text-foreground">
+                  {template.name}
+                </h3>
+                <p className="text-[13px] text-muted-foreground mb-3">
                   {template.description}
-                </div>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                </p>
+                <div className="flex items-center gap-3 text-[12px] text-muted-foreground/70">
                   <span>{template.lifeAreaCount} areas</span>
+                  <span className="size-1 rounded-full bg-border" />
                   <span>{template.intentBoardCount} boards</span>
                 </div>
               </div>
               {selectedTemplate === template.id && (
-                <div className="p-1 rounded-full bg-primary/10">
-                  <Check className="size-4 text-primary" strokeWidth={2} />
-                </div>
+                <Check className="size-4 text-foreground mt-0.5 shrink-0" />
               )}
             </div>
           </button>

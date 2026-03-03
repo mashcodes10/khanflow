@@ -175,7 +175,7 @@ export function OnboardingModal({ open, onClose, onComplete, connectedProviders 
 
         {/* Initial step */}
         {step === 'initial' && (
-          <div className="divide-y divide-border">
+          <div className="p-6 space-y-3">
             <OptionRow
               label="Use recommended setup"
               description={`Balanced structure covering major life areas${hasProviders ? ', then import from connected tools' : ''}`}
@@ -202,14 +202,7 @@ export function OnboardingModal({ open, onClose, onComplete, connectedProviders 
 
         {/* Template picker */}
         {step === 'templates' && (
-          <div>
-            <button
-              onClick={() => setStep('initial')}
-              className="flex items-center gap-1.5 px-6 py-3 text-xs text-muted-foreground hover:text-foreground transition-colors border-b border-border w-full"
-            >
-              <ArrowLeft className="size-3.5" />
-              Back
-            </button>
+          <div className="p-6 pt-4">
             <TemplatePicker
               onSelect={handleTemplateSelected}
               onBack={() => setStep('initial')}
@@ -327,19 +320,21 @@ function OptionRow({
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'w-full flex items-center justify-between gap-4 px-6 py-4 text-left transition-colors',
-        disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-muted/40 cursor-pointer'
+        'w-full flex items-start justify-between gap-4 px-5 py-4 text-left transition-all duration-200 border bg-transparent rounded-xl',
+        disabled
+          ? 'opacity-50 cursor-not-allowed border-border'
+          : 'border-border hover:border-foreground/30 hover:bg-muted/10 cursor-pointer'
       )}
     >
-      <div className="space-y-0.5 min-w-0">
-        <p className={cn('text-sm font-medium', muted ? 'text-muted-foreground' : 'text-foreground')}>
+      <div className="space-y-1 min-w-0">
+        <h3 className={cn('font-semibold text-sm tracking-tight', muted ? 'text-muted-foreground' : 'text-foreground')}>
           {label}
-        </p>
-        <p className="text-xs text-muted-foreground">{description}</p>
+        </h3>
+        <p className="text-[13px] text-muted-foreground">{description}</p>
       </div>
       {loading
-        ? <Loader2 className="size-4 text-muted-foreground animate-spin shrink-0" />
-        : <ChevronRight className="size-4 text-muted-foreground shrink-0" />
+        ? <Loader2 className="size-4 text-muted-foreground animate-spin shrink-0 mt-0.5" />
+        : <ChevronRight className="size-4 text-muted-foreground shrink-0 mt-0.5" />
       }
     </button>
   )

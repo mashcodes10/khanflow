@@ -111,13 +111,18 @@ export function ExportBoardModal({
           )}
         </div>
 
-        <DialogFooter className="gap-2">
-          <Button variant="outline" onClick={handleClose}>
+        <DialogFooter className="gap-2 sm:space-x-0 mt-4">
+          <Button
+            variant="outline"
+            onClick={handleClose}
+            className="rounded-full h-9 px-4 border-border bg-transparent hover:bg-muted/30 text-[13px] font-medium transition-colors"
+          >
             Cancel
           </Button>
           <Button
             disabled={!selectedProvider || loading || connectedProviders.length === 0}
             onClick={handleExport}
+            className="rounded-full h-9 px-5 bg-foreground text-background hover:bg-foreground/90 text-[13px] font-medium transition-colors shadow-none"
           >
             {loading
               ? (isSync ? 'Syncing…' : 'Exporting…')

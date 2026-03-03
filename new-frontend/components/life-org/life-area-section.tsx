@@ -45,6 +45,9 @@ interface LifeAreaSectionProps {
   onImportFromProvider?: (boardId: string, provider: string) => void
   onExportToProvider?: (boardId: string, links: BoardExternalLink[]) => void
   onManageLinks?: (boardId: string) => void
+  onRenameLifeArea?: (lifeAreaId: string, newName: string) => void
+  onRenameBoard?: (boardId: string, newName: string) => void
+  onMoveBoard?: (boardId: string) => void
 }
 
 export function LifeAreaSection({
@@ -68,6 +71,9 @@ export function LifeAreaSection({
   onImportFromProvider,
   onExportToProvider,
   onManageLinks,
+  onRenameLifeArea,
+  onRenameBoard,
+  onMoveBoard,
 }: LifeAreaSectionProps) {
   const isEmpty = boards.length === 0
 
@@ -77,7 +83,13 @@ export function LifeAreaSection({
       'hover:shadow-md',
       className
     )}>
-      <SectionHeader title={title} tag={tag} tagColor={tagColor} className="mb-4" />
+      <SectionHeader
+        title={title}
+        tag={tag}
+        tagColor={tagColor}
+        className="mb-4"
+        onRename={lifeAreaId && onRenameLifeArea ? (newName) => onRenameLifeArea(lifeAreaId, newName) : undefined}
+      />
 
       {isEmpty ? (
         <div className="flex flex-col items-center justify-center py-8 text-center">
@@ -116,6 +128,8 @@ export function LifeAreaSection({
               onImportFromProvider={onImportFromProvider}
               onExportToProvider={onExportToProvider}
               onManageLinks={onManageLinks}
+              onRenameBoard={onRenameBoard}
+              onMoveBoard={onMoveBoard}
             />
           ))}
 

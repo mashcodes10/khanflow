@@ -1,3 +1,6 @@
+'use client'
+
+import { useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
 
 interface SectionHeaderProps {
@@ -5,6 +8,7 @@ interface SectionHeaderProps {
   tag?: string
   tagColor?: 'default' | 'health' | 'career' | 'relationships' | 'learning' | 'hobbies' | 'financial' | 'travel' | 'personal'
   className?: string
+  onRename?: (newName: string) => void
 }
 
 const tagColors = {
@@ -19,10 +23,48 @@ const tagColors = {
   personal: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
 }
 
-export function SectionHeader({ title, tag, tagColor = 'default', className }: SectionHeaderProps) {
+export function SectionHeader({ title, tag, tagColor = 'default', className, onRename }: SectionHeaderProps) {
+  const [isEditing, setIsEditing] = useState(false)
+  const [editingValue, setEditingValue] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const startEditing = () => {
+    setEditingValue(title)
+    setIsEditing(true)
+    setTimeout(() => inputRef.current?.select(), 0)
+  }
+
+  const commitEdit = () => {
+    const trimmed = editingValue.trim()
+    if (trimmed && trimmed !== title) {
+      onRename?.(trimmed)
+    }
+    setIsEditing(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); commitEdit() }
+    if (e.key === 'Escape') { setIsEditing(false) }
+  }
+
   return (
     <div className={cn('flex items-center justify-between gap-3', className)}>
-      <h2 className="text-base font-semibold text-foreground tracking-tight">{title}</h2>
+      {isEditing ? (
+        <input
+          ref={inputRef}
+          value={editingValue}
+          onChange={(e) => setEditingValue(e.target.value)}
+          onBlur={commitEdit}
+          onKeyDown={handleKeyDown}
+          className="text-base font-semibold bg-transparent border-b border-primary outline-none tracking-tight"
+        />
+      ) : (
+        <h2
+          className="text-base font-semibold text-foreground tracking-tight cursor-default select-none"
+          onDoubleClick={onRename ? startEditing : undefined}
+          title={onRename ? 'Double-click to rename' : undefined}
+        >{title}</h2>
+      )}
       {tag && (
         <span className={cn(
           'text-xs font-medium px-2 py-0.5 rounded-md',
