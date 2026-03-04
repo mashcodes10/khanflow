@@ -10,7 +10,7 @@ import {
 } from "typeorm";
 import { User } from "./user.entity";
 import { IntentBoard } from "./intent-board.entity";
-import { ProviderType } from "./provider-task-link.entity";
+import { ProviderType } from "../enums/provider-type.enum";
 import { IntentExternalLink } from "./intent-external-link.entity";
 
 export type SyncDirection = "import_only" | "export_only" | "both";
@@ -26,7 +26,7 @@ export class BoardExternalLink {
   @Column({ type: "uuid", nullable: false })
   boardId: string;
 
-  @Column({ type: "enum", enum: ProviderType })
+  @Column({ type: "enum", enum: ProviderType, enumName: "provider_type_enum" })
   provider: ProviderType;
 
   @Column({ type: "varchar", nullable: false })
