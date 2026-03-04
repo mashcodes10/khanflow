@@ -18,6 +18,7 @@ import { tasksAPI, integrationsAPI, lifeOrganizationAPI } from '@/lib/api'
 import { toast } from 'sonner'
 import { ExportToLifeOSModal } from '@/components/life-org/export-to-lifeos-modal'
 import { ImportBoardModal } from '@/components/life-org/import-board-modal'
+import { ImportAllListsModal } from '@/components/life-org/import-all-lists-modal'
 
 interface Task {
   id: string
@@ -52,6 +53,7 @@ function TasksPage() {
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<{ task: Task; listId: string } | null>(null)
   const [importModalList, setImportModalList] = useState<{ id: string; title: string; taskCount: number } | null>(null)
+  const [importAllOpen, setImportAllOpen] = useState(false)
 
   // Check authentication
   useEffect(() => {
@@ -108,6 +110,23 @@ function TasksPage() {
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Failed to copy list to Life OS')
+    },
+  })
+
+  // Bulk import all lists into one board mutation
+  const importAllMutation = useMutation({
+    mutationFn: lifeOrganizationAPI.importAllLists,
+    onSuccess: (res) => {
+      const { imported, skipped } = res.data
+      toast.success(
+        `Imported ${imported} task${imported !== 1 ? 's' : ''} into your Google Tasks board` +
+        (skipped > 0 ? ` (${skipped} already imported, skipped)` : '')
+      )
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+      setImportAllOpen(false)
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to import lists to Life OS')
     },
   })
 
@@ -265,19 +284,29 @@ function TasksPage() {
                   Create a task list in Google Tasks to get started.
                 </p>
               </Card>
-            ) : !hasTasks ? (
-              <Card className="p-8 text-center">
-                <Badge variant="secondary" className="mb-4">No Tasks Yet</Badge>
-                <p className="text-muted-foreground mb-4">
-                  Start by creating a new task in one of your lists.
-                </p>
-              </Card>
             ) : (
               <>
-                <div className="mb-6">
+                <div className="mb-6 flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-muted-foreground">Main Board</h2>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setImportAllOpen(true)}
+                    className="gap-2"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Import all to Life OS
+                  </Button>
                 </div>
 
+                {!hasTasks ? (
+                  <Card className="p-8 text-center">
+                    <Badge variant="secondary" className="mb-4">No Tasks Yet</Badge>
+                    <p className="text-muted-foreground mb-4">
+                      Start by creating a new task in one of your lists.
+                    </p>
+                  </Card>
+                ) : (
                 <div className="grid gap-4 lg:grid-cols-3">
                   {lists.map((list) => (
                     <Card key={list.id} className="flex flex-col bg-card/50">
@@ -410,11 +439,28 @@ function TasksPage() {
                     </Card>
                   ))}
                 </div>
+                )}
               </>
             )}
           </div>
         </div>
       </main>
+
+      {/* Import All Lists Modal */}
+      <ImportAllListsModal
+        open={importAllOpen}
+        onClose={() => setImportAllOpen(false)}
+        provider="google"
+        defaultLifeAreaName="Imported Google Tasks"
+        lists={lists.map((l) => ({ id: l.id, name: l.title, taskCount: l.tasks.length }))}
+        onImport={async (params) => {
+          await importAllMutation.mutateAsync({
+            provider: 'google',
+            lifeAreaName: params.lifeAreaName,
+            lists: params.lists,
+          })
+        }}
+      />
 
       {/* Import Board Modal — Copy full list to Life OS */}
       {importModalList && (

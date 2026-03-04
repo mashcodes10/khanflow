@@ -65,26 +65,26 @@ export default function SuggestionsPage() {
   const getPriorityConfig = (priority: string) => {
     switch (priority) {
       case 'high':
-        return { 
-          variant: 'destructive' as const, 
+        return {
+          variant: 'destructive' as const,
           icon: AlertCircle,
           color: 'text-red-600 dark:text-red-400'
         }
       case 'medium':
-        return { 
-          variant: 'default' as const, 
+        return {
+          variant: 'default' as const,
           icon: Zap,
           color: 'text-amber-600 dark:text-amber-400'
         }
       case 'low':
-        return { 
-          variant: 'secondary' as const, 
+        return {
+          variant: 'secondary' as const,
           icon: Plus,
           color: 'text-blue-600 dark:text-blue-400'
         }
       default:
-        return { 
-          variant: 'secondary' as const, 
+        return {
+          variant: 'secondary' as const,
           icon: Plus,
           color: 'text-muted-foreground'
         }
@@ -142,10 +142,10 @@ export default function SuggestionsPage() {
   return (
     <div className="flex h-screen bg-background">
       <AppSidebar activePage="Suggestions" />
-      
+
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-4xl mx-auto px-6 py-6">
-          
+
           <PageHeader
             title="AI Suggestions"
             subtitle="Personalized recommendations to help you stay on track with your life goals"
@@ -191,62 +191,40 @@ export default function SuggestionsPage() {
               {suggestions.map((suggestion, index) => {
                 const priorityConfig = getPriorityConfig(suggestion.priority)
                 const PriorityIcon = priorityConfig.icon
-                
+
                 return (
-                  <Card key={suggestion.id} className="group hover:shadow-sm transition-all duration-200 border-border/50 hover:border-border">
-                    <CardHeader className="pb-4">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-3 mb-3">
-                            <CardTitle className="text-lg font-medium text-foreground leading-tight">
-                              {suggestion.naturalLanguagePhrase}
-                            </CardTitle>
-                            <Badge variant={priorityConfig.variant} className="shrink-0 gap-1.5 px-2.5 py-1">
-                              <PriorityIcon className="size-3" />
-                              {suggestion.priority}
-                            </Badge>
-                          </div>
-                          
-                          <CardDescription className="text-sm text-muted-foreground leading-relaxed mb-4">
-                            {suggestion.reason}
-                          </CardDescription>
-                          
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-xs font-normal bg-muted/30 border-muted-foreground/20">
-                              {suggestion.lifeAreaName}
-                            </Badge>
-                            <div className="size-1 rounded-full bg-muted-foreground/30" />
-                            <Badge variant="outline" className="text-xs font-normal bg-muted/30 border-muted-foreground/20">
-                              {suggestion.intentBoardName}
-                            </Badge>
-                          </div>
-                        </div>
+                  <div key={suggestion.id} className="group rounded-xl border border-border bg-transparent p-5 hover:border-foreground/30 hover:bg-muted/10 transition-all duration-200">
+                    <div className="flex items-start justify-between gap-4 mb-3">
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-[15px] font-semibold text-foreground tracking-tight leading-snug mb-1">
+                          {suggestion.naturalLanguagePhrase}
+                        </h3>
+                        {/* We use card description for the reason */}
+                        <p className="text-[13px] text-muted-foreground leading-relaxed">
+                          {suggestion.reason}
+                        </p>
                       </div>
-                    </CardHeader>
-                    
-                    <Separator className="mb-4" />
-                    
-                    <CardContent className="pt-0">
-                      <div className="flex items-center gap-3">
-                        <Button
-                          onClick={() => handleAccept(suggestion)}
-                          size="sm"
-                          className="px-6"
-                        >
-                          Accept
-                        </Button>
-                        <Button
-                          onClick={() => handleDismiss(suggestion.id)}
-                          variant="ghost"
-                          size="sm"
-                          disabled={dismissMutation.isPending}
-                          className="text-muted-foreground hover:text-foreground"
-                        >
-                          Dismiss
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
+                      <Badge variant={priorityConfig.variant} className="shrink-0 rounded-full font-medium text-[11px] px-2.5 py-0.5 pointer-events-none">
+                        {suggestion.priority}
+                      </Badge>
+                    </div>
+
+                    <div className="flex items-center gap-3 mt-4">
+                      <Button
+                        onClick={() => handleAccept(suggestion)}
+                        className="rounded-full h-9 px-5 bg-foreground text-background hover:bg-foreground/90 text-[13px] font-medium transition-colors shadow-none"
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        onClick={() => handleDismiss(suggestion.id)}
+                        disabled={dismissMutation.isPending}
+                        className="rounded-full h-9 px-4 border-border bg-transparent hover:bg-muted/30 text-[13px] font-medium transition-colors text-muted-foreground"
+                      >
+                        Dismiss
+                      </Button>
+                    </div>
+                  </div>
                 )
               })}
             </div>

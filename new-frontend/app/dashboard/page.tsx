@@ -16,6 +16,7 @@ import { IntentDetailSheet, type IntentDetail } from '@/components/life-org/inte
 import { WeeklyFocusSection } from '@/components/life-org/weekly-focus-section'
 import { SearchDialog } from '@/components/life-org/search-dialog'
 import { BoardLinksDialog } from '@/components/life-org/board-links-dialog'
+import { MoveBoardDialog } from '@/components/life-org/move-board-dialog'
 import {
   DndContext,
   closestCenter,
@@ -38,13 +39,16 @@ import {
   Clock,
   RotateCcw,
   Search,
+  Upload,
 } from 'lucide-react'
-import { lifeOrganizationAPI, integrationsAPI } from '@/lib/api'
+import { lifeOrganizationAPI, integrationsAPI, tasksAPI, microsoftTodoAPI } from '@/lib/api'
 import type { LifeArea, Suggestion } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { OnboardingModal } from '@/components/life-org/onboarding-modal'
 import { ExportBoardModal } from '@/components/life-org/export-board-modal'
+import { ImportAllListsModal } from '@/components/life-org/import-all-lists-modal'
+import { ImportProviderPickerModal } from '@/components/life-org/import-provider-picker-modal'
 
 // Sample data matching the original images (fallback)
 const initialLifeAreas = [
@@ -136,6 +140,10 @@ function LifeOrganizationPage() {
   const [selectedIntentId, setSelectedIntentId] = useState<string | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [managingLinks, setManagingLinks] = useState<{ boardId: string; boardName: string } | null>(null)
+  const [movingBoard, setMovingBoard] = useState<{ boardId: string; boardName: string; currentLifeAreaId: string } | null>(null)
+  const [importPickerOpen, setImportPickerOpen] = useState(false)
+  const [importAllGoogleOpen, setImportAllGoogleOpen] = useState(false)
+  const [importAllMicrosoftOpen, setImportAllMicrosoftOpen] = useState(false)
 
   // Check authentication on mount
   useEffect(() => {
@@ -187,18 +195,37 @@ function LifeOrganizationPage() {
     ) ?? false,
   }
 
-  // Check if onboarding should be shown
+  // Fetch task lists for import modals (lazy — only when provider connected)
+  const { data: googleTaskListsData } = useQuery({
+    queryKey: ['task-lists'],
+    queryFn: tasksAPI.getTaskLists,
+    enabled: connectedProviders.google,
+    staleTime: 60_000,
+  })
+
+  const { data: microsoftTaskListsData } = useQuery({
+    queryKey: ['microsoft-todo-lists'],
+    queryFn: microsoftTodoAPI.getTaskLists,
+    enabled: connectedProviders.microsoft,
+    staleTime: 60_000,
+  })
+
+  const googleLists = (googleTaskListsData?.data ?? []).map((l: any) => ({ id: l.id, name: l.title }))
+  const microsoftLists = (microsoftTaskListsData?.data ?? []).map((l: any) => ({ id: l.id, name: l.displayName }))
+
+  // Check if onboarding should be auto-shown on page load
   useEffect(() => {
-    // Only show onboarding when the backend explicitly says it's not completed.
-    // Do NOT re-show just because there are no life areas — "Start empty" is a
-    // valid choice where isCompleted=true but no life areas exist.
     const isOnboardingNotCompleted = onboardingStatusData?.data && !onboardingStatusData.data.isCompleted
     const isLoading = isLoadingAreas || !onboardingStatusData
+    // If the user already has life areas (e.g. imported from Google/MS Todo),
+    // treat setup as done regardless of the backend flag.
+    const hasExistingAreas = (lifeAreasData?.data?.length ?? 0) > 0
 
-    if (!isLoading) {
-      setShowOnboarding(!!isOnboardingNotCompleted)
+    if (!isLoading && !!isOnboardingNotCompleted && !hasExistingAreas) {
+      // Only auto-open; closing is handled by onClose / handleOnboardingComplete
+      setShowOnboarding(true)
     }
-  }, [onboardingStatusData, isLoadingAreas])
+  }, [onboardingStatusData, isLoadingAreas, lifeAreasData])
 
   // Fetch suggestions from backend
   const { data: suggestionsData } = useQuery({
@@ -370,6 +397,44 @@ function LifeOrganizationPage() {
     },
   })
 
+  // Rename intent board
+  const renameIntentBoardMutation = useMutation({
+    mutationFn: ({ boardId, name }: { boardId: string; name: string }) =>
+      lifeOrganizationAPI.updateIntentBoard(boardId, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to rename board')
+    },
+  })
+
+  // Move board to a different life area
+  const moveBoardMutation = useMutation({
+    mutationFn: ({ boardId, lifeAreaId }: { boardId: string; lifeAreaId: string }) =>
+      lifeOrganizationAPI.updateIntentBoard(boardId, { lifeAreaId }),
+    onSuccess: () => {
+      toast.success('Board moved')
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+      setMovingBoard(null)
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to move board')
+    },
+  })
+
+  // Rename life area
+  const renameLifeAreaMutation = useMutation({
+    mutationFn: ({ lifeAreaId, name }: { lifeAreaId: string; name: string }) =>
+      lifeOrganizationAPI.updateLifeArea(lifeAreaId, { name }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to rename life area')
+    },
+  })
+
   // Inbox — ensure the inbox board exists once life areas are loaded
   const hasLifeAreas = (lifeAreasData?.data?.length ?? 0) > 0
   const { data: inboxData } = useQuery({
@@ -397,6 +462,40 @@ function LifeOrganizationPage() {
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Failed to export to provider')
+    },
+  })
+
+  // Bulk import all lists from Google Tasks
+  const importAllGoogleMutation = useMutation({
+    mutationFn: lifeOrganizationAPI.importAllLists,
+    onSuccess: (res) => {
+      const { imported, skipped } = res.data
+      toast.success(
+        `Imported ${imported} task${imported !== 1 ? 's' : ''} into your Google Tasks board` +
+        (skipped > 0 ? ` (${skipped} skipped)` : '')
+      )
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+      setImportAllGoogleOpen(false)
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to import from Google Tasks')
+    },
+  })
+
+  // Bulk import all lists from Microsoft To Do
+  const importAllMicrosoftMutation = useMutation({
+    mutationFn: lifeOrganizationAPI.importAllLists,
+    onSuccess: (res) => {
+      const { imported, skipped } = res.data
+      toast.success(
+        `Imported ${imported} task${imported !== 1 ? 's' : ''} into your Microsoft To Do board` +
+        (skipped > 0 ? ` (${skipped} skipped)` : '')
+      )
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+      setImportAllMicrosoftOpen(false)
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to import from Microsoft To Do')
     },
   })
 
@@ -680,6 +779,17 @@ function LifeOrganizationPage() {
                   </Button>
                 </>
               )}
+              {(connectedProviders.google || connectedProviders.microsoft) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setImportPickerOpen(true)}
+                  className="gap-2"
+                >
+                  <Upload className="size-4" />
+                  Import
+                </Button>
+              )}
               <ThemeToggle />
             </div>
           </div>
@@ -825,11 +935,8 @@ function LifeOrganizationPage() {
                           const newWeeklyFocusAt = intent?.weeklyFocusAt ? null : new Date().toISOString()
                           updateIntentDetailMutation.mutate({ intentId, changes: { weeklyFocusAt: newWeeklyFocusAt } })
                         }}
-                        onImportFromProvider={(boardId, provider) => {
-                          const destination = provider === 'google' ? '/tasks' : '/microsoft-todo'
-                          toast.info(`Go to ${provider === 'google' ? 'Google Tasks' : 'Microsoft Todo'} and use "Copy list to Life OS".`, {
-                            action: { label: 'Go there', onClick: () => window.location.href = destination },
-                          })
+                        onImportFromProvider={() => {
+                          setImportPickerOpen(true)
                         }}
                         onExportToProvider={(boardId, links) => {
                           const boardName = area.boards.find((b) => b.id === boardId)?.title ?? 'Board'
@@ -845,6 +952,16 @@ function LifeOrganizationPage() {
                         onManageLinks={(boardId) => {
                           const boardName = area.boards.find((b) => b.id === boardId)?.title ?? 'Board'
                           setManagingLinks({ boardId, boardName })
+                        }}
+                        onRenameLifeArea={(lifeAreaId, newName) => {
+                          renameLifeAreaMutation.mutate({ lifeAreaId, name: newName })
+                        }}
+                        onRenameBoard={(boardId, newName) => {
+                          renameIntentBoardMutation.mutate({ boardId, name: newName })
+                        }}
+                        onMoveBoard={(boardId) => {
+                          const boardName = area.boards.find((b) => b.id === boardId)?.title ?? 'Board'
+                          setMovingBoard({ boardId, boardName, currentLifeAreaId: area.id })
                         }}
                       />
                     ))}
@@ -899,29 +1016,27 @@ function LifeOrganizationPage() {
               {suggestions.length > 0 ? (
                 <div className="space-y-4">
                   {suggestions.map((suggestion: Suggestion) => (
-                    <div key={suggestion.id} className="rounded-xl border border-border bg-card p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <h3 className="text-base font-semibold text-foreground mb-1">
-                            {suggestion.intentTitle}
-                          </h3>
-                          <p className="text-sm text-muted-foreground mb-2">
+                    <div key={suggestion.id} className="group rounded-xl border border-border bg-transparent p-5 hover:border-foreground/30 hover:bg-muted/10 transition-all duration-200">
+                      <div className="flex items-start justify-between gap-4 mb-3">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-[15px] font-semibold text-foreground tracking-tight leading-snug mb-1">
                             {suggestion.naturalLanguagePhrase}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
+                          </h3>
+                          <p className="text-[13px] text-muted-foreground leading-relaxed">
                             {suggestion.reason}
                           </p>
                         </div>
-                        <span className={`text-xs px-2 py-1 rounded-full ${suggestion.priority === 'high' ? 'bg-destructive/20 text-destructive' :
+                        <span className={cn(
+                          "shrink-0 rounded-full font-medium text-[11px] px-2.5 py-0.5",
+                          suggestion.priority === 'high' ? 'bg-destructive/20 text-destructive' :
                             suggestion.priority === 'medium' ? 'bg-warning/20 text-warning' :
                               'bg-muted text-muted-foreground'
-                          }`}>
+                        )}>
                           {suggestion.priority}
                         </span>
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex items-center gap-3 mt-4">
                         <Button
-                          size="sm"
                           onClick={() => {
                             // Get default optionIndex from suggestion's aiPayload or default to 0
                             const defaultOptionIndex = suggestion.aiPayload?.defaultOptionIndex !== undefined
@@ -937,14 +1052,14 @@ function LifeOrganizationPage() {
                             });
                           }}
                           disabled={acceptSuggestionMutation.isPending}
+                          className="rounded-full h-9 px-5 bg-foreground text-background hover:bg-foreground/90 text-[13px] font-medium transition-colors shadow-none"
                         >
                           {acceptSuggestionMutation.isPending ? 'Accepting...' : 'Accept'}
                         </Button>
                         <Button
-                          variant="outline"
-                          size="sm"
                           onClick={() => ignoreSuggestionMutation.mutate(suggestion.id)}
                           disabled={ignoreSuggestionMutation.isPending}
+                          className="rounded-full h-9 px-4 border-border bg-transparent hover:bg-muted/30 text-[13px] font-medium transition-colors text-muted-foreground"
                         >
                           Dismiss
                         </Button>
@@ -1016,6 +1131,20 @@ function LifeOrganizationPage() {
         />
       )}
 
+      {/* Move Board to Another Life Area */}
+      {movingBoard && (
+        <MoveBoardDialog
+          open={!!movingBoard}
+          onClose={() => setMovingBoard(null)}
+          boardName={movingBoard.boardName}
+          currentLifeAreaId={movingBoard.currentLifeAreaId}
+          lifeAreas={transformedLifeAreas.map((a) => ({ id: a.id, title: a.title }))}
+          onMove={(targetLifeAreaId) => {
+            moveBoardMutation.mutate({ boardId: movingBoard.boardId, lifeAreaId: targetLifeAreaId })
+          }}
+        />
+      )}
+
       {/* Board Links Management Dialog */}
       {managingLinks && (
         <BoardLinksDialog
@@ -1026,7 +1155,49 @@ function LifeOrganizationPage() {
         />
       )}
 
-      {/* Import Board from Provider: handled from Google Tasks / MS Todo pages */}
+      {/* Provider Picker — shown first, then chains to the provider-specific modal */}
+      <ImportProviderPickerModal
+        open={importPickerOpen}
+        onClose={() => setImportPickerOpen(false)}
+        connectedProviders={connectedProviders}
+        onPickProvider={(provider) => {
+          setImportPickerOpen(false)
+          if (provider === 'google') setImportAllGoogleOpen(true)
+          else setImportAllMicrosoftOpen(true)
+        }}
+      />
+
+      {/* Import All Lists — Google Tasks */}
+      <ImportAllListsModal
+        open={importAllGoogleOpen}
+        onClose={() => setImportAllGoogleOpen(false)}
+        provider="google"
+        defaultLifeAreaName="Imported Google Tasks"
+        lists={googleLists}
+        onImport={async (params) => {
+          await importAllGoogleMutation.mutateAsync({
+            provider: 'google',
+            lifeAreaName: params.lifeAreaName,
+            lists: params.lists,
+          })
+        }}
+      />
+
+      {/* Import All Lists — Microsoft To Do */}
+      <ImportAllListsModal
+        open={importAllMicrosoftOpen}
+        onClose={() => setImportAllMicrosoftOpen(false)}
+        provider="microsoft"
+        defaultLifeAreaName="Imported Microsoft To Do"
+        lists={microsoftLists}
+        onImport={async (params) => {
+          await importAllMicrosoftMutation.mutateAsync({
+            provider: 'microsoft',
+            lifeAreaName: params.lifeAreaName,
+            lists: params.lists,
+          })
+        }}
+      />
 
       {/* Search dialog (Cmd+K) */}
       <SearchDialog

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { CountBadge } from './count-badge'
 import { IntentRow } from './intent-row'
@@ -10,7 +10,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Button } from '@/components/ui/button'
-import { MoreHorizontal, Download, Upload, Link, ChevronDown } from 'lucide-react'
+import { MoreHorizontal, Download, Upload, Link, ChevronDown, ArrowRightLeft } from 'lucide-react'
 import type { BoardExternalLink } from '@/lib/types'
 
 interface Intent {
@@ -43,6 +43,8 @@ interface BoardCardProps {
   onImportFromProvider?: (boardId: string, provider: string) => void
   onExportToProvider?: (boardId: string, links: BoardExternalLink[]) => void
   onManageLinks?: (boardId: string) => void
+  onRenameBoard?: (boardId: string, newName: string) => void
+  onMoveBoard?: (boardId: string) => void
 }
 
 export function BoardCard({
@@ -65,8 +67,32 @@ export function BoardCard({
   onImportFromProvider,
   onExportToProvider,
   onManageLinks,
+  onRenameBoard,
+  onMoveBoard,
 }: BoardCardProps) {
   const [completedExpanded, setCompletedExpanded] = useState(false)
+  const [isEditingTitle, setIsEditingTitle] = useState(false)
+  const [editingTitle, setEditingTitle] = useState('')
+  const titleInputRef = useRef<HTMLInputElement>(null)
+
+  const startEditingTitle = () => {
+    setEditingTitle(title)
+    setIsEditingTitle(true)
+    setTimeout(() => titleInputRef.current?.select(), 0)
+  }
+
+  const commitTitleEdit = () => {
+    const trimmed = editingTitle.trim()
+    if (trimmed && trimmed !== title) {
+      onRenameBoard?.(boardId, trimmed)
+    }
+    setIsEditingTitle(false)
+  }
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') { e.preventDefault(); commitTitleEdit() }
+    if (e.key === 'Escape') { setIsEditingTitle(false) }
+  }
 
   const activeIntents = intents.filter((i) => !i.isCompleted)
   const completedIntents = intents.filter((i) => i.isCompleted)
@@ -82,53 +108,55 @@ export function BoardCard({
   const hasMicrosoft = connectedProviders?.microsoft
   const hasAnyProvider = hasGoogle || hasMicrosoft
 
-  const BoardMenu = () => {
-    if (!hasAnyProvider && !hasLinks) return null
-    return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100">
-            <MoreHorizontal className="size-3.5" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56">
-          {hasGoogle && linkedGoogleList && (
-            <DropdownMenuItem onClick={() => onImportFromProvider?.(boardId, 'google')}>
-              <Download className="size-4 mr-2" />
-              Pull from Google Tasks
+  const BoardMenu = () => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100 focus:opacity-100">
+          <MoreHorizontal className="size-3.5" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuItem onClick={() => onMoveBoard?.(boardId)}>
+          <ArrowRightLeft className="size-4 mr-2" />
+          Move to life area
+        </DropdownMenuItem>
+        {(hasGoogle || hasMicrosoft || hasLinks) && <DropdownMenuSeparator />}
+        {hasGoogle && linkedGoogleList && (
+          <DropdownMenuItem onClick={() => onImportFromProvider?.(boardId, 'google')}>
+            <Download className="size-4 mr-2" />
+            Pull from Google Tasks
+          </DropdownMenuItem>
+        )}
+        {hasMicrosoft && linkedMicrosoftList && (
+          <DropdownMenuItem onClick={() => onImportFromProvider?.(boardId, 'microsoft')}>
+            <Download className="size-4 mr-2" />
+            Pull from Microsoft Todo
+          </DropdownMenuItem>
+        )}
+        {hasGoogle && (
+          <DropdownMenuItem onClick={() => onExportToProvider?.(boardId, links)}>
+            <Upload className="size-4 mr-2" />
+            {linkedGoogleList ? 'Sync → Google Tasks' : 'Export to Google Tasks'}
+          </DropdownMenuItem>
+        )}
+        {hasMicrosoft && (
+          <DropdownMenuItem onClick={() => onExportToProvider?.(boardId, links)}>
+            <Upload className="size-4 mr-2" />
+            {linkedMicrosoftList ? 'Sync → Microsoft Todo' : 'Export to Microsoft Todo'}
+          </DropdownMenuItem>
+        )}
+        {hasLinks && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => onManageLinks?.(boardId)}>
+              <Link className="size-4 mr-2" />
+              Manage links
             </DropdownMenuItem>
-          )}
-          {hasMicrosoft && linkedMicrosoftList && (
-            <DropdownMenuItem onClick={() => onImportFromProvider?.(boardId, 'microsoft')}>
-              <Download className="size-4 mr-2" />
-              Pull from Microsoft Todo
-            </DropdownMenuItem>
-          )}
-          {hasGoogle && (
-            <DropdownMenuItem onClick={() => onExportToProvider?.(boardId, links)}>
-              <Upload className="size-4 mr-2" />
-              {linkedGoogleList ? 'Sync → Google Tasks' : 'Export to Google Tasks'}
-            </DropdownMenuItem>
-          )}
-          {hasMicrosoft && (
-            <DropdownMenuItem onClick={() => onExportToProvider?.(boardId, links)}>
-              <Upload className="size-4 mr-2" />
-              {linkedMicrosoftList ? 'Sync → Microsoft Todo' : 'Export to Microsoft Todo'}
-            </DropdownMenuItem>
-          )}
-          {hasLinks && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => onManageLinks?.(boardId)}>
-                <Link className="size-4 mr-2" />
-                Manage links
-              </DropdownMenuItem>
-            </>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    )
-  }
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
 
   // Empty = no active intents and no completed intents
   if (isEmpty || intents.length === 0) {
@@ -139,8 +167,23 @@ export function BoardCard({
         className
       )}>
         <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-1.5">
-            <h3 className="text-sm font-medium text-foreground">{title}</h3>
+          <div className="flex items-center gap-1.5 min-w-0">
+            {isEditingTitle ? (
+              <input
+                ref={titleInputRef}
+                value={editingTitle}
+                onChange={(e) => setEditingTitle(e.target.value)}
+                onBlur={commitTitleEdit}
+                onKeyDown={handleTitleKeyDown}
+                className="text-sm font-medium bg-transparent border-b border-primary outline-none w-full"
+              />
+            ) : (
+              <h3
+                className="text-sm font-medium text-foreground cursor-default select-none"
+                onDoubleClick={startEditingTitle}
+                title="Double-click to rename"
+              >{title}</h3>
+            )}
             {links.map((link) => (
               <BoardLinkBadge key={link.id} link={link} />
             ))}
@@ -173,7 +216,22 @@ export function BoardCard({
       {/* Header */}
       <div className="flex items-center justify-between p-4 pb-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <h3 className="text-sm font-medium text-foreground truncate">{title}</h3>
+          {isEditingTitle ? (
+            <input
+              ref={titleInputRef}
+              value={editingTitle}
+              onChange={(e) => setEditingTitle(e.target.value)}
+              onBlur={commitTitleEdit}
+              onKeyDown={handleTitleKeyDown}
+              className="text-sm font-medium bg-transparent border-b border-primary outline-none w-full min-w-0"
+            />
+          ) : (
+            <h3
+              className="text-sm font-medium text-foreground truncate cursor-default select-none"
+              onDoubleClick={startEditingTitle}
+              title="Double-click to rename"
+            >{title}</h3>
+          )}
           {links.map((link) => (
             <BoardLinkBadge key={link.id} link={link} />
           ))}
@@ -219,7 +277,6 @@ export function BoardCard({
               onToggle={() => onToggleIntent?.(intent.id)}
               onIntentClick={() => onIntentClick?.(intent.id)}
               onDelete={() => onDeleteIntent?.(intent.id)}
-              onUnlink={intent.isLinked ? () => onUnlinkIntent?.(intent.id) : undefined}
               onDuplicate={() => onDuplicateIntent?.(intent.id, boardId, intent.text)}
               onMove={() => onMoveIntent?.(intent.id, boardId)}
               onPinToWeek={() => onPinToWeek?.(intent.id)}
@@ -253,7 +310,6 @@ export function BoardCard({
                   onToggle={() => onToggleIntent?.(intent.id)}
                   onIntentClick={() => onIntentClick?.(intent.id)}
                   onDelete={() => onDeleteIntent?.(intent.id)}
-                  onUnlink={intent.isLinked ? () => onUnlinkIntent?.(intent.id) : undefined}
                   onDuplicate={() => onDuplicateIntent?.(intent.id, boardId, intent.text)}
                   onMove={() => onMoveIntent?.(intent.id, boardId)}
                 />

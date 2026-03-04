@@ -515,7 +515,7 @@ export const lifeOrganizationAPI = {
     const response = await API.post("/life-organization/intent-boards", data);
     return response.data;
   },
-  updateIntentBoard: async (id: string, data: { name?: string; description?: string; order?: number }) => {
+  updateIntentBoard: async (id: string, data: { name?: string; description?: string; order?: number; lifeAreaId?: string }) => {
     const response = await API.put(`/life-organization/intent-boards/${id}`, data);
     return response.data;
   },
@@ -773,5 +773,15 @@ export const lifeOrganizationAPI = {
   importBoardDirect: async (data: { provider: string; externalListId: string; lifeAreaId: string; boardId?: string; newBoardName?: string }) => {
     const response = await API.post("/life-organization/import-board", data);
     return response.data as { data: { imported: number; skipped: number; boardId: string } };
+  },
+  importAllLists: async (data: {
+    provider: string
+    lifeAreaName: string
+    lists: Array<{ externalListId: string; externalListName?: string }>
+  }) => {
+    const response = await API.post('/life-organization/import-all-lists', data, { timeout: 120_000 })
+    return response.data as {
+      data: { imported: number; skipped: number }
+    }
   },
 };

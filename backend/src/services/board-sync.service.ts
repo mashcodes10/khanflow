@@ -184,7 +184,9 @@ export const importBoardService = async (
     }));
   }
 
-  // Get already-linked task IDs for dedup
+  // Get already-linked task IDs for dedup (global per user+provider+list).
+  // Prevents inserting a duplicate row that would violate the unique index on
+  // (userId, provider, externalTaskId, externalListId).
   const existingLinks = await intentLinkRepo.find({
     where: { userId, provider, externalListId },
   });
@@ -387,6 +389,9 @@ export const importBoardDirectService = async (
   const lifeArea = await lifeAreaRepo.findOne({ where: { id: lifeAreaId, userId } });
   if (!lifeArea) throw new NotFoundException("Life area not found");
 
+  // Track whether we're creating a brand-new board (vs importing into an existing one)
+  const creatingNewBoard = !boardId;
+
   // Resolve target board
   let targetBoardId = boardId;
   if (!targetBoardId) {
@@ -443,6 +448,109 @@ export const importBoardDirectService = async (
     await boardLinkRepo.save(boardLink);
   }
 
+  // When creating a fresh new board, move any intents that were previously
+  // imported from this external list (in any other board) into the new board.
+  // This satisfies the unique index on intent_external_links while letting
+  // the user re-import a list into a different life area / board.
+  if (creatingNewBoard) {
+    const intentRepo = AppDataSource.getRepository(Intent);
+    const intentLinkRepo = AppDataSource.getRepository(IntentExternalLink);
+
+    const existingLinks = await intentLinkRepo.find({
+      where: { userId, provider, externalListId },
+    });
+
+    for (const link of existingLinks) {
+      await intentRepo.update({ id: link.intentId }, { intentBoardId: targetBoardId });
+      link.boardLinkId = boardLink.id;
+      await intentLinkRepo.save(link);
+    }
+  }
+
   const result = await importBoardService(userId, targetBoardId, provider, externalListId);
   return { ...result, boardId: targetBoardId };
+};
+
+/**
+ * Bulk import: create ONE life area, then one board per external list inside it.
+ * Each list's tasks go into their own board (named after the list).
+ * Previously-imported tasks are moved to the correct per-list board.
+ */
+export const importAllListsService = async (
+  userId: string,
+  provider: ProviderType,
+  lifeAreaName: string,
+  lists: Array<{ externalListId: string; externalListName?: string }>
+): Promise<{ imported: number; skipped: number }> => {
+  const lifeAreaRepo = AppDataSource.getRepository(LifeArea);
+  const boardRepo = AppDataSource.getRepository(IntentBoard);
+  const boardLinkRepo = AppDataSource.getRepository(BoardExternalLink);
+  const intentRepo = AppDataSource.getRepository(Intent);
+  const intentLinkRepo = AppDataSource.getRepository(IntentExternalLink);
+
+  // Find or create the life area
+  let area = await lifeAreaRepo.findOne({ where: { userId, name: lifeAreaName } });
+  if (!area) {
+    area = lifeAreaRepo.create({ userId, name: lifeAreaName, order: 0 });
+    area = await lifeAreaRepo.save(area);
+  }
+  const lifeAreaId = area.id;
+
+  // Each list → its own board in parallel
+  const perListResults = await Promise.all(
+    lists.map(async ({ externalListId, externalListName }) => {
+      const boardName = externalListName ?? externalListId;
+
+      // Check if this list already has a linked board; reuse it if so
+      const existingLink = await boardLinkRepo.findOne({
+        where: { userId, provider, externalListId },
+      });
+
+      let boardId: string;
+      let boardLink = existingLink;
+
+      if (existingLink) {
+        // Reuse the existing board — just move it under the target life area
+        boardId = existingLink.boardId;
+        await boardRepo.update({ id: boardId }, { lifeAreaId, name: boardName });
+      } else {
+        // Create a fresh board for this list
+        const newBoard = boardRepo.create({ name: boardName, lifeAreaId, order: 0 });
+        const savedBoard = await boardRepo.save(newBoard);
+        boardId = savedBoard.id;
+
+        boardLink = boardLinkRepo.create({
+          userId,
+          boardId,
+          provider,
+          externalListId,
+          externalListName: boardName,
+          syncDirection: "both",
+        });
+        await boardLinkRepo.save(boardLink);
+      }
+
+      // Move any intents from this list that landed in OTHER boards → correct board
+      const allIntentLinks = await intentLinkRepo.find({
+        where: { userId, provider, externalListId },
+      });
+      await Promise.all(
+        allIntentLinks
+          .filter((link) => link.boardLinkId !== boardLink!.id)
+          .map(async (link) => {
+            await intentRepo.update({ id: link.intentId }, { intentBoardId: boardId });
+            link.boardLinkId = boardLink!.id;
+            await intentLinkRepo.save(link);
+          })
+      );
+
+      // Import any tasks not yet in Life OS
+      return importBoardService(userId, boardId, provider, externalListId);
+    })
+  );
+
+  return {
+    imported: perListResults.reduce((sum, r) => sum + r.imported, 0),
+    skipped: perListResults.reduce((sum, r) => sum + r.skipped, 0),
+  };
 };

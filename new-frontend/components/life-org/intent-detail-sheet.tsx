@@ -2,12 +2,15 @@
 
 import { useState, useEffect, useRef } from 'react'
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 import { Trash2, Calendar, FolderInput, Pin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -39,9 +42,9 @@ interface IntentDetailSheetProps {
 }
 
 const priorityConfig = {
-  low: { label: 'Low', className: 'bg-muted text-muted-foreground' },
-  medium: { label: 'Medium', className: 'bg-warning/15 text-warning' },
-  high: { label: 'High', className: 'bg-destructive/15 text-destructive' },
+  low: { label: 'Low', className: 'bg-muted text-muted-foreground border-transparent' },
+  medium: { label: 'Medium', className: 'bg-warning/15 text-warning border-transparent' },
+  high: { label: 'High', className: 'bg-destructive/15 text-destructive border-transparent' },
 } as const
 
 export function IntentDetailSheet({
@@ -58,7 +61,6 @@ export function IntentDetailSheet({
   const [dueDate, setDueDate] = useState('')
   const titleRef = useRef<HTMLTextAreaElement>(null)
 
-  // Sync local state when intent changes
   useEffect(() => {
     if (intent) {
       setTitle(intent.text)
@@ -68,7 +70,6 @@ export function IntentDetailSheet({
     }
   }, [intent])
 
-  // Auto-grow textarea
   const autoGrow = (el: HTMLTextAreaElement | null) => {
     if (!el) return
     el.style.height = 'auto'
@@ -101,47 +102,45 @@ export function IntentDetailSheet({
   if (!intent) return null
 
   return (
-    <Sheet open={open} onOpenChange={(v) => !v && handleSave()}>
-      <SheetContent side="right" className="w-full sm:max-w-md flex flex-col gap-0 p-0">
-        <SheetHeader className="px-6 py-4 border-b border-border-subtle">
-          <div className="flex items-center gap-2">
-            <SheetTitle className="sr-only">Intent details</SheetTitle>
-            {/* Breadcrumb */}
-            <span className="text-xs text-muted-foreground">{intent.lifeAreaName}</span>
-            <span className="text-xs text-muted-foreground">/</span>
-            <span className="text-xs text-muted-foreground">{intent.boardName}</span>
-          </div>
-        </SheetHeader>
+    <Dialog open={open} onOpenChange={(v) => !v && handleSave()}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle>Intent details</DialogTitle>
+          <DialogDescription>
+            {intent.lifeAreaName} / {intent.boardName}
+          </DialogDescription>
+        </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
+        <div className="space-y-4">
           {/* Title */}
-          <textarea
-            ref={titleRef}
-            value={title}
-            onChange={(e) => { setTitle(e.target.value); autoGrow(e.target) }}
-            onFocus={(e) => autoGrow(e.target)}
-            rows={1}
-            className={cn(
-              'w-full resize-none bg-transparent text-lg font-semibold text-foreground',
-              'border-none outline-none leading-snug',
-              'placeholder:text-muted-foreground/40'
-            )}
-            placeholder="Intent title"
-          />
+          <div className="space-y-2">
+            <Label htmlFor="intent-title">Title</Label>
+            <textarea
+              id="intent-title"
+              ref={titleRef}
+              value={title}
+              onChange={(e) => { setTitle(e.target.value); autoGrow(e.target) }}
+              onFocus={(e) => autoGrow(e.target)}
+              rows={1}
+              className="flex min-h-[36px] w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none resize-none"
+              placeholder="Intent title"
+            />
+          </div>
 
           {/* Priority */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Priority</label>
+          <div className="space-y-2">
+            <Label>Priority</Label>
             <div className="flex gap-1.5">
               {(['low', 'medium', 'high'] as const).map((p) => (
                 <button
                   key={p}
+                  type="button"
                   onClick={() => setPriority(priority === p ? null : p)}
                   className={cn(
-                    'px-3 py-1 rounded-md text-xs font-medium transition-all border',
+                    'px-3 py-1 rounded-lg text-sm font-medium transition-all border shadow-xs',
                     priority === p
-                      ? priorityConfig[p].className + ' border-transparent'
-                      : 'border-border-subtle text-muted-foreground hover:border-border'
+                      ? priorityConfig[p].className
+                      : 'border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )}
                 >
                   {priorityConfig[p].label}
@@ -151,18 +150,19 @@ export function IntentDetailSheet({
           </div>
 
           {/* Due date */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Due date</label>
-            <div className="flex items-center gap-2">
+          <div className="space-y-2">
+            <Label>Due date</Label>
+            <div className="flex items-center gap-2 h-9 rounded-lg border border-input bg-transparent px-3 text-sm shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-ring/50 focus-within:ring-[3px]">
               <Calendar className="size-4 text-muted-foreground shrink-0" strokeWidth={1.75} />
               <input
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="bg-transparent text-sm text-foreground outline-none border-none [color-scheme:light] dark:[color-scheme:dark]"
+                className="flex-1 bg-transparent text-sm text-foreground outline-none border-none [color-scheme:light] dark:[color-scheme:dark]"
               />
               {dueDate && (
                 <button
+                  type="button"
                   onClick={() => setDueDate('')}
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
@@ -172,63 +172,73 @@ export function IntentDetailSheet({
             </div>
           </div>
 
-          {/* Notes / Description */}
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Notes</label>
+          {/* Notes */}
+          <div className="space-y-2">
+            <Label htmlFor="intent-notes">Notes</Label>
             <textarea
+              id="intent-notes"
               value={description}
               onChange={(e) => { setDescription(e.target.value); autoGrow(e.target) }}
               onFocus={(e) => autoGrow(e.target)}
               rows={3}
-              className={cn(
-                'w-full resize-none bg-muted/30 rounded-lg px-3 py-2.5',
-                'text-sm text-foreground placeholder:text-muted-foreground/50',
-                'border border-border-subtle outline-none focus:border-border transition-colors',
-                'leading-relaxed'
-              )}
+              className="flex min-h-[80px] w-full rounded-lg border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none disabled:cursor-not-allowed disabled:opacity-50 resize-none"
               placeholder="Add notes..."
             />
           </div>
 
-          {/* Metadata */}
-          <div className="pt-2 border-t border-border-subtle space-y-3">
-            {/* Pin to week */}
+          {/* Quick actions */}
+          <div className="flex gap-2">
             <button
+              type="button"
               onClick={handleTogglePin}
               className={cn(
-                'flex items-center gap-2 text-sm transition-colors w-full text-left',
-                isPinned ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-all shadow-xs',
+                isPinned
+                  ? 'border-primary/30 bg-primary/10 text-primary'
+                  : 'border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground'
               )}
             >
-              <Pin className={cn('size-4', isPinned && 'fill-current')} strokeWidth={1.75} />
-              {isPinned ? 'Pinned to This Week' : 'Pin to This Week'}
+              <Pin className={cn('size-3.5', isPinned && 'fill-current')} strokeWidth={1.75} />
+              {isPinned ? 'Pinned to week' : 'Pin to week'}
             </button>
-
-            {/* Move to board */}
             <button
+              type="button"
               onClick={() => { onMove(intent.id); onClose() }}
-              className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors w-full text-left"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border border-input text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-all shadow-xs"
             >
-              <FolderInput className="size-4" strokeWidth={1.75} />
-              Move to another board
+              <FolderInput className="size-3.5" strokeWidth={1.75} />
+              Move board
             </button>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-border-subtle flex items-center justify-between">
-          <button
+        <DialogFooter className="gap-2 sm:gap-0">
+          <Button
+            type="button"
+            variant="ghost"
             onClick={() => { onDelete(intent.id); onClose() }}
-            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-destructive transition-colors"
+            className="rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 mr-auto"
           >
             <Trash2 className="size-4" strokeWidth={1.75} />
             Delete
-          </button>
-          <Button size="sm" onClick={handleSave}>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onClose}
+            className="rounded-lg"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSave}
+            className="rounded-lg bg-accent hover:bg-accent/90 text-accent-foreground"
+          >
             Save
           </Button>
-        </div>
-      </SheetContent>
-    </Sheet>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

@@ -18,6 +18,7 @@ import { microsoftTodoAPI, integrationsAPI, lifeOrganizationAPI } from '@/lib/ap
 import { toast } from 'sonner'
 import { ExportToLifeOSModal } from '@/components/life-org/export-to-lifeos-modal'
 import { ImportBoardModal } from '@/components/life-org/import-board-modal'
+import { ImportAllListsModal } from '@/components/life-org/import-all-lists-modal'
 
 interface MicrosoftTodoTask {
   id: string
@@ -63,6 +64,7 @@ function MicrosoftTodoPage() {
   const [exportModalOpen, setExportModalOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<{ task: MicrosoftTodoTask; listId: string } | null>(null)
   const [importModalList, setImportModalList] = useState<{ id: string; displayName: string; taskCount: number } | null>(null)
+  const [importAllOpen, setImportAllOpen] = useState(false)
 
   // Check authentication
   useEffect(() => {
@@ -118,6 +120,23 @@ function MicrosoftTodoPage() {
     },
     onError: (error: any) => {
       toast.error(error?.response?.data?.message || 'Failed to copy list to Life OS')
+    },
+  })
+
+  // Bulk import all lists mutation
+  const importAllMutation = useMutation({
+    mutationFn: lifeOrganizationAPI.importAllLists,
+    onSuccess: (res) => {
+      const { imported, skipped } = res.data
+      toast.success(
+        `Imported ${imported} task${imported !== 1 ? 's' : ''} into your Microsoft To Do board` +
+        (skipped > 0 ? ` (${skipped} already imported, skipped)` : '')
+      )
+      queryClient.invalidateQueries({ queryKey: ['life-areas'] })
+      setImportAllOpen(false)
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || 'Failed to import lists to Life OS')
     },
   })
 
@@ -276,6 +295,17 @@ function MicrosoftTodoPage() {
               </Card>
             ) : (
               <div className="space-y-6">
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setImportAllOpen(true)}
+                    className="gap-2"
+                  >
+                    <Upload className="h-4 w-4" />
+                    Import all to Life OS
+                  </Button>
+                </div>
                 {lists.map((list) => (
                   <Card key={list.id} className="p-4">
                     <div className="flex items-center justify-between mb-4">
@@ -446,6 +476,22 @@ function MicrosoftTodoPage() {
           </div>
         </div>
       </main>
+
+      {/* Import All Lists Modal */}
+      <ImportAllListsModal
+        open={importAllOpen}
+        onClose={() => setImportAllOpen(false)}
+        provider="microsoft"
+        defaultLifeAreaName="Imported Microsoft To Do"
+        lists={lists.map((l) => ({ id: l.id, name: l.displayName, taskCount: l.tasks.length }))}
+        onImport={async (params) => {
+          await importAllMutation.mutateAsync({
+            provider: 'microsoft',
+            lifeAreaName: params.lifeAreaName,
+            lists: params.lists,
+          })
+        }}
+      />
 
       {/* Import Board Modal — Copy full list to Life OS */}
       {importModalList && (
