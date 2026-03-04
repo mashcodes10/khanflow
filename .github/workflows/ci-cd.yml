@@ -66,6 +66,7 @@ jobs:
           FRONTEND_ORIGIN: http://localhost:3000
           FRONTEND_INTEGRATION_URL: http://localhost:3000/integrations
           OPENAI_API_KEY: test-openai-key
+          ANTHROPIC_API_KEY: test-anthropic-key
 
       - name: Upload test results
         if: always()
