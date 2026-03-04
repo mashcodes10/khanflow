@@ -54,6 +54,7 @@ jobs:
           GOOGLE_INTEGRATION_REDIRECT_URI: http://localhost:8000/api/integration/google/callback
           FRONTEND_INTEGRATION_URL: http://localhost:3000/integrations
           OPENAI_API_KEY: dummy_openai_key
+          ANTHROPIC_API_KEY: dummy_anthropic_key
         run: npm run db:migrate
 
       - name: Create test results directory
@@ -71,6 +72,7 @@ jobs:
           GOOGLE_INTEGRATION_REDIRECT_URI: http://localhost:8000/api/integration/google/callback
           FRONTEND_INTEGRATION_URL: http://localhost:3000/integrations
           OPENAI_API_KEY: dummy_openai_key
+          ANTHROPIC_API_KEY: dummy_anthropic_key
         run: npm run test:unit
 
       - name: Run integration tests
@@ -85,6 +87,7 @@ jobs:
           GOOGLE_INTEGRATION_REDIRECT_URI: http://localhost:8000/api/integration/google/callback
           FRONTEND_INTEGRATION_URL: http://localhost:3000/integrations
           OPENAI_API_KEY: dummy_openai_key
+          ANTHROPIC_API_KEY: dummy_anthropic_key
         run: npm run test:integration
 
       - name: Upload test results
