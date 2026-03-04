@@ -119,7 +119,7 @@ export const createIntentBoardService = async (
 export const updateIntentBoardService = async (
   userId: string,
   intentBoardId: string,
-  data: { name?: string; description?: string; order?: number }
+  data: { name?: string; description?: string; order?: number; lifeAreaId?: string }
 ) => {
   const intentBoardRepository = AppDataSource.getRepository(IntentBoard);
 
@@ -135,6 +135,13 @@ export const updateIntentBoardService = async (
   if (data.name !== undefined) intentBoard.name = data.name;
   if (data.description !== undefined) intentBoard.description = data.description;
   if (data.order !== undefined) intentBoard.order = data.order;
+  if (data.lifeAreaId !== undefined) {
+    const lifeAreaRepo = AppDataSource.getRepository(LifeArea);
+    const targetArea = await lifeAreaRepo.findOne({ where: { id: data.lifeAreaId, userId } });
+    if (!targetArea) throw new NotFoundException("Target life area not found");
+    intentBoard.lifeAreaId = data.lifeAreaId;
+    intentBoard.lifeArea = targetArea; // must update relation object too — TypeORM uses it on save
+  }
 
   return await intentBoardRepository.save(intentBoard);
 };

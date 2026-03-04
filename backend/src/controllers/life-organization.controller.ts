@@ -37,6 +37,7 @@ import {
   importBoardService,
   exportBoardService,
   importBoardDirectService,
+  importAllListsService,
 } from "../services/board-sync.service";
 import { ProviderType } from "../database/entities/provider-task-link.entity";
 import {
@@ -176,12 +177,13 @@ export const updateIntentBoardController = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = req.user?.id as string;
     const { id } = req.params;
-    const { name, description, order } = req.body;
+    const { name, description, order, lifeAreaId } = req.body;
 
     const intentBoard = await updateIntentBoardService(userId, id, {
       name,
       description,
       order,
+      lifeAreaId,
     });
 
     return res.status(HTTPSTATUS.OK).json({
@@ -1070,6 +1072,41 @@ export const importBoardDirectController = asyncHandler(
 
     return res.status(HTTPSTATUS.CREATED).json({
       message: "List imported into Life OS successfully",
+      data: result,
+    });
+  }
+);
+
+/**
+ * POST /api/life-organization/import-all-lists
+ * Bulk import: one board per external list under a chosen life area
+ */
+export const importAllListsController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { provider, lifeAreaName, lists } = req.body;
+
+    if (!provider || !lifeAreaName || !Array.isArray(lists) || lists.length === 0) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "provider, lifeAreaName, and a non-empty lists array are required",
+      });
+    }
+
+    if (!Object.values(ProviderType).includes(provider)) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: `provider must be one of: ${Object.values(ProviderType).join(", ")}`,
+      });
+    }
+
+    const result = await importAllListsService(
+      userId,
+      provider as ProviderType,
+      lifeAreaName,
+      lists
+    );
+
+    return res.status(HTTPSTATUS.CREATED).json({
+      message: "Bulk import completed",
       data: result,
     });
   }

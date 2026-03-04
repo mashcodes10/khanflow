@@ -110,7 +110,7 @@ export function ImportAllListsModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v && !isLoading) onClose() }}>
-      <DialogContent className="p-0 gap-0 sm:max-w-[400px] overflow-hidden rounded-xl border border-border/60 shadow-xl">
+      <DialogContent className="p-0 gap-0 sm:max-w-[400px] overflow-hidden rounded-lg border border-border shadow-sm">
         <DialogTitle className="sr-only">Import {meta.label} lists</DialogTitle>
 
         {/* Progress bar — only visible while loading */}

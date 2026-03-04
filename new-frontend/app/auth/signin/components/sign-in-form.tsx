@@ -10,6 +10,7 @@ import { useMutation } from "@tanstack/react-query"
 import { authAPI } from "@/lib/api"
 import { toast } from "sonner"
 import { useState, useEffect } from "react"
+import { Loader2 } from "lucide-react"
 
 export function SignInForm({
   className,
@@ -149,8 +150,8 @@ export function SignInForm({
           >
             {isGooglePending || isLoading ? (
               <>
-                <div className="size-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                <span>Signing in...</span>
+                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                <span className="text-[13px] font-medium text-muted-foreground">Signing in...</span>
               </>
             ) : (
               <>
@@ -173,7 +174,10 @@ export function SignInForm({
             className="w-full h-11 rounded-lg border border-border-subtle bg-background hover:bg-accent/50 text-foreground flex items-center justify-center gap-3"
           >
             {isMicrosoftPending ? (
-              <div className="size-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              <>
+                <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                <span className="text-[13px] font-medium text-muted-foreground">Signing in...</span>
+              </>
             ) : (
               <>
                 <svg width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">

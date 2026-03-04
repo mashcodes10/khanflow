@@ -30,7 +30,7 @@ export function MoveBoardDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="p-0 gap-0 sm:max-w-[340px] overflow-hidden rounded-xl border border-border/60 shadow-xl">
+      <DialogContent className="p-0 gap-0 sm:max-w-[300px] overflow-hidden rounded-lg border border-border shadow-sm">
         <DialogTitle className="sr-only">Move board to another life area</DialogTitle>
 
         {/* Header */}

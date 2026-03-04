@@ -213,7 +213,7 @@ function LifeOrganizationPage() {
   const googleLists = (googleTaskListsData?.data ?? []).map((l: any) => ({ id: l.id, name: l.title }))
   const microsoftLists = (microsoftTaskListsData?.data ?? []).map((l: any) => ({ id: l.id, name: l.displayName }))
 
-  // Check if onboarding should be shown
+  // Check if onboarding should be auto-shown on page load
   useEffect(() => {
     const isOnboardingNotCompleted = onboardingStatusData?.data && !onboardingStatusData.data.isCompleted
     const isLoading = isLoadingAreas || !onboardingStatusData
@@ -221,8 +221,9 @@ function LifeOrganizationPage() {
     // treat setup as done regardless of the backend flag.
     const hasExistingAreas = (lifeAreasData?.data?.length ?? 0) > 0
 
-    if (!isLoading) {
-      setShowOnboarding(!!isOnboardingNotCompleted && !hasExistingAreas)
+    if (!isLoading && !!isOnboardingNotCompleted && !hasExistingAreas) {
+      // Only auto-open; closing is handled by onClose / handleOnboardingComplete
+      setShowOnboarding(true)
     }
   }, [onboardingStatusData, isLoadingAreas, lifeAreasData])
 

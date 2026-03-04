@@ -2,6 +2,7 @@
 
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { ChevronRight } from 'lucide-react'
 
 interface ImportProviderPickerModalProps {
   open: boolean
@@ -14,13 +15,13 @@ const providers = [
   {
     id: 'google' as const,
     label: 'Google Tasks',
-    description: 'Import all your Google Task lists',
+    description: 'Import your Google Task lists',
     icon: '/icons/google-tasks.svg',
   },
   {
     id: 'microsoft' as const,
     label: 'Microsoft To Do',
-    description: 'Import all your Microsoft To Do lists',
+    description: 'Import your Microsoft To Do lists',
     icon: '/icons/ms-todo.svg',
   },
 ]
@@ -35,60 +36,50 @@ export function ImportProviderPickerModal({
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose() }}>
-      <DialogContent className="p-0 gap-0 sm:max-w-[360px] overflow-hidden rounded-xl border border-border/60 shadow-xl">
+      <DialogContent className="p-0 gap-0 sm:max-w-[320px] overflow-hidden rounded-lg border border-border shadow-sm">
         <DialogTitle className="sr-only">Select import source</DialogTitle>
 
         {/* Header */}
-        <div className="px-5 pt-5 pb-4">
-          <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider mb-1">Import to Life OS</p>
-          <h2 className="text-base font-semibold text-foreground">Choose a source</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">Each list becomes its own board.</p>
+        <div className="px-4 py-3 border-b border-border">
+          <p className="text-sm font-medium text-foreground">Import to Life OS</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Each list becomes its own board</p>
         </div>
 
-        <div className="h-px bg-border/60" />
-
-        {/* Provider cards */}
-        <div className="p-3 flex flex-col gap-2">
-          {available.map((provider) => (
-            <button
-              key={provider.id}
-              type="button"
-              onClick={() => onPickProvider(provider.id)}
-              className={cn(
-                'flex items-center gap-4 w-full px-5 py-4 text-left transition-all duration-200 border bg-transparent rounded-xl cursor-pointer',
-                'border-border hover:border-foreground/30 hover:bg-muted/10 group'
-              )}
-            >
-              <img
-                src={provider.icon}
-                alt={provider.label}
-                className="size-9 shrink-0 rounded-lg"
-              />
-              <div className="flex-1 min-w-0 space-y-1">
-                <h3 className="font-semibold text-sm tracking-tight text-foreground">{provider.label}</h3>
-                <p className="text-[13px] text-muted-foreground truncate">{provider.description}</p>
-              </div>
-              <svg
-                className="size-4 text-muted-foreground/50 group-hover:text-muted-foreground transition-colors shrink-0"
-                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+        {/* Provider rows */}
+        <div className="py-1">
+          {available.length === 0 ? (
+            <p className="px-4 py-3 text-sm text-muted-foreground">
+              No providers connected.{' '}
+              <a href="/integrations" className="underline underline-offset-2">Connect one</a>.
+            </p>
+          ) : (
+            available.map((provider) => (
+              <button
+                key={provider.id}
+                type="button"
+                onClick={() => onPickProvider(provider.id)}
+                className={cn(
+                  'flex items-center gap-3 w-full px-4 py-2.5 text-left',
+                  'hover:bg-muted/60 transition-colors duration-100 group'
+                )}
               >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          ))}
-
-          {available.length === 0 && (
-            <div className="text-center py-6 text-sm text-muted-foreground">
-              No task providers connected. Go to{' '}
-              <a href="/integrations" className="underline">Integrations</a>{' '}
-              to connect Google Tasks or Microsoft To Do.
-            </div>
+                <img
+                  src={provider.icon}
+                  alt={provider.label}
+                  className="size-7 shrink-0 rounded"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-foreground leading-none">{provider.label}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{provider.description}</p>
+                </div>
+                <ChevronRight className="size-3.5 text-muted-foreground/40 group-hover:text-muted-foreground shrink-0 transition-colors" />
+              </button>
+            ))
           )}
         </div>
 
-        <div className="h-px bg-border/60" />
-
-        <div className="px-5 py-3 flex justify-end">
+        {/* Footer */}
+        <div className="border-t border-border px-4 py-2.5">
           <button
             type="button"
             onClick={onClose}

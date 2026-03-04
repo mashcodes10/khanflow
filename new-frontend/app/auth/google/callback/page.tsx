@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { authAPI } from '@/lib/api'
 import { toast } from 'sonner'
+import { Loader2 } from 'lucide-react'
 
 function GoogleCallbackContent() {
   const router = useRouter()
@@ -56,19 +57,30 @@ function GoogleCallbackContent() {
   }, [searchParams, router])
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
+    <div className="flex min-h-[50vh] items-center justify-center">
       <div className="text-center">
         {status === 'processing' ? (
-          <>
-            <div className="size-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-sm text-muted-foreground">Completing sign in...</p>
-          </>
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="size-5 animate-spin text-muted-foreground" />
+            <p className="text-[13px] font-medium text-muted-foreground">Completing sign in...</p>
+          </div>
         ) : (
-          <>
-            <p className="text-sm text-destructive mb-4">Sign in failed</p>
+          <div className="flex flex-col items-center gap-2">
+            <p className="text-[13px] font-medium text-destructive">Sign in failed</p>
             <p className="text-xs text-muted-foreground">Redirecting to sign in page...</p>
-          </>
+          </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+function LoadingState() {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center bg-background">
+      <div className="flex flex-col items-center gap-3">
+        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+        <p className="text-[13px] font-medium text-muted-foreground">Loading...</p>
       </div>
     </div>
   )
@@ -76,14 +88,7 @@ function GoogleCallbackContent() {
 
 export default function GoogleCallbackPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <div className="size-12 border-4 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    }>
+    <Suspense fallback={<LoadingState />}>
       <GoogleCallbackContent />
     </Suspense>
   )

@@ -10,7 +10,7 @@ import { AppSidebar } from '@/components/shared/app-sidebar'
 import { PageHeader } from '@/components/shared/page-header'
 import { SoftTabs } from '@/components/shared/soft-tabs'
 import { AppTile, type ConnectionStatus } from '@/components/integrations/app-tile'
-import { IntegrationDrawer } from '@/components/integrations/integration-drawer'
+import { IntegrationModal } from '@/components/integrations/integration-modal'
 import { CalendarSelectionModal } from '@/components/integrations/calendar-selection-modal'
 import type { CalendarProvider, CalendarPreferences } from '@/components/integrations/calendar-preferences-subview'
 import { Input } from '@/components/ui/input'
@@ -519,8 +519,8 @@ function IntegrationsPageContent() {
         </div>
       </main>
 
-      {/* Detail Drawer */}
-      <IntegrationDrawer
+      {/* Detail Modal */}
+      <IntegrationModal
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         integration={selectedIntegration ? {

@@ -38,6 +38,15 @@ export function OnboardingModal({ open, onClose, onComplete, connectedProviders 
   const [importProgress, setImportProgress] = useState<{ done: number; total: number } | null>(null)
   const queryClient = useQueryClient()
 
+  // Reset to initial step whenever the modal is (re-)opened
+  useEffect(() => {
+    if (open) {
+      setStep('initial')
+      setTaskLists([])
+      setImportProgress(null)
+    }
+  }, [open])
+
   const hasProviders = connectedProviders?.google || connectedProviders?.microsoft
 
   const { data: googleListsRaw, isLoading: loadingGoogleLists } = useQuery({

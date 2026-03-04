@@ -35,78 +35,77 @@ export function AppTile({
     <div
       className={cn(
         'group relative overflow-hidden cursor-pointer',
-        'bg-gradient-to-br from-card via-card to-muted/20',
-        'border border-border/40 rounded-2xl',
-        'hover:border-primary/30 hover:shadow-lg hover:-translate-y-1',
-        'transition-all duration-300 ease-out',
-        comingSoon && 'cursor-not-allowed opacity-70',
-        isSelected && 'ring-2 ring-primary/20 border-primary/40',
+        'bg-card rounded-xl border border-border/40',
+        'hover:border-primary/20 hover:shadow-[0_4px_20px_-8px_rgba(0,0,0,0.06)]',
+        'transition-all duration-200',
+        comingSoon && 'cursor-not-allowed opacity-60',
+        isSelected && 'ring-1 ring-primary/20 border-primary/30 shadow-sm',
         className
       )}
       onClick={comingSoon ? undefined : onClick}
     >
-      {/* Premium Badge */}
+      {/* Premium/Coming Soon Badge */}
       {comingSoon && (
         <div className="absolute top-3 right-3 z-10">
-          <Badge variant="secondary" className="text-[10px] px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/30 border-0">
-            Premium
+          <Badge variant="outline" className="text-[10px] px-2 py-0 h-4 rounded-sm text-muted-foreground border-border/50 font-normal">
+            Soon
           </Badge>
         </div>
       )}
 
-      <div className="p-6">
+      <div className="p-5">
         {/* Top Section - Icon and Status */}
         <div className="flex items-start justify-between mb-4">
-          {/* Icon Container */}
+          {/* Subtle flat icon container */}
           <div className={cn(
-            "w-12 h-12 rounded-xl flex items-center justify-center",
-            "bg-gradient-to-br from-muted/50 to-muted/80",
-            "group-hover:from-primary/10 group-hover:to-accent/10 transition-all duration-300",
-            isConnected && "bg-gradient-to-br from-accent/20 to-primary/20"
+            "w-10 h-10 rounded-lg flex items-center justify-center",
+            "bg-muted/40 transition-colors duration-200",
+            "group-hover:bg-primary/5",
+            isConnected && "bg-accent/10"
           )}>
-            <div className="w-6 h-6 flex items-center justify-center">
+            {/* Logo Illumination Logic:
+                - Always full color now based on user request
+            */}
+            <div className={cn(
+              "w-5 h-5 flex items-center justify-center transition-all duration-300",
+              "grayscale-0"
+            )}>
               {icon}
             </div>
           </div>
 
           {/* Status Indicator */}
           <div className={cn(
-            "w-3 h-3 rounded-full border-2 border-background shadow-sm",
-            comingSoon 
-              ? "bg-primary animate-pulse" 
-              : isConnected 
-              ? "bg-accent" 
-              : "bg-muted-foreground/40"
+            "w-2 h-2 rounded-full",
+            comingSoon
+              ? "bg-muted-foreground/30"
+              : isConnected
+                ? "bg-emerald-500"
+                : "bg-muted-foreground/20 group-hover:bg-muted-foreground/40"
           )} />
         </div>
 
         {/* App Name */}
-        <div className="mb-3">
-          <h3 className="font-semibold text-foreground text-sm leading-tight">
+        <div className="mb-1.5">
+          <h3 className="font-medium text-foreground text-sm tracking-tight">
             {name}
           </h3>
         </div>
 
-        {/* Status Text */}
+        {/* Status Text/Actions */}
         <div className="flex items-center gap-1.5">
           {comingSoon ? (
-            <>
-              <Clock className="w-3 h-3 text-primary" />
-              <span className="text-xs text-primary font-medium">Premium Feature</span>
-            </>
+            <span className="text-xs text-muted-foreground">Premium feature</span>
           ) : isConnected ? (
             <>
-              <Check className="w-3 h-3 text-accent" />
-              <span className="text-xs text-accent font-medium">Connected</span>
+              <Check className="w-3 h-3 text-emerald-500" />
+              <span className="text-xs text-foreground/80 font-medium">Connected</span>
             </>
           ) : (
-            <span className="text-xs text-muted-foreground">Tap to connect</span>
+            <span className="text-xs text-muted-foreground group-hover:text-primary/70 transition-colors">Tap to connect</span>
           )}
         </div>
       </div>
-
-      {/* Hover Effect Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl" />
     </div>
   )
 }

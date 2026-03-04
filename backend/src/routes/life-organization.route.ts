@@ -36,6 +36,7 @@ import {
   importBoardController,
   exportBoardController,
   importBoardDirectController,
+  importAllListsController,
   unlinkIntentFromProviderController,
   duplicateIntentController,
   ensureInboxController,
@@ -103,6 +104,7 @@ router.delete("/intent-boards/:id/links/:linkId", unlinkBoardController);
 router.post("/intent-boards/:id/import", importBoardController);
 router.post("/intent-boards/:id/export", exportBoardController);
 router.post("/import-board", importBoardDirectController);
+router.post("/import-all-lists", importAllListsController);
 
 export default router;
 
