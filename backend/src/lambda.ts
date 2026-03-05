@@ -1,3 +1,6 @@
+import * as Sentry from '@sentry/aws-serverless';
+Sentry.init({ dsn: process.env.SENTRY_DSN, tracesSampleRate: 0.1 });
+
 import { APIGatewayProxyEvent, APIGatewayProxyResult, Context } from 'aws-lambda';
 import serverlessExpress from '@vendia/serverless-express';
 import app from './index';
@@ -14,12 +17,12 @@ async function setup(event: APIGatewayProxyEvent, context: Context) {
     isDbInitialized = true;
     console.log('Database initialization complete');
   }
-  
+
   serverlessExpressInstance = serverlessExpress({ app });
   return serverlessExpressInstance(event, context);
 }
 
-export const handler = async (
+export const handler = Sentry.wrapHandler(async (
   event: APIGatewayProxyEvent,
   context: Context
 ): Promise<APIGatewayProxyResult> => {
@@ -27,7 +30,7 @@ export const handler = async (
   if (serverlessExpressInstance) {
     return serverlessExpressInstance(event, context);
   }
-  
+
   // Cold start: create new instance
   return setup(event, context);
-};
+});

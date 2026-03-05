@@ -4,7 +4,7 @@ import { Inter, Lora, Geist_Mono } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
 import { QueryProvider } from '@/components/query-provider'
 import { Toaster } from 'sonner'
-import { Analytics } from '@vercel/analytics/next'
+import { PostHogProvider } from '@/components/providers/posthog-provider'
 import 'react-day-picker/style.css'
 import './globals.css'
 
@@ -39,18 +39,19 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${lora.variable} ${geistMono.variable} font-sans antialiased`}>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem
-          storageKey="khanflow-theme"
-        >
-          <QueryProvider>
-            {children}
-            <Toaster position="top-right" />
-          </QueryProvider>
-        </ThemeProvider>
-        <Analytics />
+        <PostHogProvider>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+            storageKey="khanflow-theme"
+          >
+            <QueryProvider>
+              {children}
+              <Toaster position="top-right" />
+            </QueryProvider>
+          </ThemeProvider>
+        </PostHogProvider>
       </body>
     </html>
   )
