@@ -16,6 +16,8 @@ import { AcceptedAction } from '../../src/database/entities/accepted-action.enti
 import { ProviderTaskLink } from '../../src/database/entities/provider-task-link.entity';
 import { CalendarLink } from '../../src/database/entities/calendar-link.entity';
 import { ActivityEvent } from '../../src/database/entities/activity-event.entity';
+import { BoardExternalLink } from '../../src/database/entities/board-external-link.entity';
+import { IntentExternalLink } from '../../src/database/entities/intent-external-link.entity';
 
 // Explicitly import migrations to avoid dynamic TS requires in tests
 import { CreateTables1741780270097 } from '../../src/database/migrations/1741780270097-CreateTables';
@@ -31,6 +33,8 @@ import { AddTasksCategoryEnum1751200000000 } from '../../src/database/migrations
 import { AddTaskAppTypes1751300000000 } from '../../src/database/migrations/1751300000000-AddTaskAppTypes';
 import { FixMeetingTimeColumns1751400000000 } from '../../src/database/migrations/1751400000000-FixMeetingTimeColumns';
 import { AddAvailabilitySettings1751500000000 } from '../../src/database/migrations/1751500000000-AddAvailabilitySettings';
+import { AddBoardExternalLinks1752000000000 } from '../../src/database/migrations/1752000000000-AddBoardExternalLinks';
+import { AddIntentColumns1752100000000 } from '../../src/database/migrations/1752100000000-AddIntentColumns';
 
 let testDataSource: DataSource | null = null;
 
@@ -73,6 +77,8 @@ export async function getTestDataSource(): Promise<DataSource> {
       ProviderTaskLink,
       CalendarLink,
       ActivityEvent,
+      BoardExternalLink,
+      IntentExternalLink,
     ],
     migrations: [
       CreateTables1741780270097,
@@ -88,6 +94,8 @@ export async function getTestDataSource(): Promise<DataSource> {
       AddTaskAppTypes1751300000000,
       FixMeetingTimeColumns1751400000000,
       AddAvailabilitySettings1751500000000,
+      AddBoardExternalLinks1752000000000,
+      AddIntentColumns1752100000000,
     ],
     synchronize: false,
     logging: false,
@@ -111,7 +119,7 @@ export async function getTestDataSource(): Promise<DataSource> {
 export async function resetDatabase(): Promise<void> {
   const dataSource = await getTestDataSource();
   const queryRunner = dataSource.createQueryRunner();
-  
+
   try {
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -123,6 +131,8 @@ export async function resetDatabase(): Promise<void> {
       'calendar_links',
       'provider_task_links',
       'accepted_actions',
+      'intent_external_links',
+      'board_external_links',
       'suggestions',
       'intents',
       'intent_boards',
@@ -147,7 +157,7 @@ export async function resetDatabase(): Promise<void> {
     // Reset sequences
     await queryRunner.query(`SELECT setval(pg_get_serial_sequence('users', 'id'), 1, false);`);
     await queryRunner.query(`SELECT setval(pg_get_serial_sequence('availability', 'id'), 1, false);`);
-    
+
     await queryRunner.commitTransaction();
   } catch (error) {
     await queryRunner.rollbackTransaction();

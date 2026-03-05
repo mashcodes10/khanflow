@@ -10,7 +10,7 @@ import {
 } from "typeorm";
 import { User } from "./user.entity";
 import { Intent } from "./intent.entity";
-import { ProviderType } from "./provider-task-link.entity";
+import { ProviderType } from "../enums/provider-type.enum";
 import { BoardExternalLink } from "./board-external-link.entity";
 
 @Entity({ name: "intent_external_links" })
@@ -30,7 +30,7 @@ export class IntentExternalLink {
   @Column({ type: "uuid", nullable: true })
   boardLinkId?: string;
 
-  @Column({ type: "enum", enum: ProviderType })
+  @Column({ type: "enum", enum: ProviderType, enumName: "provider_type_enum" })
   provider: ProviderType;
 
   @Column({ type: "varchar", nullable: false })

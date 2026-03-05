@@ -18,10 +18,9 @@ export enum ProviderTaskStatus {
   DELETED = "deleted",
 }
 
-export enum ProviderType {
-  GOOGLE = "google",
-  MICROSOFT = "microsoft",
-}
+import { ProviderType } from "../enums/provider-type.enum";
+
+export { ProviderType };
 
 @Entity({ name: "provider_task_links" })
 @Index(["userId", "acceptedActionId", "optionIndex"], { unique: true })
@@ -38,7 +37,7 @@ export class ProviderTaskLink {
   @Column({ type: "uuid", nullable: false })
   intentId: string;
 
-  @Column({ type: "enum", enum: ProviderType })
+  @Column({ type: "enum", enum: ProviderType, enumName: "provider_type_enum" })
   provider: ProviderType;
 
   @Column({ type: "varchar" })
