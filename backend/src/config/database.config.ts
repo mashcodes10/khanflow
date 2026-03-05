@@ -11,7 +11,7 @@ export const getDatabaseConfig = () => {
 
   // Check if this is a Supabase connection (contains supabase.co)
   const isSupabase = databaseUrl?.includes('supabase.co');
-  
+
   // Determine SSL configuration
   // - Production: Always use SSL
   // - Supabase: Always use SSL (required by Supabase)
@@ -34,7 +34,11 @@ export const getDatabaseConfig = () => {
     url: finalDatabaseUrl,
     entities: [path.join(__dirname, "../database/entities/*{.ts,.js}")],
     migrations: [path.join(__dirname, "../database/migrations/*{.ts,.js}")],
-    synchronize: !isProduction,
+    // Disable synchronize for Supabase connections: multiple entities share the
+    // same enum name (provider_type_enum) which causes TypeORM to emit
+    // `CREATE TYPE` without `IF NOT EXISTS` when altering columns, crashing startup.
+    // Use `npm run db:migrate` to apply schema changes instead.
+    synchronize: !isProduction && !isSupabase,
     logging: isProduction ? ["error"] : ["error"],
     // Connection pool settings optimized for serverless + Supabase
     extra: {

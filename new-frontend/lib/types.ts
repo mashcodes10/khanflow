@@ -270,6 +270,33 @@ export interface Intent {
   priority?: 'low' | 'medium' | 'high' | null;
   dueDate?: string | null;
   weeklyFocusAt?: string | null;
+  calendarEventId?: string | null;
+  calendarProvider?: string | null;
+}
+
+// Life OS ↔ Calendar linking types
+export interface LinkedIntentRow {
+  id: string;
+  title: string;
+  priority?: 'low' | 'medium' | 'high' | null;
+  dueDate?: string | null;
+  completedAt?: string | null;
+  boardName?: string;
+  lifeAreaName?: string;
+}
+
+export interface LinkedBoardData {
+  id: string;
+  boardId: string;
+  boardName: string;
+  eventTitle: string;
+  isRecurring: boolean;
+  intents: LinkedIntentRow[];
+}
+
+export interface LinkedCalendarData {
+  boardLinks: LinkedBoardData[];
+  taggedIntents: LinkedIntentRow[];
 }
 
 export interface Suggestion {

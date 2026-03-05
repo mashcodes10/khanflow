@@ -247,7 +247,7 @@ export const updateIntentController = asyncHandler(
   async (req: Request, res: Response) => {
     const userId = req.user?.id as string;
     const { id } = req.params;
-    const { title, description, order, completedAt, priority, dueDate, weeklyFocusAt } = req.body;
+    const { title, description, order, completedAt, priority, dueDate, weeklyFocusAt, calendarEventId, calendarProvider } = req.body;
 
     const intent = await updateIntentService(userId, id, {
       title,
@@ -257,6 +257,8 @@ export const updateIntentController = asyncHandler(
       ...(priority !== undefined && { priority: priority as 'low' | 'medium' | 'high' | null }),
       ...(dueDate !== undefined && { dueDate: dueDate ? new Date(dueDate) : null }),
       ...(weeklyFocusAt !== undefined && { weeklyFocusAt: weeklyFocusAt ? new Date(weeklyFocusAt) : null }),
+      ...(calendarEventId !== undefined && { calendarEventId: calendarEventId ?? null }),
+      ...(calendarProvider !== undefined && { calendarProvider: calendarProvider ?? null }),
     });
 
     return res.status(HTTPSTATUS.OK).json({

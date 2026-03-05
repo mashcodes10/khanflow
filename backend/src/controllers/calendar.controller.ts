@@ -6,6 +6,7 @@ import { config } from "../config/app.config";
 import { AppDataSource } from "../config/database.config";
 import { Integration } from "../database/entities/integration.entity";
 import { IntegrationAppTypeEnum } from "../database/entities/integration.entity";
+import { validateMicrosoftToken } from "../services/integration.service";
 
 /**
  * Get calendar events
@@ -275,6 +276,75 @@ export const deleteCalendarEventController = asyncHandler(
       return res.status(HTTPSTATUS.INTERNAL_SERVER_ERROR).json({
         message: "Failed to delete calendar event",
         error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
+
+/**
+ * Get Outlook Calendar events
+ */
+export const getOutlookCalendarEventsController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { timeMin, timeMax } = req.query;
+
+    const integrationRepository = AppDataSource.getRepository(Integration);
+    const outlookIntegration = await integrationRepository.findOne({
+      where: {
+        user: { id: userId },
+        app_type: IntegrationAppTypeEnum.OUTLOOK_CALENDAR,
+      },
+    });
+
+    if (!outlookIntegration) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Outlook Calendar integration not found. Please connect your Microsoft account first.",
+        errorCode: "INTEGRATION_NOT_FOUND",
+      });
+    }
+
+    try {
+      await validateMicrosoftToken(
+        outlookIntegration.access_token,
+        outlookIntegration.refresh_token ?? "",
+        outlookIntegration.expiry_date
+      );
+
+      const startDateTime = timeMin ? new Date(timeMin as string).toISOString() : new Date().toISOString();
+      const endDateTime = timeMax ? new Date(timeMax as string).toISOString() : undefined;
+
+      const url = new URL("https://graph.microsoft.com/v1.0/me/calendarView");
+      url.searchParams.set("startDateTime", startDateTime);
+      if (endDateTime) url.searchParams.set("endDateTime", endDateTime);
+      url.searchParams.set("$select", "id,subject,start,end,isAllDay,bodyPreview,attendees,webLink,onlineMeetingUrl");
+      url.searchParams.set("$orderby", "start/dateTime");
+      url.searchParams.set("$top", "100");
+
+      const resp = await fetch(url.toString(), {
+        headers: { Authorization: `Bearer ${outlookIntegration.access_token}` },
+      });
+
+      if (!resp.ok) {
+        const errText = await resp.text();
+        console.error("Outlook Calendar API error:", errText);
+        return res.status(HTTPSTATUS.INTERNAL_SERVER_ERROR).json({
+          message: "Failed to fetch Outlook Calendar events",
+          error: errText,
+        });
+      }
+
+      const data = await resp.json();
+
+      return res.status(HTTPSTATUS.OK).json({
+        message: "Outlook Calendar events retrieved successfully",
+        data: data.value || [],
+      });
+    } catch (error) {
+      console.error("Error fetching Outlook Calendar events:", error);
+      return res.status(HTTPSTATUS.INTERNAL_SERVER_ERROR).json({
+        message: "Failed to fetch Outlook Calendar events",
+        error: error instanceof Error ? error.message : "Unknown error",
       });
     }
   }

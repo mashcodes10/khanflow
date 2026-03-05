@@ -209,6 +209,8 @@ export const updateIntentService = async (
     priority?: 'low' | 'medium' | 'high' | null;
     dueDate?: Date | null;
     weeklyFocusAt?: Date | null;
+    calendarEventId?: string | null;
+    calendarProvider?: string | null;
   }
 ) => {
   const intentRepository = AppDataSource.getRepository(Intent);
@@ -229,6 +231,8 @@ export const updateIntentService = async (
   if ("priority" in data) intent.priority = data.priority ?? undefined;
   if ("dueDate" in data) intent.dueDate = data.dueDate ?? undefined;
   if ("weeklyFocusAt" in data) intent.weeklyFocusAt = data.weeklyFocusAt ?? undefined;
+  if ("calendarEventId" in data) intent.calendarEventId = data.calendarEventId;
+  if ("calendarProvider" in data) intent.calendarProvider = data.calendarProvider;
 
   return await intentRepository.save(intent);
 };

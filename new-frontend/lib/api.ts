@@ -178,6 +178,68 @@ export const meetingsAPI = {
   },
 };
 
+// ============ CALENDAR API (Google Calendar via backend) ============
+export const calendarAPI = {
+  getEvents: async (timeMin: string, timeMax: string, maxResults = 100) => {
+    const params = new URLSearchParams({ timeMin, timeMax, maxResults: String(maxResults) })
+    const response = await API.get(`/calendar/events?${params}`)
+    return response.data
+  },
+  createEvent: async (data: {
+    summary: string
+    description?: string
+    start: string
+    end: string
+    location?: string
+    attendees?: { email: string }[]
+  }) => {
+    const response = await API.post('/calendar/events', data)
+    return response.data
+  },
+  updateEvent: async (eventId: string, data: any) => {
+    const response = await API.put(`/calendar/events/${eventId}`, data)
+    return response.data
+  },
+  deleteEvent: async (eventId: string) => {
+    const response = await API.delete(`/calendar/events/${eventId}`)
+    return response.data
+  },
+}
+
+// ============ CALENDAR EVENT LINKS API (Life OS ↔ Calendar) ============
+export const calendarLinksAPI = {
+  getLinkedData: async (eventId: string, provider: string, recurringEventId?: string) => {
+    const params = new URLSearchParams({ eventId, provider })
+    if (recurringEventId) params.set('recurringEventId', recurringEventId)
+    const response = await API.get(`/calendar/linked-data?${params}`)
+    return response.data
+  },
+  linkBoard: async (data: {
+    boardId: string
+    provider: string
+    eventId: string
+    recurringEventId?: string
+    eventTitle: string
+    isRecurring?: boolean
+  }) => {
+    const response = await API.post('/calendar/event-board-links', data)
+    return response.data
+  },
+  unlinkBoard: async (linkId: string) => {
+    const response = await API.delete(`/calendar/event-board-links/${linkId}`)
+    return response.data
+  },
+}
+
+// ============ OUTLOOK CALENDAR API ============
+export const outlookCalendarAPI = {
+  getEvents: async (timeMin: string, timeMax: string) => {
+    const params = new URLSearchParams({ timeMin, timeMax })
+    const response = await API.get(`/calendar/outlook/events?${params}`)
+    return response.data
+  },
+}
+
 // ============ VOICE API ============
 export const voiceAPI = {
   transcribe: async (audioBlob: Blob): Promise<VoiceTranscribeResponse> => {
@@ -537,6 +599,8 @@ export const lifeOrganizationAPI = {
     priority?: 'low' | 'medium' | 'high' | null;
     dueDate?: string | null;
     weeklyFocusAt?: string | null;
+    calendarEventId?: string | null;
+    calendarProvider?: string | null;
   }) => {
     const response = await API.put(`/life-organization/intents/${id}`, data);
     return response.data;

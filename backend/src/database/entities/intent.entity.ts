@@ -59,6 +59,12 @@ export class Intent {
   @Column({ type: "timestamp", nullable: true })
   weeklyFocusAt?: Date | null; // When set, intent is pinned to the weekly focus view
 
+  @Column({ type: "varchar", nullable: true })
+  calendarEventId?: string | null; // ID of a specific calendar event this intent is tagged to
+
+  @Column({ type: "varchar", nullable: true })
+  calendarProvider?: string | null; // 'google' | 'microsoft'
+
   @ManyToOne(() => IntentBoard, (intentBoard) => intentBoard.intents, {
     onDelete: "CASCADE",
   })

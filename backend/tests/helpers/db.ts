@@ -18,6 +18,7 @@ import { CalendarLink } from '../../src/database/entities/calendar-link.entity';
 import { ActivityEvent } from '../../src/database/entities/activity-event.entity';
 import { BoardExternalLink } from '../../src/database/entities/board-external-link.entity';
 import { IntentExternalLink } from '../../src/database/entities/intent-external-link.entity';
+import { CalendarEventBoardLink } from '../../src/database/entities/calendar-event-board-link.entity';
 
 // Explicitly import migrations to avoid dynamic TS requires in tests
 import { CreateTables1741780270097 } from '../../src/database/migrations/1741780270097-CreateTables';
@@ -35,6 +36,7 @@ import { FixMeetingTimeColumns1751400000000 } from '../../src/database/migration
 import { AddAvailabilitySettings1751500000000 } from '../../src/database/migrations/1751500000000-AddAvailabilitySettings';
 import { AddBoardExternalLinks1752000000000 } from '../../src/database/migrations/1752000000000-AddBoardExternalLinks';
 import { AddIntentColumns1752100000000 } from '../../src/database/migrations/1752100000000-AddIntentColumns';
+import { AddCalendarEventLinks1752200000000 } from '../../src/database/migrations/1752200000000-AddCalendarEventLinks';
 
 let testDataSource: DataSource | null = null;
 
@@ -79,6 +81,7 @@ export async function getTestDataSource(): Promise<DataSource> {
       ActivityEvent,
       BoardExternalLink,
       IntentExternalLink,
+      CalendarEventBoardLink,
     ],
     migrations: [
       CreateTables1741780270097,
@@ -96,6 +99,7 @@ export async function getTestDataSource(): Promise<DataSource> {
       AddAvailabilitySettings1751500000000,
       AddBoardExternalLinks1752000000000,
       AddIntentColumns1752100000000,
+      AddCalendarEventLinks1752200000000,
     ],
     synchronize: false,
     logging: false,
@@ -129,6 +133,7 @@ export async function resetDatabase(): Promise<void> {
     const tables = [
       'activity_events',
       'calendar_links',
+      'calendar_event_board_links',
       'provider_task_links',
       'accepted_actions',
       'intent_external_links',
