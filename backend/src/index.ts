@@ -1,5 +1,6 @@
 import "dotenv/config";
 import "./config/passport.config";
+import * as Sentry from '@sentry/aws-serverless';
 import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import { config } from "./config/app.config";
@@ -66,6 +67,7 @@ app.use(`${BASE_PATH}/actions`, actionsRoutes);
 app.use(`${BASE_PATH}/microsoft-todo`, microsoftTodoRoutes);
 app.use(`${BASE_PATH}/life-organization`, lifeOrganizationRoutes);
 
+Sentry.setupExpressErrorHandler(app);
 app.use(errorHandler);
 
 // Export app for Lambda and testing

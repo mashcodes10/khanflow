@@ -1,4 +1,6 @@
 import axios from "axios";
+import * as Sentry from "@sentry/nextjs";
+import posthog from "posthog-js";
 import { ENV } from "./get-env";
 
 const baseURL = ENV.NEXT_PUBLIC_API_BASE_URL;
@@ -47,6 +49,8 @@ API.interceptors.response.use(
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
         localStorage.removeItem('expiresAt');
+        Sentry.setUser(null);
+        posthog.reset();
         window.location.href = "/auth/signin";
       }
     }
@@ -101,12 +105,16 @@ NextAPI.interceptors.response.use(
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
         localStorage.removeItem('expiresAt');
+        Sentry.setUser(null);
+        posthog.reset();
         window.location.href = "/auth/signin";
       } else {
         // Still clear the invalid token even if we're not redirecting
         localStorage.removeItem('accessToken');
         localStorage.removeItem('user');
         localStorage.removeItem('expiresAt');
+        Sentry.setUser(null);
+        posthog.reset();
       }
     }
 

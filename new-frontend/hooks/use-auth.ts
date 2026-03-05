@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
+import * as Sentry from '@sentry/nextjs'
+import posthog from 'posthog-js'
 
 export function useAuth() {
   const router = useRouter()
@@ -21,7 +23,10 @@ export function useAuth() {
           const userData = JSON.parse(userStr)
           setIsAuthenticated(true)
           setUser(userData)
-          
+
+          Sentry.setUser({ id: userData.id, email: userData.email, username: userData.username })
+          posthog.identify(userData.id, { email: userData.email, name: userData.name })
+
           // If on auth pages and authenticated, redirect to home
           if (pathname?.startsWith('/auth/')) {
             router.push('/')
@@ -33,6 +38,9 @@ export function useAuth() {
       } else {
         setIsAuthenticated(false)
         setUser(null)
+
+        Sentry.setUser(null)
+        posthog.reset()
         
         // If not on auth pages and not authenticated, redirect to sign in
         if (pathname && !pathname.startsWith('/auth/') && !pathname.startsWith('/api/')) {
