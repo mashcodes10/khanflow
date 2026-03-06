@@ -148,6 +148,68 @@ export const createCalendarEventController = asyncHandler(
 );
 
 /**
+ * Create an Outlook Calendar event
+ */
+export const createOutlookCalendarEventController = asyncHandler(
+  async (req: Request, res: Response) => {
+    const userId = req.user?.id as string;
+    const { subject, start, end, body } = req.body;
+
+    const integrationRepository = AppDataSource.getRepository(Integration);
+    const outlookIntegration = await integrationRepository.findOne({
+      where: {
+        user: { id: userId },
+        app_type: IntegrationAppTypeEnum.OUTLOOK_CALENDAR,
+      },
+    });
+
+    if (!outlookIntegration) {
+      return res.status(HTTPSTATUS.BAD_REQUEST).json({
+        message: "Outlook Calendar integration not found. Please connect your Microsoft account first.",
+        errorCode: "INTEGRATION_NOT_FOUND",
+      });
+    }
+
+    await validateMicrosoftToken(
+      outlookIntegration.access_token,
+      outlookIntegration.refresh_token ?? "",
+      outlookIntegration.expiry_date
+    );
+
+    const payload = {
+      subject,
+      start: { dateTime: start, timeZone: "UTC" },
+      end: { dateTime: end, timeZone: "UTC" },
+      ...(body ? { body: { contentType: "text", content: body } } : {}),
+    };
+
+    const resp = await fetch("https://graph.microsoft.com/v1.0/me/events", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${outlookIntegration.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      console.error("Outlook create event error:", errText);
+      return res.status(HTTPSTATUS.INTERNAL_SERVER_ERROR).json({
+        message: "Failed to create Outlook Calendar event",
+        error: errText,
+      });
+    }
+
+    const data = await resp.json();
+    return res.status(HTTPSTATUS.CREATED).json({
+      message: "Outlook Calendar event created successfully",
+      data,
+    });
+  }
+);
+
+/**
  * Update a calendar event
  */
 export const updateCalendarEventController = asyncHandler(

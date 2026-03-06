@@ -24,10 +24,12 @@ export interface AvailabilityPreview {
 }
 
 /**
- * Get day of week enum from date
+ * Get day of week enum from date (assuming date object represents Midnight UTC of the target timezone)
  */
-function getDayOfWeek(date: Date): DayOfWeekEnum {
-  const day = date.getDay();
+function getDayOfWeek(date: Date, timezone: string): DayOfWeekEnum {
+  const dateStringInTz = formatInTimeZone(date, timezone, "yyyy-MM-dd");
+  const midnightUTC = parseISO(dateStringInTz); // Parses as UTC midnight
+  const day = midnightUTC.getUTCDay();
   const days: DayOfWeekEnum[] = [
     DayOfWeekEnum.SUNDAY,
     DayOfWeekEnum.MONDAY,
@@ -52,8 +54,8 @@ export function dayAvailabilityToSchedule(
   }
 ): DaySchedule {
   // Extract time from Date (stored as UTC but represents a time of day)
-  const startTimeStr = format(dayAvailability.startTime, "HH:mm");
-  const endTimeStr = format(dayAvailability.endTime, "HH:mm");
+  const startTimeStr = formatInTimeZone(dayAvailability.startTime, "UTC", "HH:mm");
+  const endTimeStr = formatInTimeZone(dayAvailability.endTime, "UTC", "HH:mm");
 
   const dayMap: Record<DayOfWeekEnum, number> = {
     [DayOfWeekEnum.SUNDAY]: 0,
@@ -142,7 +144,7 @@ export async function computeAvailabilityPreview(
   // Calculate booking window cutoff in target timezone
   const nowDateStr = formatInTimeZone(now, settings.timezone, "yyyy-MM-dd");
   const todayStartUTC = fromZonedTime(parseISO(nowDateStr + "T00:00:00"), settings.timezone);
-  const bookingWindowCutoff = settings.bookingWindow > 0 
+  const bookingWindowCutoff = settings.bookingWindow > 0
     ? addDays(todayStartUTC, settings.bookingWindow + 1)
     : null;
 
@@ -154,10 +156,10 @@ export async function computeAvailabilityPreview(
     const todayStartUTC = fromZonedTime(parseISO(todayDateStr + "T00:00:00"), settings.timezone);
     const dayStartUTC = addDays(todayStartUTC, i);
     const dayEndUTC = addDays(dayStartUTC, 1);
-    
+
     // Use dayStartUTC as the date for slot generation (it's already in UTC)
     const date = dayStartUTC;
-    const dayOfWeek = getDayOfWeek(date);
+    const dayOfWeek = getDayOfWeek(date, settings.timezone);
     const daySchedule = weeklySchedule.find((s) => s.day === dayOfWeek);
 
     if (!daySchedule) {

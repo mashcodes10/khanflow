@@ -43,7 +43,7 @@ export function generateTimeSlots(
   }
 
   const slots: TimeSlot[] = [];
-  
+
   // Format date in the target timezone to get the correct date string
   // This ensures we use the date as it appears in that timezone, not local timezone
   const dateStr = formatInTimeZone(date, timezone, "yyyy-MM-dd");
@@ -56,11 +56,11 @@ export function generateTimeSlots(
   // Parse the date string as if it's in the specified timezone, then convert to UTC
   const dayStartStr = `${dateStr}T${String(startHour).padStart(2, "0")}:${String(startMinute).padStart(2, "0")}:00`;
   const dayEndStr = `${dateStr}T${String(endHour).padStart(2, "0")}:${String(endMinute).padStart(2, "0")}:00`;
-  
+
   // For UTC, append 'Z' to ensure UTC parsing. For other timezones, use fromZonedTime
   let dayStart: Date;
   let dayEnd: Date;
-  
+
   if (timezone === "UTC") {
     dayStart = parseISO(dayStartStr + "Z");
     dayEnd = parseISO(dayEndStr + "Z");
@@ -83,8 +83,7 @@ export function generateTimeSlots(
     }
 
     // Format time in the specified timezone for display
-    const zonedTime = toZonedTime(currentSlotStart, timezone);
-    const timeString = format(zonedTime, "HH:mm");
+    const timeString = formatInTimeZone(currentSlotStart, timezone, "HH:mm");
 
     slots.push({
       start: currentSlotStart,
@@ -127,17 +126,17 @@ export function filterSlotsByBusyBlocks(
         // Check for overlap with the busy block itself
         return slot.start < block.end && slot.end > block.start;
       }
-      
+
       // With bufferTime > 0, calculate the buffered period and check overlap
       const blockStartWithBuffer = addMinutes(block.start, -bufferTime);
       const blockEndWithBuffer = addMinutes(block.end, bufferTime);
-      
+
       // Check if slot overlaps with the buffered period
       // A slot overlaps if it starts at or before the buffered period ends AND ends after the buffered period starts
       // Use <= for start boundary: if slot starts exactly when buffered period ends, it should be filtered (no gap)
       // Use > for end boundary: if slot ends exactly when buffered period starts, it's available (there's a gap)
       const overlapsBufferedPeriod = slot.start <= blockEndWithBuffer && slot.end > blockStartWithBuffer;
-      
+
       // Special case: If slot ends exactly when block starts AND doesn't overlap with buffered period,
       // it's available (no gap needed, slot is completely before the buffered period)
       // This handles the case where a slot ends exactly when the block starts but doesn't extend into
@@ -146,11 +145,11 @@ export function filterSlotsByBusyBlocks(
       if (endsExactlyAtBlockStart && !overlapsBufferedPeriod) {
         return false; // Slot is available (ends exactly when block starts, no overlap with buffered period)
       }
-      
+
       if (!overlapsBufferedPeriod) {
         return false; // No overlap with buffered period, slot is available
       }
-      
+
       // Slot overlaps with buffered period and is filtered
       return true;
     });
@@ -214,11 +213,11 @@ export function filterSlotsByBookingWindow(
   // bookingWindow=3 means you can book up to 3 days in advance (inclusive)
   // Days 0, 1, 2, 3 are included, day 4+ are excluded
   // Calculate window end based on calendar days in the target timezone
-  
+
   // Get the start of today in the target timezone
   const nowDateStr = formatInTimeZone(now, timezone, "yyyy-MM-dd");
   const todayStartUTC = fromZonedTime(parseISO(nowDateStr + "T00:00:00"), timezone);
-  
+
   // Add days to get the start of the day after the last allowed day
   // bookingWindow=3 means days 0-3 are included, so we want to exclude day 4+
   // cutoffDayStartUTC is the start of day (bookingWindow + 1), which is the first excluded day
@@ -228,7 +227,7 @@ export function filterSlotsByBookingWindow(
     // Get the slot's date in the target timezone
     const slotDateStr = formatInTimeZone(slot.start, timezone, "yyyy-MM-dd");
     const slotDayStartUTC = fromZonedTime(parseISO(slotDateStr + "T00:00:00"), timezone);
-    
+
     // Check if the slot's day is within the booking window
     // Days 0 through bookingWindow are included (slotDayStartUTC < cutoffDayStartUTC)
     // Day 0 is today, day 1 is tomorrow, etc.
@@ -244,10 +243,9 @@ export function convertSlotsToTimezone(
   targetTimezone: string
 ): TimeSlot[] {
   return slots.map((slot) => {
-    const zonedTime = toZonedTime(slot.start, targetTimezone);
     return {
       ...slot,
-      timeString: format(zonedTime, "HH:mm"),
+      timeString: formatInTimeZone(slot.start, targetTimezone, "HH:mm"),
     };
   });
 }

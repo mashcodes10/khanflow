@@ -6,6 +6,7 @@ import {
   updateCalendarEventController,
   deleteCalendarEventController,
   getOutlookCalendarEventsController,
+  createOutlookCalendarEventController,
 } from "../controllers/calendar.controller";
 import {
   getLinkedCalendarDataController,
@@ -21,6 +22,7 @@ router.post("/events", passportAuthenticateJwt, createCalendarEventController);
 router.put("/events/:eventId", passportAuthenticateJwt, updateCalendarEventController);
 router.delete("/events/:eventId", passportAuthenticateJwt, deleteCalendarEventController);
 router.get("/outlook/events", passportAuthenticateJwt, getOutlookCalendarEventsController);
+router.post("/outlook/events", passportAuthenticateJwt, createOutlookCalendarEventController);
 
 // Life OS ↔ Calendar linking routes
 router.get("/linked-data", passportAuthenticateJwt, getLinkedCalendarDataController);
