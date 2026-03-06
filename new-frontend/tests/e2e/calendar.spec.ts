@@ -171,8 +171,10 @@ test.describe('Calendar Page', () => {
   });
 
   test('shows the Calendars section with both Google and Outlook toggles', async ({ page }) => {
-    await expect(page.getByText('Google Calendar')).toBeVisible();
-    await expect(page.getByText('Outlook Calendar')).toBeVisible();
+    // Labels are "Google" and "Outlook" (short form), scoped under the Calendars heading
+    const calendarsSection = page.locator('h3', { hasText: 'Calendars' }).locator('..');
+    await expect(calendarsSection.getByText('Google', { exact: true })).toBeVisible();
+    await expect(calendarsSection.getByText('Outlook', { exact: true })).toBeVisible();
   });
 
   test('shows the Today button and navigates back to current date', async ({ page }) => {
@@ -222,13 +224,15 @@ test.describe('Calendar Page', () => {
 
   test('Google Calendar toggle hides Google events', async ({ page }) => {
     await expect(page.getByTitle(/Team Standup/i).first()).toBeVisible();
-    await page.getByText('Google Calendar').click();
+    const calendarsSection = page.locator('h3', { hasText: 'Calendars' }).locator('..');
+    await calendarsSection.getByText('Google', { exact: true }).click();
     await expect(page.getByTitle(/Team Standup/i)).not.toBeVisible();
   });
 
   test('Outlook Calendar toggle hides Outlook events', async ({ page }) => {
     await expect(page.getByTitle(/CS 101 Lecture/i).first()).toBeVisible();
-    await page.getByText('Outlook Calendar').click();
+    const calendarsSection = page.locator('h3', { hasText: 'Calendars' }).locator('..');
+    await calendarsSection.getByText('Outlook', { exact: true }).click();
     await expect(page.getByTitle(/CS 101 Lecture/i)).not.toBeVisible();
   });
 
@@ -244,8 +248,8 @@ test.describe('Calendar Page', () => {
   });
 
   test('Life OS weekly focus panel shows pinned intents', async ({ page }) => {
-    // Header is "This week's focus" (lowercase)
-    await expect(page.getByText(/this week's focus/i)).toBeVisible();
+    // Header is an h3 with DOM text "FOCUS"
+    await expect(page.getByRole('heading', { name: 'FOCUS' })).toBeVisible();
     await expect(page.getByText('Read Chapter 5')).toBeVisible();
   });
 
@@ -277,6 +281,85 @@ test.describe('Calendar Page', () => {
   test('event detail shows "Link Life OS Board" button for Google events', async ({ page }) => {
     await page.getByTitle(/Team Standup/i).first().click();
     await expect(page.getByRole('dialog').getByText('Link Life OS Board')).toBeVisible();
+  });
+});
+
+// ── Drag & Drop ──────────────────────────────────────────────────────────────
+
+test.describe('Calendar — Drag & Drop', () => {
+  test('dragging an intent from the Life OS panel onto the calendar creates an event', async ({ page }) => {
+    // Track the outgoing POST request
+    let capturedBody: any = null;
+    await setupMocks(page);
+
+    await page.route('**/calendar/events', async (route) => {
+      if (route.request().method() === 'POST') {
+        capturedBody = JSON.parse(route.request().postData() || '{}');
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ message: 'ok', data: { id: 'new-gc1', summary: capturedBody?.summary } }),
+        });
+      } else {
+        await route.continue();
+      }
+    });
+
+    await page.goto('/calendar');
+    await page.waitForLoadState('networkidle');
+
+    // Verify the draggable intent is visible in the Life OS panel
+    const intentChip = page.locator('[draggable="true"]').filter({ hasText: 'Read Chapter 5' });
+    await expect(intentChip).toBeVisible();
+
+    // Drop target: the first day column (cursor-crosshair = droppable zone)
+    const dayColumn = page.locator('.cursor-crosshair').first();
+    await expect(dayColumn).toBeVisible();
+
+    // Perform the drag — Playwright fires HTML5 dragstart/dragover/drop events in Chromium
+    await intentChip.dragTo(dayColumn, {
+      // Drop roughly in the middle of the column (maps to ~2pm based on DAY_START=6, HOUR_HEIGHT=64)
+      targetPosition: { x: 10, y: 400 },
+    });
+
+    // Wait for the mutation to fire and the API to respond
+    await page.waitForTimeout(300);
+
+    // Verify the create-event API was called with the intent title
+    expect(capturedBody).not.toBeNull();
+    expect(capturedBody.summary).toBe('Read Chapter 5');
+
+    // start and end should be ISO strings
+    expect(typeof capturedBody.start).toBe('string');
+    expect(typeof capturedBody.end).toBe('string');
+
+    // Duration should be exactly 1 hour (60 min)
+    const durationMs = new Date(capturedBody.end).getTime() - new Date(capturedBody.start).getTime();
+    expect(durationMs).toBe(60 * 60 * 1000);
+  });
+
+  test('dragging without a connected calendar shows an error toast', async ({ page }) => {
+    // Override integrations to return no connected calendars
+    await setupMocks(page, {
+      '**/integration/all': {
+        message: 'ok',
+        integrations: [
+          { provider: 'GOOGLE', title: 'Google Calendar', app_type: 'GOOGLE_MEET_AND_CALENDAR', category: 'CALENDAR', isConnected: false },
+          { provider: 'MICROSOFT', title: 'Outlook Calendar', app_type: 'OUTLOOK_CALENDAR', category: 'CALENDAR', isConnected: false },
+        ],
+      },
+    });
+    await page.goto('/calendar');
+    await page.waitForLoadState('networkidle');
+
+    const intentChip = page.locator('[draggable="true"]').filter({ hasText: 'Read Chapter 5' });
+    await expect(intentChip).toBeVisible();
+
+    const dayColumn = page.locator('.cursor-crosshair').first();
+    await intentChip.dragTo(dayColumn, { targetPosition: { x: 10, y: 400 } });
+
+    // Should show the "Connect a calendar" toast error
+    await expect(page.getByText(/connect a calendar/i)).toBeVisible();
   });
 });
 

@@ -238,6 +238,10 @@ export const outlookCalendarAPI = {
     const response = await API.get(`/calendar/outlook/events?${params}`)
     return response.data
   },
+  createEvent: async (data: { subject: string; start: string; end: string; body?: string }) => {
+    const response = await API.post('/calendar/outlook/events', data)
+    return response.data
+  },
 }
 
 // ============ VOICE API ============

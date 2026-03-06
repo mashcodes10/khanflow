@@ -9,8 +9,8 @@ import { cn } from '@/lib/utils'
 import { EventChip, type CalendarEvent } from './event-chip'
 
 const HOUR_HEIGHT = 64
-const DAY_START = 6
-const DAY_END = 22
+const DAY_START = 0
+const DAY_END = 24
 const HOURS = Array.from({ length: DAY_END - DAY_START }, (_, i) => DAY_START + i)
 
 // ── Conflict layout ────────────────────────────────────────────────────────────
@@ -80,8 +80,9 @@ export function WeekView({ currentDate, events, onDayClick, onEventClick, onEmpt
     })
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = (8 - DAY_START) * HOUR_HEIGHT
-  }, [])
+    // Scroll to 8 AM by default
+    if (scrollRef.current) scrollRef.current.scrollTop = 8 * HOUR_HEIGHT
+  }, [currentDate])
 
   const now = new Date()
   const nowTop = (now.getHours() + now.getMinutes() / 60 - DAY_START) * HOUR_HEIGHT
@@ -155,14 +156,14 @@ export function WeekView({ currentDate, events, onDayClick, onEventClick, onEmpt
       )}
 
       {/* Scrollable time grid */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 lg:px-4 relative">
-        <div className="flex relative" style={{ height: `${totalHeight}px` }}>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 lg:px-4 relative scroll-smooth">
+        <div className="flex relative mt-4" style={{ height: `${totalHeight + 32}px` }}>
           {/* Hour gutter */}
           <div className="w-16 shrink-0 relative pointer-events-none">
             {HOURS.map((hour) => (
               <div key={hour} className="absolute w-full flex items-start justify-end pr-4"
                 style={{ top: `${(hour - DAY_START) * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}>
-                <span className="text-[11px] font-medium text-muted-foreground/60 -mt-2.5 select-none whitespace-nowrap">
+                <span className="text-[11px] font-medium text-muted-foreground/60 -mt-[10px] select-none whitespace-nowrap bg-background px-1 z-10 leading-none">
                   {format(new Date(2000, 0, 1, hour), 'h a')}
                 </span>
               </div>

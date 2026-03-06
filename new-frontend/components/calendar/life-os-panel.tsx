@@ -62,12 +62,12 @@ export function LifeOsPanel({ weeklyFocusIntents, onToggleComplete, onScheduleIn
   const done = weeklyFocusIntents.filter((i) => !!i.completedAt).length
 
   return (
-    <div className="mb-4">
+    <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">This week's focus</h3>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.15em]">FOCUS</h3>
         {total > 0 && (
-          <span className="text-[10px] font-mono text-muted-foreground">{done}/{total}</span>
+          <span className="text-[12px] font-mono font-medium text-muted-foreground/60">{done}/{total}</span>
         )}
       </div>
 
@@ -76,15 +76,15 @@ export function LifeOsPanel({ weeklyFocusIntents, onToggleComplete, onScheduleIn
           Pin intents from Life OS to see them here.
         </p>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-y-auto max-h-[50vh] pr-2 -mr-2 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-border/50 [&::-webkit-scrollbar-track]:bg-transparent hover:[&::-webkit-scrollbar-thumb]:bg-border/80 transition-colors">
           {groups.map((group) => {
             const color = LIFE_AREA_COLORS[group.lifeAreaIdx % LIFE_AREA_COLORS.length]
             return (
-              <div key={group.lifeAreaName} className="space-y-2">
+              <div key={group.lifeAreaName} className="space-y-1 mb-6">
                 {/* Life area label */}
-                <div className="flex items-center gap-2">
-                  <span className={cn('size-1.5 rounded-full shrink-0', color.bg)} />
-                  <span className="text-[11px] font-medium text-muted-foreground truncate">{group.lifeAreaName}</span>
+                <div className="flex items-center gap-3 pl-1 mb-3">
+                  <span className={cn('size-2 rounded-full shrink-0 opacity-40', color.bg)} />
+                  <span className="text-[13px] font-medium text-muted-foreground/80 truncate">{group.lifeAreaName}</span>
                 </div>
 
                 <div className="space-y-1">
@@ -94,7 +94,7 @@ export function LifeOsPanel({ weeklyFocusIntents, onToggleComplete, onScheduleIn
                     return (
                       <div
                         key={intent.id}
-                        className="group relative flex items-center justify-between py-1.5 pl-6 pr-2 hover:bg-muted/30 transition-colors rounded-md border border-transparent hover:border-border/30 cursor-grab active:cursor-grabbing"
+                        className="group relative flex items-center justify-between py-2 hover:bg-muted/30 transition-colors rounded-xl border border-transparent hover:border-border/30 cursor-grab active:cursor-grabbing px-1"
                         draggable
                         onDragStart={(e) => {
                           e.dataTransfer.setData('intentTitle', intent.title)
@@ -104,29 +104,28 @@ export function LifeOsPanel({ weeklyFocusIntents, onToggleComplete, onScheduleIn
                       >
 
                         {/* Text and Indicator Row */}
-                        <div className="flex items-center gap-2 overflow-hidden flex-1">
-                          {/* Invisible checkbox that appears on hover, within bounds */}
+                        <div className="flex items-center gap-4 overflow-hidden flex-1">
+                          {/* Visible Checkbox Button */}
                           <button
                             type="button"
-                            className={cn(
-                              "absolute left-1.5 transition-opacity",
-                              isCompleted ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                            )}
+                            className="shrink-0 transition-transform active:scale-95 flex items-center justify-center ml-1"
                             onClick={() => onToggleComplete(intent.id, isCompleted)}
                           >
                             {isCompleted
-                              ? <CheckCircle2 className="size-3.5 text-emerald-500" />
-                              : <Circle className="size-3.5 text-muted-foreground/40 hover:text-muted-foreground/80" />
+                              ? <CheckCircle2 strokeWidth={2} className="size-5 text-emerald-500" />
+                              : <div className="size-5 rounded-full border-[2.5px] border-muted-foreground/30 hover:border-muted-foreground/60 transition-colors" />
                             }
                           </button>
 
-                          <span className={cn('size-1.5 rounded-full shrink-0', color.bg, isCompleted && "opacity-30 grayscale")} />
-                          <p className={cn(
-                            'text-[12px] leading-snug truncate transition-colors duration-300',
-                            isCompleted ? 'line-through text-muted-foreground/50' : 'text-foreground/70 group-hover:text-foreground'
-                          )}>
-                            {intent.title}
-                          </p>
+                          <div className="flex items-center gap-3 overflow-hidden w-full">
+                            <span className={cn('size-1.5 rounded-full shrink-0 opacity-20', color.bg)} />
+                            <p className={cn(
+                              'text-[15px] truncate transition-colors duration-300',
+                              isCompleted ? 'line-through text-muted-foreground/50 font-medium' : 'font-medium text-foreground/90'
+                            )}>
+                              {intent.title}
+                            </p>
+                          </div>
                         </div>
 
                         {/* Metadata & Actions */}

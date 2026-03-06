@@ -131,11 +131,17 @@ function CalendarPage() {
   })
 
   const createCalendarEventMutation = useMutation({
-    mutationFn: (data: { summary: string; start: string; end: string }) =>
-      calendarAPI.createEvent(data),
+    mutationFn: (data: { summary: string; start: string; end: string }) => {
+      if (googleConnected) {
+        return calendarAPI.createEvent(data)
+      }
+      return outlookCalendarAPI.createEvent({ subject: data.summary, start: data.start, end: data.end })
+    },
     onSuccess: () => {
-      toast.success('Event scheduled on Google Calendar')
+      const label = googleConnected ? 'Google Calendar' : 'Outlook Calendar'
+      toast.success(`Event scheduled on ${label}`)
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events', 'outlook'] })
     },
     onError: () => toast.error('Failed to schedule event'),
   })
@@ -448,38 +454,37 @@ function CalendarPage() {
             </div>
           </div>
 
-          {/* Right Sidebar - Ultra Minimal Hierarchy */}
-          <div className="w-64 shrink-0 flex flex-col gap-10 overflow-y-auto pb-8 scrollbar-none hidden md:flex border-l border-border/10 pl-8 lg:pl-16">
+          {/* Right Sidebar - Widgets Panel */}
+          <div className="w-72 shrink-0 flex flex-col gap-6 overflow-y-auto pb-8 scrollbar-none hidden md:flex border-l border-border/10 pl-8 lg:pl-10">
 
             {/* Header (Date) */}
-            <div>
+            <div className="px-2">
               <h2 className="text-4xl font-light tracking-tighter mb-1">{format(currentDate, 'MMMM')}</h2>
               <p className="text-muted-foreground font-medium pl-1 text-sm">{format(currentDate, 'yyyy')}</p>
             </div>
 
-            {/* Minimal Actions */}
-            <div className="flex flex-col gap-2">
-              <Button
+            {/* Minimal Actions Widget */}
+            <div className="bg-muted/20 border border-border/10 rounded-3xl p-2 flex flex-col gap-1">
+              <button
                 onClick={() => openCreate(currentDate)}
                 disabled={!googleConnected && !outlookConnected}
-                variant="outline"
-                className="justify-start gap-4 h-11 px-5 rounded-full border-border/40 hover:bg-foreground hover:text-background transition-colors font-medium">
+                className="flex items-center justify-between h-12 px-4 rounded-2xl bg-foreground text-background font-medium hover:opacity-90 transition-opacity w-full disabled:opacity-50"
+              >
+                <span>New Event</span>
                 <Plus className="size-4" />
-                New Event
-              </Button>
-              <Button
+              </button>
+              <button
                 onClick={() => setCreateDialog({ open: true, isFocusTime: true, date: currentDate })}
                 disabled={!googleConnected && !outlookConnected}
-                variant="ghost"
-                className="justify-start gap-4 h-11 px-5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors font-medium">
+                className="flex items-center justify-between h-12 px-4 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors font-medium w-full disabled:opacity-50"
+              >
+                <span>Focus Time</span>
                 <Timer className="size-4" />
-                Focus Time
-              </Button>
+              </button>
             </div>
 
-
-            {/* LifeOS Weekly Focus - Flat Text Hierarchy */}
-            <div className="px-2">
+            {/* LifeOS Weekly Focus Widget */}
+            <div className="bg-muted/20 border border-border/10 rounded-3xl p-5">
               <LifeOsPanel
                 weeklyFocusIntents={weeklyFocusIntents}
                 onToggleComplete={handleToggleComplete}
@@ -487,49 +492,45 @@ function CalendarPage() {
               />
             </div>
 
-            {/* Calendars - Dot & Text Setup */}
+            {/* Calendars Widget */}
             {(googleConnected || outlookConnected) && (
-              <div className="px-2 mb-4">
+              <div className="bg-muted/20 border border-border/10 rounded-3xl p-5">
                 <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Calendars</h3>
-                <div className="space-y-2.5">
+                <div className="space-y-4">
                   {googleConnected && (
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className="relative flex items-center justify-center">
-                        <input
-                          type="checkbox"
-                          checked={showGoogle}
-                          onChange={() => setShowGoogle((v) => !v)}
-                          className="peer opacity-0 absolute w-full h-full cursor-pointer"
-                        />
-                        <div className="w-3 h-3 rounded-sm border-2 border-blue-400 peer-checked:bg-blue-400 transition-colors flex items-center justify-center">
-                          <svg className="w-2 h-2 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                        </div>
+                    <div
+                      className={cn("flex items-center justify-between cursor-pointer group transition-opacity", !showGoogle && "opacity-50")}
+                      onClick={() => setShowGoogle(v => !v)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn("w-2.5 h-2.5 rounded-full bg-blue-500", showGoogle && "shadow-[0_0_8px_rgba(59,130,246,0.5)]")} />
+                        <span className="text-sm font-medium text-foreground">Google</span>
                       </div>
-                      <span className="text-sm font-medium text-foreground group-hover:text-blue-500 transition-colors">Google Calendar</span>
-                    </label>
+                      <div className={cn("w-8 h-4 rounded-full flex items-center px-0.5 transition-colors", showGoogle ? "bg-blue-500/20 justify-end" : "bg-muted border border-border/20 justify-start")}>
+                        <div className={cn("size-3 rounded-full", showGoogle ? "bg-blue-500" : "bg-muted-foreground/40")} />
+                      </div>
+                    </div>
                   )}
                   {outlookConnected && (
-                    <label className="flex items-center gap-3 cursor-pointer group">
-                      <div className="relative flex items-center justify-center">
-                        <input
-                          type="checkbox"
-                          checked={showOutlook}
-                          onChange={() => setShowOutlook((v) => !v)}
-                          className="peer opacity-0 absolute w-full h-full cursor-pointer"
-                        />
-                        <div className="w-3 h-3 rounded-sm border-2 border-cyan-400 peer-checked:bg-cyan-400 transition-colors flex items-center justify-center">
-                          <svg className="w-2 h-2 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                        </div>
+                    <div
+                      className={cn("flex items-center justify-between cursor-pointer group transition-opacity", !showOutlook && "opacity-50")}
+                      onClick={() => setShowOutlook(v => !v)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={cn("w-2.5 h-2.5 rounded-full bg-cyan-500", showOutlook && "shadow-[0_0_8px_rgba(6,182,212,0.5)]")} />
+                        <span className="text-sm font-medium text-foreground">Outlook</span>
                       </div>
-                      <span className="text-sm font-medium text-foreground group-hover:text-cyan-500 transition-colors">Outlook Calendar</span>
-                    </label>
+                      <div className={cn("w-8 h-4 rounded-full flex items-center px-0.5 transition-colors", showOutlook ? "bg-cyan-500/20 justify-end" : "bg-muted border border-border/20 justify-start")}>
+                        <div className={cn("size-3 rounded-full", showOutlook ? "bg-cyan-500" : "bg-muted-foreground/40")} />
+                      </div>
+                    </div>
                   )}
                 </div>
               </div>
             )}
 
             {!googleConnected && !outlookConnected && (
-              <div className="px-2">
+              <div className="bg-muted/20 border border-border/10 rounded-3xl p-5">
                 <p className="text-[10px] text-muted-foreground leading-tight">
                   Connect Google or Outlook Calendar in{' '}
                   <a href="/integrations" className="underline hover:text-foreground">Integrations</a>{' '}
