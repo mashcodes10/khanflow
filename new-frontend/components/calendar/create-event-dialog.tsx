@@ -59,45 +59,65 @@ export function CreateEventDialog({ open, onClose, defaultDate, defaultStartTime
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>{isFocusTime ? 'Block Focus Time' : 'New Event'}</DialogTitle>
+      <DialogContent className="max-w-sm rounded-2xl border-border/40 shadow-xl p-6">
+        <DialogHeader className="mb-4">
+          <DialogTitle className="text-xl font-medium tracking-tight">
+            {isFocusTime ? 'Block Focus Time' : 'New Event'}
+          </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Title</Label>
+        <div className="space-y-5">
+          <div className="space-y-2">
+            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Title</Label>
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder={isFocusTime ? 'Focus Time 🎯' : 'Event title'}
+              className="border-0 border-b border-border/40 rounded-none px-0 focus-visible:ring-0 focus-visible:border-primary bg-transparent text-base"
               autoFocus
               onKeyDown={(e) => e.key === 'Enter' && title.trim() && createMutation.mutate()}
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs font-medium">Date</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          <div className="space-y-2">
+            <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Date</Label>
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="border-border/40 bg-muted/20 rounded-xl"
+            />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">Start</Label>
-              <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Start</Label>
+              <Input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="border-border/40 bg-muted/20 rounded-xl"
+              />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs font-medium">End</Label>
-              <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+            <div className="space-y-2">
+              <Label className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">End</Label>
+              <Input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="border-border/40 bg-muted/20 rounded-xl"
+              />
             </div>
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+        <DialogFooter className="mt-8 gap-2 sm:gap-0">
+          <Button variant="ghost" size="sm" className="rounded-full text-xs font-medium" onClick={onClose}>
+            Cancel
+          </Button>
           <Button
             size="sm"
-            className="bg-accent hover:bg-accent/90 text-accent-foreground"
+            className="rounded-full bg-foreground text-background hover:bg-foreground/90 font-medium px-6"
             onClick={() => createMutation.mutate()}
             disabled={!title.trim() || !date || createMutation.isPending}
           >

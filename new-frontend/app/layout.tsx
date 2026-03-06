@@ -1,6 +1,6 @@
 import React from "react"
 import type { Metadata } from 'next'
-import { Inter, Lora, Geist_Mono } from 'next/font/google'
+import { Geist, Lora, Geist_Mono } from 'next/font/google'
 import { ThemeProvider } from 'next-themes'
 import { QueryProvider } from '@/components/query-provider'
 import { Toaster } from 'sonner'
@@ -8,15 +8,15 @@ import { PostHogProvider } from '@/components/providers/posthog-provider'
 import 'react-day-picker/style.css'
 import './globals.css'
 
-const inter = Inter({ 
+const geist = Geist({
   subsets: ["latin"],
-  variable: '--font-inter'
+  variable: '--font-geist'
 });
-const lora = Lora({ 
+const lora = Lora({
   subsets: ["latin"],
   variable: '--font-lora'
 });
-const geistMono = Geist_Mono({ 
+const geistMono = Geist_Mono({
   subsets: ["latin"],
   variable: '--font-geist-mono'
 });
@@ -38,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${inter.variable} ${lora.variable} ${geistMono.variable} font-sans antialiased`}>
+      <body className={`${geist.variable} ${lora.variable} ${geistMono.variable} font-sans antialiased`}>
         <PostHogProvider>
           <ThemeProvider
             attribute="class"

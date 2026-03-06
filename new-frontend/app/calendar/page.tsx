@@ -3,19 +3,9 @@
 import { withAuth } from '@/components/auth/with-auth'
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import {
-  startOfWeek, endOfWeek,
-  startOfMonth, endOfMonth,
-  startOfDay, endOfDay,
-  addWeeks, subWeeks,
-  addMonths, subMonths,
-  addDays, subDays,
-  format, parseISO,
-} from 'date-fns'
-import { ChevronLeft, ChevronRight, Timer } from 'lucide-react'
-
+import { format, parseISO, startOfWeek, endOfWeek, startOfMonth, endOfMonth, startOfDay, endOfDay, addWeeks, subWeeks, addMonths, subMonths, addDays, subDays } from 'date-fns'
+import { Plus, Timer, ChevronLeft, ChevronRight } from 'lucide-react'
 import { AppSidebar } from '@/components/shared/app-sidebar'
-import { PageHeader } from '@/components/shared/page-header'
 import { Button } from '@/components/ui/button'
 import { Calendar } from '@/components/ui/calendar'
 import { WeekView } from '@/components/calendar/week-view'
@@ -157,7 +147,7 @@ function CalendarPage() {
     const result: FlatIntent[] = []
     areas.forEach((area, areaIdx) => {
       area.intentBoards.forEach((board) => {
-        ;(board.intents ?? []).forEach((intent) => {
+        ; (board.intents ?? []).forEach((intent) => {
           result.push({
             id: intent.id,
             title: intent.title,
@@ -240,7 +230,7 @@ function CalendarPage() {
     areas.forEach((area, areaIdx) => {
       const color = LIFE_AREA_COLORS[areaIdx % LIFE_AREA_COLORS.length]
       area.intentBoards.forEach((board) => {
-        ;(board.intents ?? []).forEach((intent) => {
+        ; (board.intents ?? []).forEach((intent) => {
           if (!intent.dueDate || intent.completedAt) return
           const dueDay = new Date(intent.dueDate)
           result.push({
@@ -342,149 +332,205 @@ function CalendarPage() {
   }
 
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-background text-foreground">
       <AppSidebar activePage="/calendar" />
 
-      <main className="flex-1 flex flex-col overflow-hidden">
-        <div className="px-6 pt-6 pb-3 shrink-0">
-          <PageHeader title="Calendar">
-            {/* View switcher */}
-            <div className="flex items-center rounded-lg border border-border bg-muted/30 p-0.5 gap-0.5">
-              {(['day', 'week', 'month'] as ViewType[]).map((v) => (
-                <Button key={v} variant="ghost" size="sm"
-                  className={cn('h-7 px-3 text-xs capitalize rounded-md', view === v && 'bg-background shadow-sm text-foreground font-medium')}
-                  onClick={() => setView(v)}
-                >
-                  {v}
-                </Button>
-              ))}
+      <main className="flex-1 flex overflow-hidden">
+        <div className="flex h-full w-full p-6 lg:p-10 gap-8 lg:gap-16 max-w-[1400px] mx-auto transition-colors">
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col min-w-0 h-full">
+
+            {/* Header Navigation Area */}
+            <div className="flex items-end justify-between mb-8 pb-4 border-b border-border/10 shrink-0">
+              <div>
+                {view === 'day' && (
+                  <>
+                    <h1 className="text-[3.5rem] leading-[1.1] font-light tracking-tighter mb-3">Today</h1>
+                    <div className="flex items-center gap-3">
+                      <p className="text-muted-foreground font-medium text-sm">{format(currentDate, 'EEEE, MMMM d')}</p>
+                      <span className="w-1 h-1 rounded-full bg-border" />
+                      <p className="text-xs text-muted-foreground/70 font-mono">
+                        {visibleEvents.filter(e => e.source === 'khanflow').length} meetings &middot; {visibleEvents.filter((e) => e.source === 'intent').length} intents due
+                      </p>
+                    </div>
+                  </>
+                )}
+                {view === 'week' && (
+                  <>
+                    <h1 className="text-[3.5rem] leading-[1.1] font-light tracking-tighter mb-3">This Week</h1>
+                    <div className="flex items-center gap-3">
+                      <p className="text-muted-foreground font-medium text-sm">
+                        {format(startOfWeek(currentDate, { weekStartsOn: 1 }), 'MMM d')} - {format(endOfWeek(currentDate, { weekStartsOn: 1 }), 'MMM d, yyyy')}
+                      </p>
+                      <span className="w-1 h-1 rounded-full bg-border" />
+                      <p className="text-xs text-muted-foreground/70 font-mono">
+                        {visibleEvents.filter(e => e.source === 'khanflow').length} meetings &middot; {visibleEvents.filter((e) => e.source === 'intent').length} intents due
+                      </p>
+                    </div>
+                  </>
+                )}
+                {view === 'month' && (
+                  <>
+                    <h1 className="text-[3.5rem] leading-[1.1] font-light tracking-tighter mb-3">{format(currentDate, 'MMMM')}</h1>
+                    <div className="flex items-center gap-3">
+                      <p className="text-muted-foreground font-medium text-sm">{format(currentDate, 'yyyy')}</p>
+                      <span className="w-1 h-1 rounded-full bg-border" />
+                      <p className="text-xs text-muted-foreground/70 font-mono">
+                        {visibleEvents.filter(e => e.source === 'khanflow').length} meetings &middot; {visibleEvents.filter((e) => e.source === 'intent').length} intents due
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="flex items-center gap-8">
+                <div className="flex gap-1 bg-muted/30 p-1 rounded-xl border border-border/50">
+                  {(['day', 'week', 'month'] as ViewType[]).map(v => (
+                    <button
+                      key={v}
+                      onClick={() => setView(v)}
+                      className={cn(
+                        "text-xs font-semibold px-4 py-1.5 rounded-lg transition-all capitalize",
+                        view === v ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                      )}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex gap-1 items-center">
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-muted" onClick={() => navigate('prev')}>
+                    <ChevronLeft className="size-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" className="h-8 px-4 font-semibold rounded-full text-xs hover:bg-muted" onClick={() => setCurrentDate(new Date())}>
+                    Today
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-muted" onClick={() => navigate('next')}>
+                    <ChevronRight className="size-4" />
+                  </Button>
+                </div>
+              </div>
             </div>
 
-            {/* Navigation */}
-            <div className="flex items-center gap-1">
-              <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => navigate('prev')}>
-                <ChevronLeft className="size-4" />
+            {/* Calendar grid wrapper */}
+            <div className="flex-1 min-w-0 -mx-4 h-full relative">
+              <div className="absolute inset-0 overflow-y-auto scrollbar-none pb-12 px-4">
+                {view === 'week' && (
+                  <WeekView
+                    currentDate={currentDate}
+                    events={events}
+                    onDayClick={(d) => { setCurrentDate(d); setView('day') }}
+                    onEventClick={setSelectedEvent}
+                    onEmptyClick={(date, time) => (googleConnected || outlookConnected) && openCreate(date, time)}
+                    onIntentDrop={handleIntentDrop}
+                  />
+                )}
+                {view === 'month' && (
+                  <MonthView
+                    currentDate={currentDate}
+                    events={events}
+                    onDayClick={(d) => { setCurrentDate(d); setView('day') }}
+                    onEventClick={setSelectedEvent}
+                  />
+                )}
+                {view === 'day' && (
+                  <WeekView
+                    currentDate={currentDate}
+                    events={events}
+                    singleDay
+                    onEventClick={setSelectedEvent}
+                    onEmptyClick={(date, time) => (googleConnected || outlookConnected) && openCreate(date, time)}
+                    onIntentDrop={handleIntentDrop}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Sidebar - Ultra Minimal Hierarchy */}
+          <div className="w-64 shrink-0 flex flex-col gap-10 overflow-y-auto pb-8 scrollbar-none hidden md:flex border-l border-border/10 pl-8 lg:pl-16">
+
+            {/* Header (Date) */}
+            <div>
+              <h2 className="text-4xl font-light tracking-tighter mb-1">{format(currentDate, 'MMMM')}</h2>
+              <p className="text-muted-foreground font-medium pl-1 text-sm">{format(currentDate, 'yyyy')}</p>
+            </div>
+
+            {/* Minimal Actions */}
+            <div className="flex flex-col gap-2">
+              <Button
+                onClick={() => openCreate(currentDate)}
+                disabled={!googleConnected && !outlookConnected}
+                variant="outline"
+                className="justify-start gap-4 h-11 px-5 rounded-full border-border/40 hover:bg-foreground hover:text-background transition-colors font-medium">
+                <Plus className="size-4" />
+                New Event
               </Button>
-              <Button variant="outline" size="sm" className="h-8 px-3 text-xs rounded-lg" onClick={() => setCurrentDate(new Date())}>
-                Today
-              </Button>
-              <Button variant="outline" size="icon" className="h-8 w-8 rounded-lg" onClick={() => navigate('next')}>
-                <ChevronRight className="size-4" />
+              <Button
+                onClick={() => setCreateDialog({ open: true, isFocusTime: true, date: currentDate })}
+                disabled={!googleConnected && !outlookConnected}
+                variant="ghost"
+                className="justify-start gap-4 h-11 px-5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors font-medium">
+                <Timer className="size-4" />
+                Focus Time
               </Button>
             </div>
 
-            <span className="text-sm font-medium text-foreground min-w-[220px]">{headerTitle}</span>
-          </PageHeader>
-        </div>
 
-        <div className="flex flex-1 overflow-hidden px-6 pb-6 gap-4 min-h-0">
-          {/* Sidebar */}
-          <aside className="w-[200px] shrink-0 flex flex-col gap-3 overflow-y-auto">
-            <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-              <Calendar
-                mode="single"
-                selected={currentDate}
-                onSelect={(d) => d && setCurrentDate(d)}
-                showTodayButton={false}
-                className="p-2"
+            {/* LifeOS Weekly Focus - Flat Text Hierarchy */}
+            <div className="px-2">
+              <LifeOsPanel
+                weeklyFocusIntents={weeklyFocusIntents}
+                onToggleComplete={handleToggleComplete}
+                onScheduleIntent={handleScheduleIntent}
               />
             </div>
 
-            {/* Actions */}
-            <div className="rounded-xl border border-border bg-card shadow-sm p-3 space-y-1.5">
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-2 text-xs justify-start"
-                onClick={() => openCreate(currentDate)}
-                disabled={!googleConnected && !outlookConnected}
-                title={!googleConnected && !outlookConnected ? 'Connect a calendar to create events' : undefined}
-              >
-                <span className="text-base leading-none">+</span>
-                New event
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full gap-2 text-xs justify-start"
-                onClick={() => setCreateDialog({ open: true, isFocusTime: true, date: currentDate })}
-                disabled={!googleConnected && !outlookConnected}
-                title={!googleConnected && !outlookConnected ? 'Connect a calendar to block focus time' : undefined}
-              >
-                <Timer className="size-3.5" />
-                Block focus time
-              </Button>
-            </div>
-
-            {/* Weekly Focus (Life OS) */}
-            <LifeOsPanel
-              weeklyFocusIntents={weeklyFocusIntents}
-              onToggleComplete={handleToggleComplete}
-              onScheduleIntent={handleScheduleIntent}
-            />
-
-            {/* Calendars section — shown only when at least one is connected */}
+            {/* Calendars - Dot & Text Setup */}
             {(googleConnected || outlookConnected) && (
-              <div className="rounded-xl border border-border bg-card shadow-sm p-3">
-                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2 px-1">
-                  Calendars
-                </p>
-
-                {googleConnected && (
-                  <>
-                    <button
-                      type="button"
-                      className="flex items-center gap-2 w-full rounded-md px-1 py-1.5 text-xs hover:bg-muted/60 transition-colors"
-                      onClick={() => setShowGoogle((v) => !v)}
-                    >
-                      <span className={cn('size-2.5 rounded-full shrink-0 bg-blue-500', !showGoogle && 'opacity-30')} />
-                      <span className={cn('flex-1 font-medium text-left', showGoogle ? 'text-foreground' : 'text-muted-foreground')}>
-                        Google Calendar
-                      </span>
-                      <span className={cn(
-                        'size-4 rounded border text-[10px] font-bold flex items-center justify-center',
-                        showGoogle ? 'border-border bg-background text-foreground' : 'border-transparent text-transparent',
-                      )}>✓</span>
-                    </button>
-                    {googleError && (
-                      <p className="text-[10px] text-red-500 mt-1 px-1 leading-tight">
-                        Failed to load.{' '}
-                        <a href="/integrations" className="underline">Reconnect</a>.
-                      </p>
-                    )}
-                  </>
-                )}
-
-                {outlookConnected && (
-                  <>
-                    <button
-                      type="button"
-                      className="flex items-center gap-2 w-full rounded-md px-1 py-1.5 text-xs hover:bg-muted/60 transition-colors"
-                      onClick={() => setShowOutlook((v) => !v)}
-                    >
-                      <span className={cn('size-2.5 rounded-full shrink-0 bg-cyan-600', !showOutlook && 'opacity-30')} />
-                      <span className={cn('flex-1 font-medium text-left', showOutlook ? 'text-foreground' : 'text-muted-foreground')}>
-                        Outlook Calendar
-                      </span>
-                      <span className={cn(
-                        'size-4 rounded border text-[10px] font-bold flex items-center justify-center',
-                        showOutlook ? 'border-border bg-background text-foreground' : 'border-transparent text-transparent',
-                      )}>✓</span>
-                    </button>
-                    {outlookError && (
-                      <p className="text-[10px] text-red-500 mt-1 px-1 leading-tight">
-                        Failed to load.{' '}
-                        <a href="/integrations" className="underline">Reconnect</a>.
-                      </p>
-                    )}
-                  </>
-                )}
+              <div className="px-2 mb-4">
+                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-4">Calendars</h3>
+                <div className="space-y-2.5">
+                  {googleConnected && (
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <div className="relative flex items-center justify-center">
+                        <input
+                          type="checkbox"
+                          checked={showGoogle}
+                          onChange={() => setShowGoogle((v) => !v)}
+                          className="peer opacity-0 absolute w-full h-full cursor-pointer"
+                        />
+                        <div className="w-3 h-3 rounded-sm border-2 border-blue-400 peer-checked:bg-blue-400 transition-colors flex items-center justify-center">
+                          <svg className="w-2 h-2 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        </div>
+                      </div>
+                      <span className="text-sm font-medium text-foreground group-hover:text-blue-500 transition-colors">Google Calendar</span>
+                    </label>
+                  )}
+                  {outlookConnected && (
+                    <label className="flex items-center gap-3 cursor-pointer group">
+                      <div className="relative flex items-center justify-center">
+                        <input
+                          type="checkbox"
+                          checked={showOutlook}
+                          onChange={() => setShowOutlook((v) => !v)}
+                          className="peer opacity-0 absolute w-full h-full cursor-pointer"
+                        />
+                        <div className="w-3 h-3 rounded-sm border-2 border-cyan-400 peer-checked:bg-cyan-400 transition-colors flex items-center justify-center">
+                          <svg className="w-2 h-2 text-white opacity-0 peer-checked:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                        </div>
+                      </div>
+                      <span className="text-sm font-medium text-foreground group-hover:text-cyan-500 transition-colors">Outlook Calendar</span>
+                    </label>
+                  )}
+                </div>
               </div>
             )}
 
             {!googleConnected && !outlookConnected && (
-              <div className="rounded-xl border border-border bg-card shadow-sm p-3">
-                <p className="text-[10px] text-muted-foreground px-1 leading-tight">
+              <div className="px-2">
+                <p className="text-[10px] text-muted-foreground leading-tight">
                   Connect Google or Outlook Calendar in{' '}
                   <a href="/integrations" className="underline hover:text-foreground">Integrations</a>{' '}
                   to see all events and create new ones.
@@ -492,66 +538,6 @@ function CalendarPage() {
               </div>
             )}
 
-            {/* Summary */}
-            <div className="rounded-xl border border-border bg-card shadow-sm p-3">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mb-2 px-1">
-                This {view}
-              </p>
-              <div className="space-y-1 px-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Meetings</span>
-                  <span className="font-medium text-violet-500">{visibleEvents.filter((e) => e.source === 'khanflow').length}</span>
-                </div>
-                {googleConnected && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Google</span>
-                    <span className="font-medium text-blue-500">{visibleEvents.filter((e) => e.source === 'google').length}</span>
-                  </div>
-                )}
-                {outlookConnected && (
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Outlook</span>
-                    <span className="font-medium text-cyan-600">{visibleEvents.filter((e) => e.source === 'outlook').length}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Intents due</span>
-                  <span className="font-medium text-emerald-500">{visibleEvents.filter((e) => e.source === 'intent').length}</span>
-                </div>
-              </div>
-            </div>
-          </aside>
-
-          {/* Calendar grid */}
-          <div className="flex-1 min-w-0 rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-            {view === 'week' && (
-              <WeekView
-                currentDate={currentDate}
-                events={events}
-                onDayClick={(d) => { setCurrentDate(d); setView('day') }}
-                onEventClick={setSelectedEvent}
-                onEmptyClick={(date, time) => (googleConnected || outlookConnected) && openCreate(date, time)}
-                onIntentDrop={handleIntentDrop}
-              />
-            )}
-            {view === 'month' && (
-              <MonthView
-                currentDate={currentDate}
-                events={events}
-                onDayClick={(d) => { setCurrentDate(d); setView('day') }}
-                onEventClick={setSelectedEvent}
-              />
-            )}
-            {view === 'day' && (
-              <WeekView
-                currentDate={currentDate}
-                events={events}
-                singleDay
-                onEventClick={setSelectedEvent}
-                onEmptyClick={(date, time) => (googleConnected || outlookConnected) && openCreate(date, time)}
-                onIntentDrop={handleIntentDrop}
-              />
-            )}
           </div>
         </div>
       </main>

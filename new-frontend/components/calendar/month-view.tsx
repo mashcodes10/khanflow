@@ -7,7 +7,13 @@ import {
   isSameMonth, isSameDay, isToday, format,
 } from 'date-fns'
 import { cn } from '@/lib/utils'
-import { EventChip, type CalendarEvent } from './event-chip'
+import { EventChip, sourceStyles, type CalendarEvent } from './event-chip'
+
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card'
 
 const MAX_CHIPS = 3
 
@@ -27,51 +33,74 @@ export function MonthView({ currentDate, events, onDayClick, onEventClick }: Mon
   const weekHeaders = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="grid grid-cols-7 border-b border-border shrink-0">
+    <div className="h-full flex flex-col">
+      {/* Week Headers */}
+      <div className="grid grid-cols-7 pb-4 shrink-0 border-b border-border/30">
         {weekHeaders.map((d) => (
-          <div key={d} className="py-2 text-center text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+          <div key={d} className="text-center text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
             {d}
           </div>
         ))}
       </div>
 
-      <div className="flex-1 grid grid-cols-7" style={{ gridAutoRows: '1fr' }}>
+      {/* Days Grid - Structured Grid */}
+      <div className="flex-1 grid grid-cols-7 grid-rows-5 gap-px bg-border/5 pt-2">
         {days.map((day) => {
+          const isCurrentMonth = isSameMonth(day, currentDate)
+          const isSelected = isSameDay(day, currentDate)
           const dayEvents = events
             .filter((e) => isSameDay(e.start, day))
             .sort((a, b) => a.start.getTime() - b.start.getTime())
-
-          const visible = dayEvents.slice(0, MAX_CHIPS)
-          const overflow = dayEvents.length - MAX_CHIPS
-          const isCurrentMonth = isSameMonth(day, currentDate)
-          const isSelected = isSameDay(day, currentDate)
 
           return (
             <div
               key={day.toISOString()}
               className={cn(
-                'min-h-[80px] p-1 border-t border-r border-border cursor-pointer hover:bg-muted/20 transition-colors',
-                '[&:nth-child(7n)]:border-r-0',
-                !isCurrentMonth && 'opacity-40',
-                isSelected && 'bg-muted/30',
+                "flex flex-col min-h-[110px] bg-background p-1.5 transition-colors group relative overflow-hidden",
+                !isCurrentMonth && "bg-muted/5",
               )}
-              onClick={() => onDayClick?.(day)}
             >
-              <div className="flex justify-end mb-1">
+              {/* Day Number Header */}
+              <div
+                className="flex justify-end mb-1"
+                onClick={() => onDayClick?.(day)}
+              >
                 <span className={cn(
-                  'text-xs font-medium size-6 flex items-center justify-center rounded-full',
-                  isToday(day) ? 'bg-accent text-accent-foreground' : 'text-foreground',
+                  "text-[11px] font-semibold w-6 h-6 flex items-center justify-center rounded-full transition-colors cursor-pointer select-none",
+                  isToday(day)
+                    ? "bg-red-500 text-white shadow-sm"
+                    : isSelected
+                      ? "bg-foreground text-background shadow-sm"
+                      : !isCurrentMonth
+                        ? "text-muted-foreground/40"
+                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
                 )}>
                   {format(day, 'd')}
                 </span>
               </div>
-              <div className="space-y-0.5">
-                {visible.map((event) => (
-                  <EventChip key={event.id} event={event} onClick={() => onEventClick?.(event)} />
-                ))}
-                {overflow > 0 && (
-                  <p className="text-[10px] text-muted-foreground pl-1">+{overflow} more</p>
+
+              {/* Event List */}
+              <div className="flex-1 flex flex-col gap-[2px] overflow-hidden">
+                {dayEvents.slice(0, 4).map((evt, idx) => {
+                  const s = sourceStyles[evt.source]
+                  return (
+                    <div
+                      key={idx}
+                      onClick={(e) => { e.stopPropagation(); onEventClick?.(evt) }}
+                      className="flex items-center gap-1.5 w-full bg-muted/30 hover:bg-muted/50 rounded px-1.5 py-1 cursor-pointer group/chip transition-colors"
+                      title={evt.title}
+                    >
+                      <span className={cn("w-1.5 h-1.5 rounded-full shrink-0 shadow-[0_0_8px_currentColor]", s?.dot || 'bg-border/40')} />
+                      <span className="text-[10px] font-medium truncate opacity-80 group-hover/chip:opacity-100">
+                        {evt.title}
+                      </span>
+                    </div>
+                  )
+                })}
+                {dayEvents.length > 4 && (
+                  <div className="text-[9px] font-medium text-muted-foreground/60 pl-1.5 mt-0.5">
+                    + {dayEvents.length - 4} more
+                  </div>
                 )}
               </div>
             </div>

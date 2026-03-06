@@ -75,9 +75,9 @@ export function WeekView({ currentDate, events, onDayClick, onEventClick, onEmpt
   const days = singleDay
     ? [currentDate]
     : eachDayOfInterval({
-        start: startOfWeek(currentDate, { weekStartsOn: 1 }),
-        end: endOfWeek(currentDate, { weekStartsOn: 1 }),
-      })
+      start: startOfWeek(currentDate, { weekStartsOn: 1 }),
+      end: endOfWeek(currentDate, { weekStartsOn: 1 }),
+    })
 
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = (8 - DAY_START) * HOUR_HEIGHT
@@ -114,23 +114,20 @@ export function WeekView({ currentDate, events, onDayClick, onEventClick, onEmpt
   return (
     <div className="flex flex-col h-full">
       {/* Day headers */}
-      <div className="flex shrink-0 border-b border-border bg-card z-10">
-        <div className="w-12 shrink-0" />
+      <div className="flex shrink-0 mb-4 z-10 px-2 lg:px-4">
+        <div className="w-16 shrink-0" />
         {days.map((day) => (
           <div
             key={day.toISOString()}
-            className={cn(
-              'flex-1 flex flex-col items-center py-2 border-l border-border cursor-pointer select-none hover:bg-muted/20 transition-colors',
-              isSameDay(day, currentDate) && !singleDay && 'bg-muted/30',
-            )}
+            className="flex-1 flex flex-col justify-end items-center pb-4 border-b border-border/30 cursor-pointer select-none group"
             onClick={() => onDayClick?.(day)}
           >
-            <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">
+            <span className="text-[11px] font-semibold uppercase tracking-widest mb-1 shadow-sm text-muted-foreground/60 transition-colors group-hover:text-foreground/80">
               {format(day, 'EEE')}
             </span>
             <span className={cn(
-              'text-sm font-semibold mt-0.5 size-7 flex items-center justify-center rounded-full',
-              isToday(day) ? 'bg-accent text-accent-foreground' : 'text-foreground',
+              'text-4xl font-light tracking-tighter tabular-nums transition-colors',
+              isSameDay(day, currentDate) && !singleDay ? 'text-blue-500 font-medium' : 'text-foreground group-hover:text-foreground/80',
             )}>
               {format(day, 'd')}
             </span>
@@ -158,14 +155,14 @@ export function WeekView({ currentDate, events, onDayClick, onEventClick, onEmpt
       )}
 
       {/* Scrollable time grid */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-2 lg:px-4 relative">
         <div className="flex relative" style={{ height: `${totalHeight}px` }}>
           {/* Hour gutter */}
-          <div className="w-12 shrink-0 relative pointer-events-none">
+          <div className="w-16 shrink-0 relative pointer-events-none">
             {HOURS.map((hour) => (
-              <div key={hour} className="absolute w-full flex items-start justify-end pr-2"
+              <div key={hour} className="absolute w-full flex items-start justify-end pr-4"
                 style={{ top: `${(hour - DAY_START) * HOUR_HEIGHT}px`, height: `${HOUR_HEIGHT}px` }}>
-                <span className="text-[10px] text-muted-foreground -mt-2.5 select-none whitespace-nowrap">
+                <span className="text-[11px] font-medium text-muted-foreground/60 -mt-2.5 select-none whitespace-nowrap">
                   {format(new Date(2000, 0, 1, hour), 'h a')}
                 </span>
               </div>
@@ -181,16 +178,14 @@ export function WeekView({ currentDate, events, onDayClick, onEventClick, onEmpt
             return (
               <div
                 key={day.toISOString()}
-                className="flex-1 relative border-l border-border cursor-crosshair"
+                className="flex-1 relative group cursor-crosshair ml-2 mr-2"
                 onClick={(e) => handleColumnClick(e, day)}
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, day)}
               >
+                {/* Horizontal Dividers - Ultra Faint */}
                 {HOURS.map((hour) => (
-                  <div key={hour} className="absolute w-full border-t border-border/50" style={{ top: `${(hour - DAY_START) * HOUR_HEIGHT}px` }} />
-                ))}
-                {HOURS.map((hour) => (
-                  <div key={`h-${hour}`} className="absolute w-full border-t border-border/20 border-dashed" style={{ top: `${(hour - DAY_START) * HOUR_HEIGHT + HOUR_HEIGHT / 2}px` }} />
+                  <div key={hour} className="absolute w-[calc(100%+16px)] -ml-2 border-t border-border/5" style={{ top: `${(hour - DAY_START) * HOUR_HEIGHT}px` }} />
                 ))}
 
                 {showNowLine && isToday(day) && (

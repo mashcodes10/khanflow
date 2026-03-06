@@ -30,48 +30,49 @@ export interface CalendarEvent {
 
 export const sourceStyles: Record<EventSource, ColorStyle> = {
   khanflow: {
-    bg: 'bg-violet-500/10 dark:bg-violet-500/15',
-    border: 'border-l-violet-500',
-    text: 'text-violet-900 dark:text-violet-200',
-    dot: 'bg-violet-500',
+    bg: 'bg-muted/40 hover:bg-muted/60',
+    border: 'border-transparent',
+    text: 'text-foreground/90',
+    dot: 'bg-violet-500 shadow-[0_0_10px_rgba(139,92,246,0.6)]',
   },
   google: {
-    bg: 'bg-blue-500/10 dark:bg-blue-500/15',
-    border: 'border-l-blue-500',
-    text: 'text-blue-900 dark:text-blue-200',
-    dot: 'bg-blue-500',
+    bg: 'bg-muted/40 hover:bg-muted/60',
+    border: 'border-transparent',
+    text: 'text-foreground/90',
+    dot: 'bg-blue-500 shadow-[0_0_10px_rgba(59,130,246,0.6)]',
   },
   outlook: {
-    bg: 'bg-cyan-600/10 dark:bg-cyan-600/15',
-    border: 'border-l-cyan-600',
-    text: 'text-cyan-900 dark:text-cyan-200',
-    dot: 'bg-cyan-600',
+    bg: 'bg-muted/40 hover:bg-muted/60',
+    border: 'border-transparent',
+    text: 'text-foreground/90',
+    dot: 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.6)]',
   },
   intent: {
-    bg: 'bg-emerald-500/10 dark:bg-emerald-500/15',
-    border: 'border-l-emerald-500',
-    text: 'text-emerald-900 dark:text-emerald-200',
-    dot: 'bg-emerald-500',
+    bg: 'bg-muted/40 hover:bg-muted/60',
+    border: 'border-transparent',
+    text: 'text-foreground/90',
+    dot: 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)]',
   },
   suggestion: {
-    bg: 'bg-amber-400/10 dark:bg-amber-400/10',
-    border: 'border-amber-400',
-    text: 'text-amber-900 dark:text-amber-200',
-    dot: 'bg-amber-400',
+    bg: 'bg-muted/20 hover:bg-muted/40',
+    border: 'border-transparent',
+    text: 'text-foreground/70',
+    dot: 'bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,0.6)]',
     dashed: true,
   },
 }
 
 // Life area color palette — assigned by index
+// Reverted back to purely neutral cards with glowing dot accents
 export const LIFE_AREA_COLORS: ColorStyle[] = [
-  { bg: 'bg-emerald-500/10', border: 'border-l-emerald-500', text: 'text-emerald-800 dark:text-emerald-200', dot: 'bg-emerald-500' },
-  { bg: 'bg-orange-500/10', border: 'border-l-orange-500', text: 'text-orange-800 dark:text-orange-200', dot: 'bg-orange-500' },
-  { bg: 'bg-pink-500/10',   border: 'border-l-pink-500',   text: 'text-pink-800 dark:text-pink-200',   dot: 'bg-pink-500'   },
-  { bg: 'bg-cyan-500/10',   border: 'border-l-cyan-500',   text: 'text-cyan-800 dark:text-cyan-200',   dot: 'bg-cyan-500'   },
-  { bg: 'bg-rose-500/10',   border: 'border-l-rose-500',   text: 'text-rose-800 dark:text-rose-200',   dot: 'bg-rose-500'   },
-  { bg: 'bg-lime-500/10',   border: 'border-l-lime-500',   text: 'text-lime-800 dark:text-lime-200',   dot: 'bg-lime-500'   },
-  { bg: 'bg-indigo-400/10', border: 'border-l-indigo-400', text: 'text-indigo-800 dark:text-indigo-200', dot: 'bg-indigo-400' },
-  { bg: 'bg-teal-500/10',   border: 'border-l-teal-500',   text: 'text-teal-800 dark:text-teal-200',   dot: 'bg-teal-500'   },
+  { bg: 'bg-muted/40 hover:bg-muted/60', border: 'border-transparent', text: 'text-foreground/90', dot: 'bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)]' },
+  { bg: 'bg-muted/40 hover:bg-muted/60', border: 'border-transparent', text: 'text-foreground/90', dot: 'bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.6)]' },
+  { bg: 'bg-muted/40 hover:bg-muted/60', border: 'border-transparent', text: 'text-foreground/90', dot: 'bg-pink-500 shadow-[0_0_10px_rgba(236,72,153,0.6)]' },
+  { bg: 'bg-muted/40 hover:bg-muted/60', border: 'border-transparent', text: 'text-foreground/90', dot: 'bg-cyan-500 shadow-[0_0_10px_rgba(6,182,212,0.6)]' },
+  { bg: 'bg-muted/40 hover:bg-muted/60', border: 'border-transparent', text: 'text-foreground/90', dot: 'bg-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.6)]' },
+  { bg: 'bg-muted/40 hover:bg-muted/60', border: 'border-transparent', text: 'text-foreground/90', dot: 'bg-lime-500 shadow-[0_0_10px_rgba(132,204,22,0.6)]' },
+  { bg: 'bg-muted/40 hover:bg-muted/60', border: 'border-transparent', text: 'text-foreground/90', dot: 'bg-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.6)]' },
+  { bg: 'bg-muted/40 hover:bg-muted/60', border: 'border-transparent', text: 'text-foreground/90', dot: 'bg-teal-500 shadow-[0_0_10px_rgba(20,184,166,0.6)]' },
 ]
 
 interface EventChipProps {
@@ -118,27 +119,32 @@ export function EventChip({ event, heightPx, hasConflict, className, style, onCl
   return (
     <div
       className={cn(
-        'absolute rounded-md px-1.5 py-0.5 overflow-hidden cursor-pointer select-none transition-opacity hover:opacity-90',
-        s.bg, s.text,
-        isSuggestion
-          ? 'border border-dashed border-amber-400 opacity-75'
-          : 'border-l-2 ' + s.border,
-        hasConflict && 'ring-1 ring-red-400/40',
+        'absolute rounded-2xl px-3 py-2 overflow-hidden cursor-pointer select-none transition-all duration-300 hover:-translate-y-0.5 border backdrop-blur-md',
+        s.bg,
+        s.text,
+        s.border,
+        isSuggestion && 'border-dashed opacity-80',
         className,
       )}
       style={{ height: `${heightPx}px`, ...style }}
       onClick={handleClick}
       title={`${event.title}\n${format(event.start, 'h:mm a')} – ${format(event.end, 'h:mm a')}`}
     >
-      <p className="text-[11px] font-semibold leading-tight truncate flex items-center gap-1">
-        {isSuggestion && <span className="opacity-60 text-[10px]">✦</span>}
+      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-50 pointer-events-none" />
+
+      <div className="relative flex gap-1.5 mb-1 items-center">
+        {isSuggestion ? (
+          <span className="opacity-60 text-[10px]">✦</span>
+        ) : (
+          <span className={cn('w-2 h-2 rounded-full shrink-0', s.dot)} />
+        )}
+        <span className="text-[10px] font-mono text-muted-foreground opacity-80 leading-none">
+          {format(event.start, 'ha').toLowerCase()}
+        </span>
+      </div>
+      <h4 className="relative text-[11px] font-semibold leading-tight line-clamp-2 opacity-95">
         {event.title}
-      </p>
-      {heightPx >= 44 && (
-        <p className="text-[10px] opacity-70 leading-tight truncate">
-          {isSuggestion ? 'AI suggestion' : `${format(event.start, 'h:mm')}–${format(event.end, 'h:mm a')}`}
-        </p>
-      )}
+      </h4>
     </div>
   )
 }

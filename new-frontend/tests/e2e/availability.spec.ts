@@ -16,9 +16,10 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Availability Settings Page', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock authentication token
+    // Mock authentication token + user (useAuth requires both)
     await page.addInitScript(() => {
       localStorage.setItem('accessToken', 'test-token-for-e2e');
+      localStorage.setItem('user', JSON.stringify({ id: 'u1', email: 'test@example.com', name: 'Test User', username: 'testuser' }));
     });
 
     // Mock API responses - match actual API endpoints
@@ -226,8 +227,12 @@ test.describe('Availability Settings Page', () => {
     // Verify save was called
     expect(savedData).not.toBeNull();
     
-    // Reload page
+    // Reload page — re-inject auth since localStorage is cleared on reload
     await page.reload();
+    await page.evaluate(() => {
+      localStorage.setItem('accessToken', 'test-token-for-e2e');
+      localStorage.setItem('user', JSON.stringify({ id: 'u1', email: 'test@example.com', name: 'Test User', username: 'testuser' }));
+    });
     await page.waitForSelector('h1:has-text("Availability")', { timeout: 10000 });
     await page.waitForLoadState('networkidle');
     
@@ -272,8 +277,12 @@ test.describe('Availability Settings Page', () => {
       });
     });
 
-    // Reload to get new mock data
+    // Reload to get new mock data — re-inject auth
     await page.reload();
+    await page.evaluate(() => {
+      localStorage.setItem('accessToken', 'test-token-for-e2e');
+      localStorage.setItem('user', JSON.stringify({ id: 'u1', email: 'test@example.com', name: 'Test User', username: 'testuser' }));
+    });
     await page.waitForSelector('text=Calendar Selection', { timeout: 10000 });
 
     // Check that calendar selection is visible
